@@ -1,4 +1,4 @@
-## pyxas 
+# pyxas 
 pyxas is a python library for 2D XANES fitting
 
 ## Prerequisites
@@ -11,9 +11,9 @@ tomopy
 pystackreg
 
 ## Installation
-Clone this project to your machine
+Clone this project to your machine:
 
-'''bash
+'''
 git clone https:github.com/gmysage/pyxas.git
 cd pyxas
 python xanes_2D.py
