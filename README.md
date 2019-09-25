@@ -2,12 +2,12 @@
 pyxas is a python library for 2D XANES fitting
 
 ## Prerequisites
-python 3.6;
-numpy;
-scipy;
-sklean;
-skimage;
-tomopy;
+python 3.6\
+numpy\
+scipy\
+sklean\
+skimage\
+tomopy\
 pystackreg
 
 ## Installation
