@@ -5342,8 +5342,8 @@ class App(QWidget):
                 fn, _ = QFileDialog.getSaveFileName(self, 'Save Spectrum', "", file_type, options=options)
                 if fn[-4:] != '.txt':
                     fn += '.txt'
-                    np.savetxt(fn, self.shift_list, '%3.2f')
-                    self.msg = fn + ' saved.'
+                np.savetxt(fn, self.shift_list, '%3.2f')
+                self.msg = fn + ' saved.'
             except:
                 self.msg = f'fails to save {fn}'
         self.update_msg()
