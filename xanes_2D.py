@@ -5341,7 +5341,7 @@ class App(QWidget):
             fn, _ = QFileDialog.getOpenFileName(xanes, "QFileDialog.getOpenFileName()", "", file_type, options=options)
             if fn:
                 try:
-                    if fn[-4] != '.txt':
+                    if fn[-4:] != '.txt':
                         fn += '.txt'
                     np.savetxt(fn, self.shift_list, '%3.2f')
                     self.msg = fn + ' saved.'
