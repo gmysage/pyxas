@@ -3587,7 +3587,7 @@ class App(QWidget):
             options = QFileDialog.Option()
             options |= QFileDialog.DontUseNativeDialog
             file_type = 'txt files (*.txt)'
-            fn, _ = QFileDialog.getSaveFileName(self, 'Save File', "", file_type, options=options)
+            fn, _ = QFileDialog.getOpenFileName(self, 'Save File', "", file_type, options=options)
             if fn[-4:] == '.txt':
                 fn_spec = fn
             else:
@@ -4101,7 +4101,7 @@ class App(QWidget):
             options |= QFileDialog.DontUseNativeDialog
             file_type = 'hdf files (*.h5)'
             fn, _ = QFileDialog.getSaveFileName(self, 'Save File', "", file_type, options=options)
-            if fn[:3] != '.h5':
+            if fn.split('.')[-1] != 'txt':
                 fn += '.h5'
             hf = h5py.File(fn, 'w')
             hf.create_dataset('X_eng', data=self.xanes_eng)
@@ -5335,18 +5335,17 @@ class App(QWidget):
         elif num != self.img_xanes.shape[0]:
             self.msg = 'number of shifts not match number of images'
         else:
-            options = QFileDialog.Option()
-            options |= QFileDialog.DontUseNativeDialog
-            file_type = 'txt files (*.txt)'
-            fn, _ = QFileDialog.getOpenFileName(xanes, "QFileDialog.getOpenFileName()", "", file_type, options=options)
-            if fn:
-                try:
-                    if fn[-4:] != '.txt':
-                        fn += '.txt'
+            try:
+                options = QFileDialog.Option()
+                options |= QFileDialog.DontUseNativeDialog
+                file_type = 'txt files (*.txt)'
+                fn, _ = QFileDialog.getSaveFileName(self, 'Save Spectrum', "", file_type, options=options)
+                if fn[-4:] != '.txt':
+                    fn += '.txt'
                     np.savetxt(fn, self.shift_list, '%3.2f')
                     self.msg = fn + ' saved.'
-                except:
-                    self.msg = f'fails to save {fn}'
+            except:
+                self.msg = f'fails to save {fn}'
         self.update_msg()
 
 
