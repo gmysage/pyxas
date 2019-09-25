@@ -12,7 +12,7 @@ from skimage import io
 from scipy import ndimage
 from pystackreg import StackReg
 from skimage import io
-from pyxas.fit_cos import fit_cos
+#from pyxas.fit_cos import fit_cos
 
 
 def save_xanes_fit_param_file(fit_param, fn='xanes_fit_param.csv'):
