@@ -14,7 +14,7 @@ pystackreg
 Clone this project to your machine:
 
 '''
-git clone https:github.com/gmysage/pyxas.git
+git clone https://github.com/gmysage/pyxas.git
 cd pyxas
 python xanes_2D.py
 '''
