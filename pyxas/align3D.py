@@ -22,13 +22,16 @@ def align_img(img_ref, img, align_flag=1):
         return row_shift, col_shift 
 
 
-def align_img_stackreg(img_ref, img):
+def align_img_stackreg(img_ref, img, align_flag=1):
     sr = StackReg(StackReg.TRANSLATION)
     tmat = sr.register(img_ref, img)
-    img_ali = sr.transform(img)
     row_shift = -tmat[1, 2]
     col_shift = -tmat[0, 2]
-    return img_ali, row_shift, col_shift
+    if align_flag:
+        img_ali = sr.transform(img)
+        return img_ali, row_shfit, col_shift
+    else:
+        return row_shift, col_shift
 
 
 def align_img_stack(img, img_mask=None, select_image_index=None):
