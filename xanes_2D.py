@@ -4101,7 +4101,7 @@ class App(QWidget):
             options |= QFileDialog.DontUseNativeDialog
             file_type = 'hdf files (*.h5)'
             fn, _ = QFileDialog.getSaveFileName(self, 'Save File', "", file_type, options=options)
-            if fn.split('.')[-1] != 'txt':
+            if fn.split('.')[-1] != 'h5':
                 fn += '.h5'
             hf = h5py.File(fn, 'w')
             hf.create_dataset('X_eng', data=self.xanes_eng)
