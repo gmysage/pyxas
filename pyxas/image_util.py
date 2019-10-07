@@ -624,7 +624,8 @@ def idxmax(data):
    ndim = np.shape(data)
    #maxd = np.max(data)
    maxd = np.max(np.abs(data))
-   t1 = plt.mlab.find(np.abs(data) == maxd)
+   #t1 = plt.mlab.find(np.abs(data) == maxd)
+   t1 = np.argmin(np.abs((np.abs(data) - maxd)))
    idx = np.zeros([len(ndim),])
    for ii in range(len(ndim)-1):
        t1,t2 = np.modf(1.*t1/np.prod(ndim[(ii+1):]))

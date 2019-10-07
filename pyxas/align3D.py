@@ -1,13 +1,13 @@
 from __future__ import (absolute_import, division, print_function, unicode_literals)
 
-
+import os
 import numpy as np
 import tomopy
 import pyxas
 from copy import deepcopy
 from scipy.ndimage import shift, center_of_mass
 from pystackreg import StackReg
-from pyxas.image_util import dftregistration
+from pyxas.image_util import dftregistration,idxmax
 
 def align_img(img_ref, img, align_flag=1):
     img1_fft = np.fft.fft2(img_ref)
@@ -94,10 +94,11 @@ def move_3D_to_center(img, circle_mask_ratio):
 
 
 def align_3D_fine(img_ref, img1, circle_mask_ratio=1, sli_select=0, row_select=0, test_range=[-30, 30], sli_shift_guess=0, row_shift_guess=0, col_shift_guess=0, cen_mass_flag=0, ali_direction=[1,1,1]):
+
     '''
     ali_direction = [1,1,1] -> shift [sli, row, col] if it is "1"
     '''
-    
+    import time
     from scipy.ndimage import center_of_mass
     time_s = time.time()
     img_tmp = img_ref.copy()
@@ -240,8 +241,9 @@ def align_3D_coarse(img_ref, img1, circle_mask_ratio=1, method='other'):
 
 
 def align_3D_tomo_file(file_path='.', ref_index=-1, binning=1, circle_mask_ratio=0.9, file_prefix='recon', file_type='.h5'):
+    import time
     file_path = os.path.abspath(file_path)
-    files_recon = pyxas.retrieve_file_type(file_path, file_start=file_prefix, file_type=file_type)
+    files_recon = pyxas.retrieve_file_type(file_path, file_prefix=file_prefix, file_type=file_type)
 
     num_file = len(files_recon)
     res = pyxas.get_img_from_hdf_file(files_recon[ref_index], 'img', 'scan_id', 'X_eng')

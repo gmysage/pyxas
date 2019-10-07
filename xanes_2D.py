@@ -5275,7 +5275,7 @@ class App(QWidget):
                 self.update_msg()
                 #del prj, img_ali
         else:
-            self.pb_align_roi.setText('Align Img')
+            self.pb_align_roi.setText('Align Img (ROI)')
             self.pb_align_roi.setEnabled(True)
             self.msg = 'Invalid roi index for aligning, nothing applied'
             self.update_msg()
