@@ -29,12 +29,12 @@ def align_img_stackreg(img_ref, img, align_flag=1):
     col_shift = -tmat[0, 2]
     if align_flag:
         img_ali = sr.transform(img)
-        return img_ali, row_shfit, col_shift
+        return img_ali, row_shift, col_shift
     else:
         return row_shift, col_shift
 
 
-def align_img_stack(img, img_mask=None, select_image_index=None):
+def align_img_stack(img, img_mask=None, select_image_index=None, print_flag=1):
     img_align = deepcopy(img)
     n = img_align.shape[0]
     if img_mask.any()==None:
@@ -43,17 +43,19 @@ def align_img_stack(img, img_mask=None, select_image_index=None):
         for i in range(1, n):     
             img_mask[i], r, c = align_img(img_mask[i-1], img_mask[i], align_flag=1)
             img_align[i] = shift(img_align[i], [r, c], mode='constant', cval=0)
-            print('aligning #{0}, rshift:{1:3.2f}, cshift:{2:3.2f}'.format(i,r,c))
+            if print_flag:
+                print('aligning #{0}, rshift:{1:3.2f}, cshift:{2:3.2f}'.format(i,r,c))
     else:
         print('align image stack refereced with imgage[{}]'.format(select_image_index))
         for i in range(n):
             _, r, c = align_img(img_mask[select_image_index], img_mask[i], align_flag=1)
             img_align[i] = shift(img_align[i], [r, c], mode='constant', cval=0)
-            print('aligning #{0}, rshift:{1:3.2f}, cshift:{2:3.2f}'.format(i,r,c))            
+            if print_flag:
+                print('aligning #{0}, rshift:{1:3.2f}, cshift:{2:3.2f}'.format(i,r,c))            
     return img_align
 
 
-def align_img_stack_stackreg(img, img_mask=None, select_image_index=None):
+def align_img_stack_stackreg(img, img_mask=None, select_image_index=None, print_flag=1):
     img_align = deepcopy(img)
     n = img_align.shape[0]
     if not len(img_mask):
@@ -62,13 +64,15 @@ def align_img_stack_stackreg(img, img_mask=None, select_image_index=None):
         for i in range(1, n):
             img_mask[i], r, c = align_img_stackreg(img_mask[i - 1], img_mask[i])
             img_align[i] = shift(img_align[i], [r, c], mode='constant', cval=0)
-            print('aligning #{0}, rshift:{1:3.2f}, cshift:{2:3.2f}'.format(i, r, c))
+            if print_flag:
+                print('aligning #{0}, rshift:{1:3.2f}, cshift:{2:3.2f}'.format(i, r, c))
     else:
         print('align image stack refereced with imgage[{}]'.format(select_image_index))
         for i in range(n):
             img_mask[i], r, c = align_img_stackreg(img_mask[select_image_index], img_mask[i])
             img_align[i] = shift(img_align[i], [r, c], mode='constant', cval=0)
-            print('aligning #{0}, rshift:{1:3.2f}, cshift:{2:3.2f}'.format(i, r, c))
+            if print_flag:    
+                print('aligning #{0}, rshift:{1:3.2f}, cshift:{2:3.2f}'.format(i, r, c))
     return img_align
 
 
@@ -278,4 +282,50 @@ def align_3D_tomo_file(file_path='.', ref_index=-1, binning=1, circle_mask_ratio
         print(f'time elasped: {time.time() - time_start:05.1f}\n')
         
         
+
+def align_3D_tomo_file_mpi_sub(files_recon, ref_tomo, file_path='.', ref_index=-1, binning=1, circle_mask_ratio=0.9):
+
+    img_ref = ref_tomo
+    fn = files_recon
+    fn_short = fn.split('/')[-1]
+    print(f'aligning {fn_short} ...')
+    res = pyxas.get_img_from_hdf_file(fn, 'img', 'scan_id', 'X_eng')
+    img1 = res['img']
+    scan_id = int(res['scan_id'])
+    X_eng = float(res['X_eng'])
+    if binning > 1:
+        img1 = pyxas.bin_image(img1, binning)
+    img1, shift_matrix = pyxas.align_3D_coarse(img_ref, img1, circle_mask_ratio=circle_mask_ratio, method='other')
+    img1_ali, shift_matrix = pyxas.align_3D_fine(img_ref, img1, circle_mask_ratio=circle_mask_ratio, sli_select=0, row_select=0, test_range=[-30, 30], sli_shift_guess=0, row_shift_guess=0, col_shift_guess=0, cen_mass_flag=1)
+    fn_save = f'{file_path}/ali_recon_{scan_id}_bin_{binning}.h5'  
+    print(f'saving aligned file: {fn_save.split("/")[-1]}\n')
+    pyxas.save_hdf_file(fn_save, 'img', img1_ali, 'scan_id', scan_id, 'X_eng', X_eng)   
+
+        
+
+def align_3D_tomo_file_mpi(file_path='.', ref_index=-1, binning=1, circle_mask_ratio=0.8, file_prefix='recon', file_type='.h5'):
+    from multiprocessing import Pool, cpu_count
+    from functools import partial
+    num_cpu = round(cpu_count() * 0.8)
+    print(f'align_3D_tomo using {num_cpu:2d} CPUs')
+    # save ref image
+    file_path = os.path.abspath(file_path)
+    files_recon = pyxas.retrieve_file_type(file_path, file_prefix=file_prefix, file_type=file_type)
+    res = pyxas.get_img_from_hdf_file(files_recon[ref_index], 'img', 'scan_id', 'X_eng')
+    img_ref = res['img']
+    scan_id = int(res['scan_id'])
+    X_eng = float(res['X_eng'])
+    s = img_ref.shape
+    if binning > 1:
+        img_ref = pyxas.bin_image(img_ref, binning)
+    img_ref = pyxas.move_3D_to_center(img_ref, circle_mask_ratio=circle_mask_ratio)
+    fn_save = f'{file_path}/ali_recon_{scan_id}_bin_{binning}.h5'
+    pyxas.save_hdf_file(fn_save, 'img', img_ref, 'scan_id', scan_id, 'X_eng', X_eng)
+    # start align
+    pool = Pool(num_cpu)
+    pool.map(partial(align_3D_tomo_file_mpi_sub, ref_tomo=img_ref, file_path=file_path, ref_index=ref_index, binning=binning, circle_mask_ratio=circle_mask_ratio), files_recon)
+    pool.close()
+
+
+
 

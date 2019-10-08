@@ -158,11 +158,17 @@ def demo4():
     '''
     #fn_ref1 = '/home/mingyuan/Work/script_bank/xanes_fit/Ni_ref/ref_NiO.txt'
     #fn_ref2 = '/home/mingyuan/Work/script_bank/xanes_fit/Ni_ref/ref_LiNiO2.txt'
-    fn_ref1 = '/NSLS2/xf18id1/users/2019Q1/SEONGMIN_Proposal_303787/ref/ref_Ni_II.txt'
-    fn_ref2 = '/NSLS2/xf18id1/users/2019Q1/SEONGMIN_Proposal_303787/ref/ref_Ni_III.txt'
+    #fn_ref1 = '/NSLS2/xf18id1/users/2019Q1/SEONGMIN_Proposal_303787/ref/ref_Ni_II.txt'
+    #fn_ref2 = '/NSLS2/xf18id1/users/2019Q1/SEONGMIN_Proposal_303787/ref/ref_Ni_III.txt'
+
+    fn_ref1 = '/home/mingyuan/data1/Mingyuan/TXM_2019/Mingyuan_2019Q2/in_situ_NCA_20190823/ref_shift_to_FX_eng/ref_pristine_shifted_this_time.txt'
+    fn_ref2 = '/home/mingyuan/data1/Mingyuan/TXM_2019/Mingyuan_2019Q2/in_situ_NCA_20190823/ref_shift_to_FX_eng/ref_4.6V_shifted_this_time.txt'
+
     spectrum_ref = pyxas.load_xanes_ref_file(fn_ref1, fn_ref2)
-    xanes_eng = np.loadtxt('/NSLS2/xf18id1/users/2019Q1/SEONGMIN_Proposal_303787/NC_48V_70cy_pos1/eng_list.txt')
-    fit_param = pyxas.load_xanes_fit_param_file(fn='xanes_fit_param.csv', num_items=17)
+    #xanes_eng = np.loadtxt('/NSLS2/xf18id1/users/2019Q1/SEONGMIN_Proposal_303787/NC_48V_70cy_pos1/eng_list.txt')
+    xanes_eng = np.loadtxt('/home/mingyuan/data1/Mingyuan/TXM_2019/Mingyuan_2019Q2/in_situ_NCA_20190823/s3_second_charge/pos1/rep1/eng_list.txt')
+    #fit_param = pyxas.load_xanes_fit_param_file(fn='xanes_fit_param.csv', num_items=18)
+    fit_param = pyxas.load_xanes_fit_param_file(fn='/home/mingyuan/data1/Mingyuan/TXM_2019/Mingyuan_2019Q2/in_situ_NCA_20190823/xanes_fit_param_20191008.csv', num_items=0)
 
     fn_xanes_assemble = f'{file_path}/xanes_assemble'
     file_prefix_xanes_assemble = 'xanes'

@@ -205,6 +205,10 @@ def fit_2D_xanes_iter(img_xanes, eng, spectrum_ref, coef0=None, offset=None, lea
 
 
 def fit_2D_xanes_iter2(img_xanes, eng, spectrum_ref, coef0=None, offset=None, lamda=0.01, rho=0.01, n_iter=10, bounds=[0,1], method=1):
+    '''
+    method = 1: using coordinate_descent 
+    method = 2: using admm
+    '''
     num_ref = len(spectrum_ref)
     s = img_xanes.shape
     A = []
