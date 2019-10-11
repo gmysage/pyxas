@@ -58,8 +58,7 @@ def string_to_list(string):
 def load_xanes_fit_param_file(fn='xanes_fit_param.csv', num_items=0):
     import csv
     fit_param = {}
-    items = "\n'pre_edge'\n'post_edge'\n'fit_eng'\n'norm_txm_flag'\n'fit_pre_edge_flag'\n'fit_post_edge_flag'\n'align_flag'\n'align_ref_index' \n'align_flag'\n'align_ref_index'\n'roi_ratio'\n'fit_iter_flag'\n'fit_iter_learning_rate'\n'fit_iter_num'\n'fit_iter_bound'\n
-'regulation_flag'\n'regulation_designed_max'\n'regulation_gamma'\n'fit_mask_thickness_threshold'\n'fit_mask_cost_threshold'"
+    items = "\n'pre_edge'\n'post_edge'\n'fit_eng'\n'norm_txm_flag'\n'fit_pre_edge_flag'\n'fit_post_edge_flag'\n'align_flag'\n'align_ref_index' \n'align_flag'\n'align_ref_index'\n'roi_ratio'\n'fit_iter_flag'\n'fit_iter_learning_rate'\n'fit_iter_num'\n'fit_iter_bound'\n'regulation_flag'\n'regulation_designed_max'\n'regulation_gamma'\n'fit_mask_thickness_threshold'\n'fit_mask_cost_threshold'"
     with open(fn, 'r') as csvfile:
         f = csv.reader(csvfile)
         for row in f:
