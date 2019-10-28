@@ -1,30 +1,20 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Jan 22 11:39:15 2018
-
-@author: mingyuan
-"""
-
 # !/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 Created on Thu Jan 11 09:07:42 2018
 
-@author: mingyuan
+@author: Mingyuan Ge
+Email: gmysage@gmail.com
 """
 
 import sys
-import os
 import h5py
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import psutil
 import os
 import threading
 import time
-import pyxas
 from PyQt5 import QtGui
 from PyQt5.QtWidgets import (QMainWindow, QFileDialog, QRadioButton, QApplication,QWidget,
                              QLineEdit, QWidget, QPushButton, QLabel, QCheckBox, QGroupBox,
@@ -40,13 +30,11 @@ from copy import deepcopy
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from pyxas.image_util import img_smooth, rm_abnormal, bin_ndarray, rm_noise, kmean_mask
 from pyxas.align3D import align_img, align_img_stackreg
-#from tools import *
 from scipy.ndimage.interpolation import shift
 from scipy.signal import medfilt2d, medfilt
 from scipy.interpolate import interp1d, UnivariateSpline
 from scipy import ndimage
-from pyxas.xanes_util import (fit_2D_xanes_non_iter, fit_2D_xanes_iter, fit_2D_xanes_iter2, normalize_2D_xanes2,
-                        normalize_2D_xanes_old, normalize_1D_xanes, find_nearest, normalize_2D_xanes_regulation)
+from pyxas.xanes_util import (fit_2D_xanes_non_iter, fit_2D_xanes_iter, fit_2D_xanes_iter2, normalize_2D_xanes2, normalize_2D_xanes_old, normalize_1D_xanes, find_nearest, normalize_2D_xanes_regulation)
 
 
 global xanes
@@ -66,14 +54,10 @@ class App(QWidget):
         self.bkg_memory_check()
         self.default_layout()
 
-
-
     def bkg_memory_check(self):
         thread = threading.Thread(target=self.bkg_memory_check_run, args=())
         thread.daemon = True
         thread.start()
-
-
 
     def bkg_memory_check_run(self):
         pass
@@ -97,7 +81,6 @@ class App(QWidget):
             time.sleep(1)
         '''
 
-
     def initUI(self):
         self.setWindowTitle(self.title)
         self.setGeometry(self.left, self.top, self.width, self.height)
@@ -105,9 +88,7 @@ class App(QWidget):
         self.font2 = QtGui.QFont('Arial', 11, QtGui.QFont.Normal)
         self.fpath = os.getcwd()
         self.roi_file_id = 0
-    
         self.spectrum_ref = {}
-
         grid = QGridLayout()
         gpbox_prep = self.layout_GP_prepare()
         gpbox_msg = self.layout_msg()
@@ -121,8 +102,6 @@ class App(QWidget):
         layout.addLayout(grid)
         layout.addWidget(QLabel())
         self.setLayout(layout)
-
-
 
     def default_layout(self):
         try:
@@ -139,7 +118,6 @@ class App(QWidget):
         self.dataset_used_for_fitting = 0
         self.img_colormix_raw = np.array([])
         self.edge_normalized_flag = 0
-
         self.mask1 = np.array([1])
         self.mask2 = np.array([1])
         self.mask3 = np.array([1])
@@ -163,7 +141,6 @@ class App(QWidget):
         self.pb_mask2.setStyleSheet('color: rgb(0, 0, 0);')
         self.pb_mask3.setStyleSheet('color: rgb(0, 0, 0);')
         self.pb_smart_mask.setStyleSheet('color: rgb(0, 0, 0);')
-
         try:
             self.num_ref = self.num_ref
         except:
@@ -215,10 +192,7 @@ class App(QWidget):
         count = self.cb_color_channel.count()
         for i in range(count):
             self.cb_color_channel.removeItem(i)
-
-
         self.update_canvas_img()
-
 
     def layout_msg(self):
         self.lb_ip = QLabel()
@@ -236,8 +210,6 @@ class App(QWidget):
         vbox_msg.addWidget(self.lb_msg)
         vbox_msg.setAlignment(QtCore.Qt.AlignLeft)
         return vbox_msg
-
-
 
     def gpbox_system_info(self):
         lb_empty1 = QLabel()
@@ -296,11 +268,8 @@ class App(QWidget):
         vbox.addLayout(hbox1)
         vbox.addLayout(hbox2)
         vbox.addLayout(hbox3)
-
         vbox.setAlignment(QtCore.Qt.AlignTop)
         return vbox
-
-
 
     def layout_GP_prepare(self):
         lb_empty = QLabel()
@@ -472,7 +441,7 @@ class App(QWidget):
         hbox_bin.addWidget(self.cb_bin)
         hbox_bin.setAlignment(QtCore.Qt.AlignLeft)
 
-        #gpbox_sys = self.gpbox_system_info()
+        # gpbox_sys = self.gpbox_system_info()
 
         hbox1 = QHBoxLayout()
         hbox1.addWidget(lb_ld)
@@ -527,14 +496,12 @@ class App(QWidget):
 
         hbox_tot = QHBoxLayout()
         hbox_tot.addLayout(vbox)
-        #hbox_tot.addLayout(gpbox_sys)
+        # hbox_tot.addLayout(gpbox_sys)
         hbox_tot.addWidget(lb_empty)
         hbox_tot.setAlignment(QtCore.Qt.AlignLeft)
 
         gpbox.setLayout(hbox_tot)
         return gpbox
-
-
 
     def layout_xanes(self):
         lb_empty = QLabel()
@@ -590,7 +557,6 @@ class App(QWidget):
         canvas_layout = self.layout_canvas()
         analysis_layout = self.layout_find_edge()
 
-
         vbox_lay1 = QVBoxLayout()
         vbox_lay2 = QVBoxLayout()
         vbox_lay3 = QVBoxLayout()
@@ -625,7 +591,6 @@ class App(QWidget):
         gp_box4.setLayout(vbox_lay4)
         gp_box5.setLayout(vbox_lay5)
 
-
         scroll1.setWidget(gp_box1)
         scroll2.setWidget(gp_box2)
         scroll3.setWidget(gp_box3)
@@ -656,7 +621,6 @@ class App(QWidget):
         hbox.setAlignment(QtCore.Qt.AlignLeft)
         gpbox.setLayout(hbox)
         return gpbox
-
 
     @property
     def layout_plot_spec(self):
@@ -840,7 +804,6 @@ class App(QWidget):
         box_roi_tot.addLayout(box_roi)
         box_roi_tot.addWidget(lb_empty)
         box_roi_tot.setAlignment(QtCore.Qt.AlignLeft)
-
         return box_roi_tot
 
     def layout_find_edge(self):
@@ -888,8 +851,7 @@ class App(QWidget):
         hbox_edge_range.addWidget(self.tx_edge_e)
         hbox_edge_range.setAlignment(QtCore.Qt.AlignLeft)
 
-        ###
-
+        #
         lb_edge_est = QLabel()
         lb_edge_est.setText('Pre-edge:')
         lb_edge_est.setFont(self.font2)
@@ -929,7 +891,7 @@ class App(QWidget):
         hbox_edge_pos.addWidget(self.tx_pre_edge_wt)
         hbox_edge_pos.setAlignment(QtCore.Qt.AlignLeft)
 
-        ### fit parameter
+        # fit parameter
 
         lb_empty3 = QLabel()
         lb_empty3.setFixedWidth(100)
@@ -970,8 +932,7 @@ class App(QWidget):
         hbox_edge_param.addWidget(self.tx_edge_order)
         hbox_edge_param.setAlignment(QtCore.Qt.AlignLeft)
 
-        ###
-
+        #
         self.chkbox_edge = QCheckBox('Fitting edge')
         self.chkbox_edge.setFont(self.font2)
         self.chkbox_edge.setFixedWidth(105)
@@ -981,7 +942,6 @@ class App(QWidget):
         self.chkbox_peak.setFont(self.font2)
         self.chkbox_peak.setFixedWidth(105)
         self.chkbox_peak.setChecked(True)
-
 
         self.peak_maxmin_group = QButtonGroup()
         self.peak_maxmin_group.setExclusive(True)
@@ -1006,7 +966,7 @@ class App(QWidget):
         vbox_fit_edge_peak.addLayout(hbox_fit_peak)
         vbox_fit_edge_peak.setAlignment(QtCore.Qt.AlignTop)
 
-        ### scale image
+        # scale image
         lb_empty3 = QLabel()
         lb_empty3.setFixedWidth(80)
 
@@ -1047,8 +1007,7 @@ class App(QWidget):
         hbox_scale_img.addWidget(self.tx_overlay_roi)
         hbox_scale_img.setAlignment(QtCore.Qt.AlignLeft)
 
-
-        ###
+        #
 
         lb_empty2 = QLabel()
         lb_empty2.setFixedWidth(5)
@@ -1065,15 +1024,12 @@ class App(QWidget):
         self.pb_fit_edge_curve.setFixedWidth(100)
         self.pb_fit_edge_curve.clicked.connect(self.fit_edge_curve)
 
-
         hbox_fit_edge_curve = QHBoxLayout()
         hbox_fit_edge_curve.addWidget(self.pb_load_edge_curve)
         hbox_fit_edge_curve.addWidget(self.pb_fit_edge_curve)
         hbox_fit_edge_curve.setAlignment(QtCore.Qt.AlignLeft)
 
-
-        ###
-
+        #
         lb_empty2 = QLabel()
         lb_empty2.setFixedWidth(5)
 
@@ -1100,7 +1056,7 @@ class App(QWidget):
         hbox_find_edge.addWidget(self.pb_find_edge_img)
         hbox_find_edge.setAlignment(QtCore.Qt.AlignLeft)
 
-        ### convert peak position to percentage
+        # convert peak position to percentage
         lb_empty2 = QLabel()
         lb_empty2.setFixedWidth(15)
 
@@ -1141,9 +1097,7 @@ class App(QWidget):
         hbox_cvt_percentage.addWidget(self.tx_cvt_max)
         hbox_cvt_percentage.setAlignment(QtCore.Qt.AlignLeft)
 
-        ### assemble
-
-
+        # assemble
         vbox_find_edge = QVBoxLayout()
         vbox_find_edge.addWidget(lb_find_edge)
         vbox_find_edge.addLayout(vbox_fit_edge_peak)
@@ -1157,276 +1111,7 @@ class App(QWidget):
         vbox_find_edge.addLayout(hbox_fit_edge_curve)
         vbox_find_edge.setAlignment(QtCore.Qt.AlignTop)
 
-
-
         return vbox_find_edge
-
-        pass
-
-    '''
-    def layout_find_edge_obsolete(self):
-        lb_empty = QLabel()
-        lb_empty.setFixedWidth(100)
-
-        lb_empty1 = QLabel()
-        lb_empty1.setFixedWidth(30)
-
-
-
-        lb_find_edge = QLabel()
-        lb_find_edge.setFont(self.font1)
-        lb_find_edge.setText('Find absorption edge')
-        lb_find_edge.setFixedWidth(200)
-
-        lb_edge_range = QLabel()
-        lb_edge_range.setFont(self.font2)
-        lb_edge_range.setText('Energy range:')
-        lb_edge_range.setFixedWidth(100)
-
-        lb_edge_range_s = QLabel()
-        lb_edge_range_s.setFont(self.font2)
-        lb_edge_range_s.setText('start:')
-        lb_edge_range_s.setFixedWidth(40)
-
-        lb_edge_range_e = QLabel()
-        lb_edge_range_e.setFont(self.font2)
-        lb_edge_range_e.setText('end:')
-        lb_edge_range_e.setFixedWidth(40)
-
-        self.tx_edge_s = QLineEdit()
-        self.tx_edge_s.setFont(self.font2)
-        self.tx_edge_s.setFixedWidth(60)
-        self.tx_edge_s.setValidator(QDoubleValidator())
-
-        self.tx_edge_e = QLineEdit()
-        self.tx_edge_e.setFont(self.font2)
-        self.tx_edge_e.setFixedWidth(60)
-        self.tx_edge_e.setValidator(QDoubleValidator())
-
-        hbox_edge_range = QHBoxLayout()
-        hbox_edge_range.addWidget(lb_edge_range)
-        hbox_edge_range.addWidget(lb_edge_range_s)
-        hbox_edge_range.addWidget(self.tx_edge_s)
-        hbox_edge_range.addWidget(lb_empty1)
-        hbox_edge_range.addWidget(lb_edge_range_e)
-        hbox_edge_range.addWidget(self.tx_edge_e)
-        hbox_edge_range.setAlignment(QtCore.Qt.AlignLeft)
-
-        ######
-
-        lb_edge_est = QLabel()
-        lb_edge_est.setText('Estimated:')
-        lb_edge_est.setFont(self.font2)
-        lb_edge_est.setFixedWidth(100)
-
-        lb_edge_est_pos = QLabel()
-        lb_edge_est_pos.setText('pos.:')
-        lb_edge_est_pos.setFont(self.font2)
-        lb_edge_est_pos.setFixedWidth(40)
-
-        self.tx_edge_pos = QLineEdit()
-        self.tx_edge_pos.setFont(self.font2)
-        self.tx_edge_pos.setText('0')
-        self.tx_edge_pos.setFixedWidth(60)
-        self.tx_edge_pos.setValidator(QDoubleValidator())
-
-        self.chkbox_edge_pos = QCheckBox('')
-        self.chkbox_edge_pos.setFixedWidth(30)
-        self.chkbox_edge_pos.setChecked(True)
-
-        lb_rate_a = QLabel()
-        lb_rate_a.setFont(self.font2)
-        lb_rate_a.setText('r1:')
-        lb_rate_a.setFixedWidth(40)
-
-        self.tx_ra = QLineEdit()
-        self.tx_ra.setFont(self.font2)
-        self.tx_ra.setText('0.001')
-        self.tx_ra.setFixedWidth(60)
-        self.tx_ra.setValidator(QDoubleValidator())
-
-        hbox_edge_pos = QHBoxLayout()
-        hbox_edge_pos.addWidget(lb_edge_est)
-        hbox_edge_pos.addWidget(lb_edge_est_pos)
-        hbox_edge_pos.addWidget(self.tx_edge_pos)
-        hbox_edge_pos.addWidget(self.chkbox_edge_pos)
-        hbox_edge_pos.addWidget(lb_rate_a)
-        hbox_edge_pos.addWidget(self.tx_ra)
-        hbox_edge_pos.setAlignment(QtCore.Qt.AlignLeft)
-
-        #####
-
-        lb_edge_scale = QLabel()
-        lb_edge_scale.setText('scale:')
-        lb_edge_scale.setFont(self.font2)
-        lb_edge_scale.setFixedWidth(40)
-
-        self.tx_edge_scale = QLineEdit()
-        self.tx_edge_scale.setFont(self.font2)
-        self.tx_edge_scale.setText('200')
-        self.tx_edge_scale.setFixedWidth(60)
-        self.tx_edge_scale.setValidator(QDoubleValidator())
-
-        self.chkbox_edge_scale = QCheckBox('')
-        self.chkbox_edge_scale.setFixedWidth(30)
-        self.chkbox_edge_scale.setChecked(True)
-
-        lb_rate_b = QLabel()
-        lb_rate_b.setFont(self.font2)
-        lb_rate_b.setText('r2:')
-        lb_rate_b.setFixedWidth(40)
-
-        self.tx_rb = QLineEdit()
-        self.tx_rb.setFont(self.font2)
-        self.tx_rb.setText('200')
-        self.tx_rb.setFixedWidth(60)
-        self.tx_rb.setValidator(QDoubleValidator())
-
-        hbox_edge_scale = QHBoxLayout()
-        hbox_edge_scale.addWidget(lb_empty)
-        hbox_edge_scale.addWidget(lb_edge_scale)
-        hbox_edge_scale.addWidget(self.tx_edge_scale)
-        hbox_edge_scale.addWidget(self.chkbox_edge_scale)
-        hbox_edge_scale.addWidget(lb_rate_b)
-        hbox_edge_scale.addWidget(self.tx_rb)
-        hbox_edge_scale.setAlignment(QtCore.Qt.AlignLeft)
-
-        #####
-
-        lb_edge_coef = QLabel()
-        lb_edge_coef.setText('coef:')
-        lb_edge_coef.setFont(self.font2)
-        lb_edge_coef.setFixedWidth(40)
-
-        self.tx_edge_coef = QLineEdit()
-        self.tx_edge_coef.setFont(self.font2)
-        self.tx_edge_coef.setText('0.5')
-        self.tx_edge_coef.setFixedWidth(60)
-        self.tx_edge_coef.setValidator(QDoubleValidator())
-
-        self.chkbox_edge_coef = QCheckBox('')
-        self.chkbox_edge_coef.setFixedWidth(30)
-
-        lb_rate_c = QLabel()
-        lb_rate_c.setFont(self.font2)
-        lb_rate_c.setText('r3:')
-        lb_rate_c.setFixedWidth(40)
-
-        self.tx_rc = QLineEdit()
-        self.tx_rc.setFont(self.font2)
-        self.tx_rc.setText('0.2')
-        self.tx_rc.setFixedWidth(60)
-        self.tx_rc.setValidator(QDoubleValidator())
-
-        hbox_edge_coef = QHBoxLayout()
-        hbox_edge_coef.addWidget(lb_empty)
-        hbox_edge_coef.addWidget(lb_edge_coef)
-        hbox_edge_coef.addWidget(self.tx_edge_coef)
-        hbox_edge_coef.addWidget(self.chkbox_edge_coef)
-        hbox_edge_coef.addWidget(lb_rate_c)
-        hbox_edge_coef.addWidget(self.tx_rc)
-        hbox_edge_coef.setAlignment(QtCore.Qt.AlignLeft)
-
-        #####
-        lb_pre_edge_wt = QLabel()
-        lb_pre_edge_wt.setFixedWidth(145)
-        lb_pre_edge_wt.setFont(self.font2)
-        lb_pre_edge_wt.setText('Pre-edge weight:')
-
-        self.tx_pre_edge_wt = QLineEdit()
-        self.tx_pre_edge_wt.setText('0.1')
-        self.tx_pre_edge_wt.setFont(self.font2)
-        self.tx_pre_edge_wt.setValidator(QDoubleValidator())
-        self.tx_pre_edge_wt.setFixedWidth(60)
-
-        lb_edge_iter = QLabel()
-        lb_edge_iter.setFixedWidth(40)
-        lb_edge_iter.setFont(self.font2)
-        lb_edge_iter.setText('iter:')
-
-        self.tx_edge_iter = QLineEdit()
-        self.tx_edge_iter.setText('10')
-        self.tx_edge_iter.setFont(self.font2)
-        self.tx_edge_iter.setValidator(QIntValidator())
-        self.tx_edge_iter.setFixedWidth(60)
-
-        hbox_edge_ctrl = QHBoxLayout()
-        hbox_edge_ctrl.addWidget(lb_pre_edge_wt)
-        hbox_edge_ctrl.addWidget(self.tx_pre_edge_wt)
-        hbox_edge_ctrl.addWidget(lb_empty1)
-        hbox_edge_ctrl.addWidget(lb_edge_iter)
-        hbox_edge_ctrl.addWidget(self.tx_edge_iter)
-        hbox_edge_ctrl.setAlignment(QtCore.Qt.AlignLeft)
-
-        #####
-
-        self.pb_plot_est = QPushButton()
-        self.pb_plot_est.setText('Plot estimation')
-        self.pb_plot_est.setFont(self.font2)
-        self.pb_plot_est.setFixedWidth(130)
-        self.pb_plot_est.clicked.connect(self.plot_edge_estimation)
-
-        self.chkbox_overlay_roi = QCheckBox('Overlay with ROI #')
-        self.chkbox_overlay_roi.setFixedWidth(155)
-        self.chkbox_overlay_roi.setFont(self.font2)
-
-
-        self.tx_overlay_roi = QLineEdit()
-        self.tx_overlay_roi.setText('-1')
-        self.tx_overlay_roi.setFont(self.font2)
-        self.tx_overlay_roi.setValidator(QIntValidator())
-        self.tx_overlay_roi.setFixedWidth(60)
-
-
-        hbox_plot_est = QHBoxLayout()
-        hbox_plot_est.addWidget(self.pb_plot_est)
-        hbox_plot_est.addWidget(self.chkbox_overlay_roi)
-        hbox_plot_est.addWidget(self.tx_overlay_roi)
-        hbox_plot_est.setAlignment(QtCore.Qt.AlignLeft)
-
-        #####
-        lb_empty2 = QLabel()
-        lb_empty2.setFixedWidth(5)
-
-        self.pb_find_edge = QPushButton()
-        self.pb_find_edge.setText('Find edge (ROI)')
-        self.pb_find_edge.setFont(self.font2)
-        self.pb_find_edge.setFixedWidth(170)
-        self.pb_find_edge.clicked.connect(self.find_edge_jump_single)
-
-        self.pb_find_edge_img = QPushButton()
-        self.pb_find_edge_img.setText('Find edge (image)')
-        self.pb_find_edge_img.setFont(self.font2)
-        self.pb_find_edge_img.setFixedWidth(170)
-        self.pb_find_edge_img.clicked.connect(self.find_edge_jump_image)
-
-        hbox_find_edge = QHBoxLayout()
-        hbox_find_edge.addWidget(self.pb_find_edge)
-        hbox_find_edge.addWidget(lb_empty2)
-        hbox_find_edge.addWidget(self.pb_find_edge_img)
-        hbox_find_edge.setAlignment(QtCore.Qt.AlignLeft)
-
-        #####
-
-        vbox_find_edge = QVBoxLayout()
-        vbox_find_edge.addWidget(lb_find_edge)
-        vbox_find_edge.addLayout(hbox_edge_range)
-        vbox_find_edge.addLayout(hbox_edge_pos)
-        vbox_find_edge.addLayout(hbox_edge_scale)
-        vbox_find_edge.addLayout(hbox_edge_coef)
-        vbox_find_edge.addLayout(hbox_edge_ctrl)
-        vbox_find_edge.addLayout(hbox_plot_est)
-        vbox_find_edge.addLayout(hbox_find_edge)
-        vbox_find_edge.setAlignment(QtCore.Qt.AlignTop)
-
-
-
-        return vbox_find_edge
-    '''
-
-
-
-
 
     def layout_roi_normalization(self):
         lb_empty = QLabel()
@@ -1509,18 +1194,17 @@ class App(QWidget):
         self.rd_norm1 = QRadioButton('1')
         self.rd_norm1.setFixedWidth(45)
 
-        #self.rd_norm1.toggled.connect(self.select_file)
+        # self.rd_norm1.toggled.connect(self.select_file)
 
         self.rd_norm2 = QRadioButton('2')
         self.rd_norm2.setFixedWidth(45)
-        #self.rd_norm2.toggled.connect(self.select_file)
+        # self.rd_norm2.toggled.connect(self.select_file)
 
         self.norm_group.addButton(self.rd_norm1)
         self.norm_group.addButton(self.rd_norm2)
         self.norm_group = QButtonGroup()
         self.norm_group.setExclusive(True)
         self.rd_norm1.setChecked(True)
-
 
         lb_reg_img = QLabel()
         lb_reg_img.setFont(self.font2)
@@ -1549,7 +1233,7 @@ class App(QWidget):
         self.pb_reg_img.clicked.connect(self.regular_edge_img)
         self.pb_reg_img.setFixedWidth(90)
 
-        ## load and norm existing spectrum
+        # load and norm existing spectrum
         lb_alt = QLabel()
         lb_alt.setFont(self.font1)
         lb_alt.setText('External spectrum')
@@ -1599,7 +1283,7 @@ class App(QWidget):
         hbox_fit_pb.setAlignment(QtCore.Qt.AlignLeft)
 
         hbox_fit_pb_img = QHBoxLayout()
-        #hbox_fit_pb_img.addWidget(lb_fit_img)
+        # hbox_fit_pb_img.addWidget(lb_fit_img)
         hbox_fit_pb_img.addWidget(self.pb_fit_img)
         hbox_fit_pb_img.addWidget(self.rd_norm1)
         hbox_fit_pb_img.addWidget(self.rd_norm2)
@@ -1626,14 +1310,12 @@ class App(QWidget):
         vbox_fit.addLayout(hbox_fit_pb)
         vbox_fit.addLayout(hbox_fit_pb_img)
         vbox_fit.addLayout(hbox_reg_pb_img)
-        #vbox_fit.addLayout(hbox_reg_pb_img2)
+        # vbox_fit.addLayout(hbox_reg_pb_img2)
         vbox_fit.addWidget(lb_empty)
         vbox_fit.addLayout(vbox_exist_spec)
         vbox_fit.setAlignment(QtCore.Qt.AlignLeft)
         return vbox_fit
 
-
-    
     def layout_fit2d(self):
         lb_empty = QLabel()
         lb_fit2d = QLabel()
@@ -1695,7 +1377,7 @@ class App(QWidget):
         self.pb_reset_fit.setFixedWidth(105)
 
         hbox_reset_ref = QHBoxLayout()
-        #hbox_fit2d.addWidget(self.pb_fit2d)
+        # hbox_fit2d.addWidget(self.pb_fit2d)
         hbox_reset_ref.addWidget(self.pb_reset_ref)
         hbox_reset_ref.addWidget(self.pb_reset_fit)
         hbox_reset_ref.setAlignment(QtCore.Qt.AlignTop)
@@ -1734,20 +1416,20 @@ class App(QWidget):
         self.pb_fit2d_iter.setEnabled(True)
         self.pb_fit2d_iter.setFixedWidth(105)
 
-        #lb_iter_rate = QLabel()
-        #lb_iter_rate.setFont(self.font2)
-        #lb_iter_rate.setText(' Rate:')
-        #lb_iter_rate.setFixedWidth(50)
+        # lb_iter_rate = QLabel()
+        # lb_iter_rate.setFont(self.font2)
+        # lb_iter_rate.setText(' Rate:')
+        # lb_iter_rate.setFixedWidth(50)
 
         lb_iter_num = QLabel()
         lb_iter_num.setFont(self.font2)
         lb_iter_num.setText(' # iter.')
         lb_iter_num.setFixedWidth(50)
 
-        #self.tx_iter_rate = QLineEdit(self)
-        #self.tx_iter_rate.setFont(self.font2)
-        #self.tx_iter_rate.setText('0.005')
-        #self.tx_iter_rate.setFixedWidth(20)
+        # self.tx_iter_rate = QLineEdit(self)
+        # self.tx_iter_rate.setFont(self.font2)
+        # self.tx_iter_rate.setText('0.005')
+        # self.tx_iter_rate.setFixedWidth(20)
 
         self.tx_iter_num = QLineEdit(self)
         self.tx_iter_num.setFont(self.font2)
@@ -1761,7 +1443,6 @@ class App(QWidget):
         hbox_fit_method_iter.addWidget(lb_iter_num)
         hbox_fit_method_iter.addWidget(self.tx_iter_num)
         hbox_fit_method_iter.setAlignment(QtCore.Qt.AlignTop)
-
 
         ##########################
 
@@ -1782,8 +1463,6 @@ class App(QWidget):
         lb_method.setFont(self.font1)
         lb_method.setText('Algorithm:')
         lb_method.setFixedWidth(140)
-
-
 
         lb_method1 = QLabel()
         lb_method1.setFont(self.font2)
@@ -1839,9 +1518,6 @@ class App(QWidget):
         self.method_group.addButton(self.rd_method2)
         self.method_group.addButton(self.rd_method3)
 
-
-
-
         hbox_method1 = QHBoxLayout()
         hbox_method1.addWidget(self.rd_method1)
         hbox_method1.addWidget(lb_method1)
@@ -1866,15 +1542,14 @@ class App(QWidget):
         hbox_method_head.setAlignment(QtCore.Qt.AlignTop)
 
         vbox_algorithm = QVBoxLayout()
-        #vbox_algorithm.addLayout(hbox_method_head)
+        # vbox_algorithm.addLayout(hbox_method_head)
         vbox_algorithm.addLayout(hbox_method1)
         vbox_algorithm.addLayout(hbox_method2)
         vbox_algorithm.addLayout(hbox_method3)
         vbox_algorithm.setAlignment(QtCore.Qt.AlignLeft)
 
-
         vbox_method = QVBoxLayout()
-        #vbox_method.addLayout(hbox_fit_method)
+        # vbox_method.addLayout(hbox_fit_method)
         vbox_method.addWidget(self.pb_fit2d)
         vbox_method.addWidget(lb_iter)
 
@@ -1885,6 +1560,7 @@ class App(QWidget):
         vbox_method.setAlignment(QtCore.Qt.AlignLeft)
 
         ##########################
+
         self.pb_plot_roi = QPushButton('Plot ROI fit.')
         self.pb_plot_roi.setFont(self.font2)
         self.pb_plot_roi.clicked.connect(lambda return_flag: self.plot_roi_fit(1))
@@ -1899,7 +1575,7 @@ class App(QWidget):
         self.tx_fit_roi = QLineEdit(self)
         self.tx_fit_roi.setFont(self.font2)
         self.tx_fit_roi.setText('-1')
-        #self.tx_fit_roi.setValidator(QIntValidator())
+        # self.tx_fit_roi.setValidator(QIntValidator())
         self.tx_fit_roi.setFixedWidth(50)
         
         self.pb_export_roi_fit = QPushButton('Export ROI fit')
@@ -1935,7 +1611,7 @@ class App(QWidget):
         vbox_assemble.addLayout(hbox_fit2d_range)
         vbox_assemble.addLayout(hbox_ref)
         vbox_assemble.addLayout(hbox_reset_ref)
-        #vbox_assemble.addLayout(hbox_iter)
+        # vbox_assemble.addLayout(hbox_iter)
         vbox_assemble.addLayout(vbox_method)
 
         vbox_assemble.addLayout(hbox_plot)
@@ -1944,8 +1620,6 @@ class App(QWidget):
         vbox_assemble.setAlignment(QtCore.Qt.AlignLeft)
         return vbox_assemble
 
-
-
     def layout_img_tools(self):
         lb_empty = QLabel()
         lb_img = QLabel()
@@ -1953,7 +1627,7 @@ class App(QWidget):
         lb_img.setText('Threshold Mask')
         lb_img.setFixedWidth(150)
 
-        ## median filter
+        # median filter
         self.pb_filt = QPushButton('Median Filter')
         self.pb_filt.setFont(self.font2)
         self.pb_filt.clicked.connect(self.xanes_img_smooth)
@@ -1976,7 +1650,7 @@ class App(QWidget):
         hbox_filt.addWidget(self.tx_filt)
         hbox_filt.setAlignment(QtCore.Qt.AlignLeft)
 
-        ## mask1
+        # mask1
         self.pb_mask1 = QPushButton('Gen. Mask1')
         self.pb_mask1.setFont(self.font2)
         self.pb_mask1.clicked.connect(self.generate_mask1)
@@ -2006,7 +1680,7 @@ class App(QWidget):
         hbox_mask1.addWidget(self.pb_mask1_rm)
         hbox_mask1.setAlignment(QtCore.Qt.AlignLeft)
 
-        ## mask2
+        # mask2
         self.pb_mask2 = QPushButton('Gen. Mask2')
         self.pb_mask2.setFont(self.font2)
         self.pb_mask2.clicked.connect(self.generate_mask2)
@@ -2036,8 +1710,7 @@ class App(QWidget):
         hbox_mask2.addWidget(self.pb_mask2_rm)
         hbox_mask2.setAlignment(QtCore.Qt.AlignTop)
 
-        ### circular mask
-
+        # circular mask
         self.pb_mask3 = QPushButton('Circ. Mask')
         self.pb_mask3.setFont(self.font2)
         self.pb_mask3.clicked.connect(self.generate_mask3)
@@ -2067,8 +1740,7 @@ class App(QWidget):
         hbox_mask3.addWidget(self.pb_mask3_rm)
         hbox_mask3.setAlignment(QtCore.Qt.AlignTop)
 
-        ### smart mask
-
+        # smart mask
         lb_smart_mask = QLabel()
         lb_smart_mask.setFont(self.font1)
         lb_smart_mask.setText('Smart Mask')
@@ -2152,7 +1824,7 @@ class App(QWidget):
         lb_empty = QLabel()
 
         hbox_smart_mask1 = QHBoxLayout()
-        #hbox_smart_mask1.addWidget(self.pb_smart_mask)
+        # hbox_smart_mask1.addWidget(self.pb_smart_mask)
         hbox_smart_mask1.addWidget(self.chkbox_smask)
         hbox_smart_mask1.addWidget(lb_smart_mask_start)
         hbox_smart_mask1.addWidget(self.tx_smart_mask_start)
@@ -2188,8 +1860,7 @@ class App(QWidget):
         vbox_smart_mask.addWidget(lb_empty)
         vbox_smart_mask.setAlignment(QtCore.Qt.AlignTop)
 
-        ### noise removal
-
+        # noise removal
         lb_other = QLabel()
         lb_other.setFont(self.font1)
         lb_other.setText('Other Tools')
@@ -2231,7 +1902,7 @@ class App(QWidget):
         hbox_rm_noise.addWidget(self.tx_rm_noise_size)
         hbox_rm_noise.setAlignment(QtCore.Qt.AlignLeft)
 
-        ### dilation
+        # dilation
         lb_dilation = QLabel()
         lb_dilation.setFont(self.font2)
         lb_dilation.setText(' Mask Dilation: ')
@@ -2261,7 +1932,7 @@ class App(QWidget):
         hbox_dilation.addWidget(self.pb_dilation)
         hbox_dilation.setAlignment(QtCore.Qt.AlignTop)
 
-        ### erosion
+        # erosion
         lb_erosion = QLabel()
         lb_erosion.setFont(self.font2)
         lb_erosion.setText(' Mask Erosion: ')
@@ -2291,7 +1962,7 @@ class App(QWidget):
         hbox_erosion.addWidget(self.pb_erosion)
         hbox_erosion.setAlignment(QtCore.Qt.AlignTop)
 
-        ### fill hole
+        # fill hole
         lb_fhole = QLabel()
         lb_fhole.setFont(self.font2)
         lb_fhole.setText(' Mask fill-hole: ')
@@ -2314,7 +1985,6 @@ class App(QWidget):
         self.pb_fhole.setEnabled(True)
         self.pb_fhole.setFixedWidth(105)
 
-
         hbox_fhole = QHBoxLayout()
         hbox_fhole.addWidget(lb_fhole)
         hbox_fhole.addWidget(lb_fhole_iter)
@@ -2322,7 +1992,7 @@ class App(QWidget):
         hbox_fhole.addWidget(self.pb_fhole)
         hbox_fhole.setAlignment(QtCore.Qt.AlignTop)
 
-        ## colormix
+        # colormix
         lb_colormix = QLabel()
         lb_colormix.setFont(self.font2)
         lb_colormix.setText(' Color Mix: ')
@@ -2351,7 +2021,7 @@ class App(QWidget):
         hbox_colormix.addWidget(self.pb_colormix)
         hbox_colormix.setAlignment(QtCore.Qt.AlignTop)
 
-        ## color channel
+        # color channel
         lb_color_channel = QLabel()
         lb_color_channel.setFont(self.font2)
         lb_color_channel.setText(' Color Channel:')
@@ -2360,7 +2030,6 @@ class App(QWidget):
         self.cb_color_channel = QComboBox()
         self.cb_color_channel.setFont(self.font2)
         self.cb_color_channel.setFixedWidth(50)
-
         '''
         self.sl_color = QSlider(QtCore.Qt.Horizontal)
         self.sl_color.setFocusPolicy(QtCore.Qt.StrongFocus)
@@ -2378,7 +2047,6 @@ class App(QWidget):
         self.lb_colormax.setText('x 1.00 ')
         self.lb_colormax.setFixedWidth(50)
         '''
-
         self.tx_color_scale = QLineEdit(self)
         self.tx_color_scale.setFont(self.font2)
         self.tx_color_scale.setText('1.0')
@@ -2408,7 +2076,7 @@ class App(QWidget):
         hbox_color_channel.addWidget(self.pb_color_scale)
         hbox_color_channel.setAlignment(QtCore.Qt.AlignTop)
 
-        ## assemble
+        # assemble
         vbox_img_assemble = QVBoxLayout()
         vbox_img_assemble.addWidget(lb_img)
         vbox_img_assemble.addLayout(hbox_filt)
@@ -2427,8 +2095,6 @@ class App(QWidget):
         vbox_img_assemble.addWidget(lb_empty)
         vbox_img_assemble.setAlignment(QtCore.Qt.AlignLeft)
         return vbox_img_assemble
-
-
 
     def layout_xanes_prep(self):
         lb_empty = QLabel()
@@ -2456,7 +2122,6 @@ class App(QWidget):
         self.pb_rmbg.setFont(self.font2)
         self.pb_rmbg.clicked.connect(self.remove_bkg)
         self.pb_rmbg.setFixedWidth(150)
-
 
         self.align_group = QButtonGroup()
         self.align_group.setExclusive(True)
@@ -2521,7 +2186,6 @@ class App(QWidget):
         self.tx_ali_roi.setValidator(QIntValidator())
         self.tx_ali_roi.setFixedWidth(50)
 
-
         hbox_prep = QHBoxLayout()
         hbox_prep.addWidget(self.pb_norm_txm)
         hbox_prep.addWidget(self.pb_rmbg)
@@ -2540,7 +2204,7 @@ class App(QWidget):
         hbox_ali_roi.setAlignment(QtCore.Qt.AlignLeft)
 
         hbox_ali_method = QHBoxLayout()
-        #hbox_ali_method.addWidget(lb_ali_method)
+        # hbox_ali_method.addWidget(lb_ali_method)
         hbox_ali_method.addWidget(self.rd_ali1)
         hbox_ali_method.addWidget(self.rd_ali2)
         hbox_ali_method.setAlignment(QtCore.Qt.AlignLeft)
@@ -2565,8 +2229,6 @@ class App(QWidget):
         vbox_prep.addLayout(hbox_shft1)
         vbox_prep.addWidget(lb_empty)
         return vbox_prep
-
-
 
     def layout_canvas(self):
         lb_empty = QLabel()
@@ -2706,8 +2368,6 @@ class App(QWidget):
         vbox_can1.setAlignment(QtCore.Qt.AlignLeft)
         return vbox_can1
 
-
-
     def check_xanes_fit_requirement(self, img_stack):
         n_ref = len(self.spectrum_ref)
         n_eng = len(self.xanes_eng)
@@ -2719,8 +2379,6 @@ class App(QWidget):
             self.msg += ';   # of stack image is not equal to energies, fitting fails ...'
             return_flag = 0
         return return_flag
-
-
 
     def load_xanes_ref(self):
         options = QFileDialog.Option()
@@ -2741,8 +2399,6 @@ class App(QWidget):
             except:
                 print('un-supported xanes reference format')
 
-
-
     def reset_xanes_ref(self):
         self.num_ref = 0
         self.lb_ref_info.setText('Reference spectrum:')
@@ -2750,7 +2406,6 @@ class App(QWidget):
         self.xanes_fit_cost = 0
         self.tx_elem.setText('')
         self.elem_label = []
-
 
     def select_fitting_method(self):
         if self.rd_method1.isChecked(): # conjugated gradient
@@ -2774,8 +2429,6 @@ class App(QWidget):
             self.tx_method2.setEnabled(False)
             self.tx_method3.setEnabled(False)
 
-
-
     def choose_image_for_fittting(self):
         canvas = self.canvas1
         img_stack = canvas.img_stack
@@ -2795,7 +2448,6 @@ class App(QWidget):
                 img_stack = self.img_regulation
                 self.msg = 'Fit 2D xanes: using "Image regulation"'
                 return_flag = 1
-
         else:
             if "raw" in self.msg.lower():
                 self.dataset_used_for_fitting = 0
@@ -2808,27 +2460,11 @@ class App(QWidget):
         self.update_msg()
         return return_flag, img_stack
 
-
     def fit_2d_xanes(self):
         self.pb_fit2d.setDisabled(True)
         QApplication.processEvents()
-        canvas = self.canvas1
-
+        #canvas = self.canvas1
         return_flag, img_stack = self.choose_image_for_fittting()
-        '''
-        img_stack = canvas.img_stack
-        self.msg = f'Fit 2D xanes: using "{self.cb1.currentText()}"'
-        return_flag = self.check_xanes_fit_requirement(img_stack)
-        if not return_flag:
-            img_stack = self.img_update
-            self.msg = 'Fit 2D xanes: using "Image Update"'
-            return_flag = self.check_xanes_fit_requirement(img_stack)
-        if not return_flag:
-            img_stack = self.img_xanes
-            self.msg = 'Fit 2D xanes: using "Raw image"'
-            return_flag = self.check_xanes_fit_requirement(img_stack)
-        self.update_msg()
-        '''
         if return_flag:
             try:
                 eng_s = float(self.tx_fit2d_s.text())
@@ -2837,7 +2473,6 @@ class App(QWidget):
                 tmp = np.array(self.xanes_eng[fit_eng_s: fit_eng_e] >= self.spectrum_ref['ref0'][0,0]) * np.array(self.xanes_eng[fit_eng_s: fit_eng_e] <= self.spectrum_ref['ref0'][-1,0])
                 fit_region = np.arange(fit_eng_s, fit_eng_e)[tmp]
                 self.xanes_2d_fit, self.xanes_2d_fit_offset, self.xanes_fit_cost = fit_2D_xanes_non_iter(img_stack[fit_region], self.xanes_eng[fit_region], self.spectrum_ref)
-
                 if self.cb1.findText('XANES Fit (ratio, summed to 1)') < 0:
                     self.cb1.addItem('XANES Fit (ratio, summed to 1)')
                 if self.cb1.findText('XANES Fit (Elem. concentration)') < 0:
@@ -2847,7 +2482,6 @@ class App(QWidget):
                 if self.cb1.findText('XANES Fit error') < 0:
                     self.cb1.addItem('XANES Fit error')
                 self.cb1.setCurrentText('XANES Fit (ratio, summed to 1)')
-
                 elem = self.tx_elem.text()
                 elem = elem.replace(' ', '')
                 elem = elem.replace(';', ',')
@@ -2861,7 +2495,6 @@ class App(QWidget):
                 self.pb_export_roi_fit.setEnabled(True)
                 self.pb_colormix.setEnabled(True)
                 self.pb_save.setEnabled(True)
-
                 num_ref = len(self.spectrum_ref)
                 for i in range(num_ref):
                     if self.cb_color_channel.findText(f'{i}') < 0:
@@ -2873,35 +2506,16 @@ class App(QWidget):
         self.pb_fit2d.setEnabled(True)
         QApplication.processEvents()
 
-
-
     def reset_xanes_fit(self):
         self.reset_xanes_ref()
         self.xanes_2d_fit = None
         self.img_pre_edge_sub_mean = np.array([1])
         self.pb_plot_roi.setDisabled(True)
 
-
-
     def fit_2d_xanes_iter(self):
         self.pb_fit2d_iter.setEnabled(False)
         QApplication.processEvents()
         return_flag, img_stack = self.choose_image_for_fittting()
-        '''
-        img_stack = canvas.img_stack
-        self.msg = f'Fit 2D xanes: using "{self.cb1.currentText()}"'
-        return_flag = self.check_xanes_fit_requirement(img_stack)
-        if not return_flag:
-            img_stack = self.img_update
-            self.msg = 'Fit 2D xanes: using "Image Update"'
-            return_flag = self.check_xanes_fit_requirement(img_stack)
-        if not return_flag:
-            img_stack = self.img_xanes
-            self.msg = 'Fit 2D xanes: using "Raw image"'
-            return_flag = self.check_xanes_fit_requirement(img_stack)
-        self.update_msg()
-        '''
-
         if return_flag:
             if self.chkbox_bound.isChecked():
                 bounds = [0, 1]
@@ -2932,15 +2546,12 @@ class App(QWidget):
                 if self.fitting_method == 1:
                     learning_rate = float(self.tx_method1.text())
                     self.xanes_2d_fit, self.xanes_2d_fit_offset, self.xanes_fit_cost = fit_2D_xanes_iter(img_stack[fit_region], self.xanes_eng[fit_region], self.spectrum_ref, coef0, offset, learning_rate, num_iter)
-
                 elif self.fitting_method == 2 or self.fitting_method == 3:
                     lamda = float(self.tx_method2.text())
                     rho = float(self.tx_method3.text())
                     self.xanes_2d_fit, self.xanes_2d_fit_offset, self.xanes_fit_cost = fit_2D_xanes_iter2(img_stack[fit_region], self.xanes_eng[fit_region], self.spectrum_ref, coef0, offset, lamda, rho, num_iter, bounds=bounds, method=self.fitting_method-1)
                 self.pb_fit2d_iter.setEnabled(True)
-
                 QApplication.processEvents()
-
                 if self.cb1.findText('XANES Fit (ratio, summed to 1)') < 0:
                     self.cb1.addItem('XANES Fit (ratio, summed to 1)')
                 if self.cb1.findText('XANES Fit (Elem. concentration)') < 0:
@@ -2966,9 +2577,6 @@ class App(QWidget):
             finally:
                 self.update_msg()
         self.pb_fit2d_iter.setEnabled(True)
-
-
-
 
     def plot_xanes_ref(self):
         plt.figure()
@@ -2996,8 +2604,6 @@ class App(QWidget):
             self.msg = 'un-recognized reference spectrum format'
             self.update_msg()
 
-
-
     def bin_image(self):
         try:
             img = self.img_xanes
@@ -3020,7 +2626,6 @@ class App(QWidget):
             self.msg = 'xanes image not exist'
             self.update_msg()
 
-
     def scale_image(self):
         try:
             tmp = deepcopy(self.canvas1.img_stack)
@@ -3036,7 +2641,6 @@ class App(QWidget):
             self.msg = 'fail to scale image'
         finally:
             self.update_msg()
-
 
     def generate_mask1(self):
         try:
@@ -3065,8 +2669,6 @@ class App(QWidget):
             self.update_msg()
             self.pb_mask1.setStyleSheet('color: rgb(0,0,0);')
 
-
-
     def generate_mask2(self):
         try:
             tmp = deepcopy(self.canvas1.current_img)
@@ -3093,23 +2695,17 @@ class App(QWidget):
             self.update_msg()
             self.pb_mask2.setStyleSheet('color: rgb(0,0,0);')
 
-
-
     def generate_mask3(self):
         try:
             tmp = self.canvas1.current_img
             ratio = float(self.tx_mask3.text())
             s = np.squeeze(tmp).shape
-
             x = np.arange(s[0])
             y = np.arange(s[1])
-
             X, Y = np.meshgrid(y, x)
             X = X / s[1]
             Y = Y / s[0]
-
             mask = np.float32(((X-0.5)**2 + (Y-0.5)**2)<(ratio/2)**2)
-
             self.canvas1.mask = self.canvas1.mask * mask
             self.mask3 = mask
             self.mask = self.canvas1.mask
@@ -3120,7 +2716,6 @@ class App(QWidget):
         except:
             self.msg = 'invalid mask '
             self.update_msg()
-
 
     def generate_smart_mask(self):
         try:
@@ -3171,7 +2766,6 @@ class App(QWidget):
             self.tx_smart_mask_start.setText(str(st))
             self.tx_smart_mask_end.setText(str(en))
 
-
     def add_smart_mask_toi_roi(self):
         if self.cb1.currentText() == 'Smart Mask':
             self.smart_mask_current = self.smart_mask[self.sl1.value()]
@@ -3179,7 +2773,6 @@ class App(QWidget):
             self.canvas1.roi_add_to_list(roi_name = roi_name)
             self.msg = f'{roi_name} has been added to the ROI list'
             self.update_msg()
-
 
     def apply_smart_mask(self):
         if self.cb1.currentText() == 'Smart Mask':
@@ -3221,7 +2814,6 @@ class App(QWidget):
             self.msg = 'something wrong in removing mask1'
             self.update_msg()
 
-
     def rm_mask2(self):
         try:
             self.canvas1.mask = self.mask1 * self.mask3 * self.smart_mask_current
@@ -3232,7 +2824,6 @@ class App(QWidget):
         except:
             self.msg = 'something wrong in removing mask2'
             self.update_msg()
-
 
     def rm_mask3(self):
         try:
@@ -3245,7 +2836,6 @@ class App(QWidget):
             self.msg = 'something wrong in removing mask3'
             self.update_msg()
 
-
     def rm_smart_mask(self):
         try:
             self.canvas1.mask = self.mask1 * self.mask2 * self.mask3
@@ -3256,7 +2846,6 @@ class App(QWidget):
         except:
             self.msg = 'something wrong in removing smart mask'
             self.update_msg()
-
 
     def mask_dilation(self):
         s = int(self.tx_dilation_iter.text())
@@ -3284,7 +2873,6 @@ class App(QWidget):
                 self.msg = 'fails to perform dilation on "mask"'
                 self.update_msg()
 
-
     def mask_erosion(self):
         s = int(self.tx_dilation_iter.text())
         struct = ndimage.generate_binary_structure(2, 1)
@@ -3309,7 +2897,6 @@ class App(QWidget):
             except:
                 self.msg = 'fails to perform dilation on "mask"'
                 self.update_msg()
-
 
     def mask_fillhole(self):
         s = int(self.tx_dilation_iter.text())
@@ -3336,8 +2923,6 @@ class App(QWidget):
                 self.msg = 'fails to perform dilation on "mask"'
                 self.update_msg()
 
-
-
     def _roi_fit(self):
         eng_s = self.xanes_eng[0]
         eng_e = self.xanes_eng[-1]
@@ -3347,7 +2932,6 @@ class App(QWidget):
         roi_selected = 1
         canvas = self.canvas1
         roi_list = canvas.roi_list
-
         if self.dataset_used_for_fitting == 0:
             img = deepcopy(self.img_xanes[fit_region])
         elif self.dataset_used_for_fitting == 1:
@@ -3365,13 +2949,6 @@ class App(QWidget):
         except:
             print(f'{roi_selected} not exist')
             n = 0
-        n_roi = self.lst_roi.count()
-        '''
-        if n > n_roi or n < 0:
-            self.msg = 'roi not exist, will show the fitting average'
-            roi_selected = -1
-            self.update_msg()
-        '''
         try:
             if (type(roi_selected) is str) and ('roi_' in roi_selected) and (not 'SM' in roi_selected):
 
@@ -3418,9 +2995,7 @@ class App(QWidget):
                 #fit_offset = np.sum(fit_offset) / np.sum(mask)
                 y_data = np.sum(np.sum(prj, axis=1), axis=1) / np.sum(mask)
                 cord = [0,0,0,0]
-
             s = prj.shape
-
             y_fit = 0
             for i in range(self.num_ref):
                 ref = self.spectrum_ref[f'ref{i}']
@@ -3438,9 +3013,7 @@ class App(QWidget):
             cord = [0,0,0,0]
             fit_coef = [0]
             fit_offset = 0
-
         return x_data, y_data, y_fit, fit_coef, fit_offset, cord, fit_success, roi_selected
-
 
     '''
     def _roi_fit(self):
@@ -3550,8 +3123,6 @@ class App(QWidget):
             plt.show()
         if return_flag:
             return x_data, y_data, y_fit, fit_coef, cord, fit_success
-            
-            
 
     def export_roi_fit(self):
         x_data, y_data, y_fit, fit_coef, cord, fit_success = self.plot_roi_fit(return_flag=1)
@@ -3602,13 +3173,9 @@ class App(QWidget):
             self.msg = 'export fails'
             self.update_msg()
 
-
-
     def select_file(self):
         self.tx_hdf_xanes.setEnabled(True)
         self.tx_hdf_eng.setEnabled(True)
-
-
 
     def noise_removal(self):
         try:
@@ -3627,12 +3194,10 @@ class App(QWidget):
         finally:
             self.update_msg()
 
-
     def convert_percentage_image(self):
         try:
             p_min = float(self.tx_cvt_min.text())
             p_max = float(self.tx_cvt_max.text())
-
             img = self.xanes_peak_fit.copy()
             self.peak_percentage = rm_abnormal((img - p_min) / (p_max - p_min))
             if self.cb1.findText('Peak percentage') < 0:
@@ -3641,8 +3206,6 @@ class App(QWidget):
         except:
             self.msg = 'fails to convert'
             self.update_msg()
-
-
 
     def fit_edge_curve(self):
         from scipy.interpolate import UnivariateSpline
@@ -3669,20 +3232,15 @@ class App(QWidget):
                 x0 = float(self.tx_edge_pos.text())
             except:
                 x0 = xs
-
             xs_id = find_nearest(x, xs)
             xe_id = find_nearest(x, xe)
             x0_id = find_nearest(x, x0)
-
             x = x[xs_id: xe_id]
             y = y[xs_id: xe_id]
-
             w = float(self.tx_pre_edge_wt.text())
             wt = np.ones(len(x))
             wt[:x0_id - xs_id] = w
-
             edge_smooth = float(self.tx_edge_smooth.text())
-
             s = UnivariateSpline(x, y, k=k, s=edge_smooth, w=wt)
             xx = np.linspace(x[0], x[-1], 1001)
             y_eval = s(xx)
@@ -3692,7 +3250,6 @@ class App(QWidget):
             else:
                 factor = -1
             pos_max = np.argmax(y_eval*factor)
-
             plt.figure()
             plt.plot(x, y, '.', label='experiment data')
             plt.plot(xx, y_eval, 'r', label='fitting')
@@ -3704,7 +3261,6 @@ class App(QWidget):
         except:
             self.msg = 'Fails to fit curve'
             self.update_msg()
-
 
     def find_edge_peak_single(self):
         from scipy.interpolate import UnivariateSpline
@@ -3719,20 +3275,15 @@ class App(QWidget):
                 x0 = float(self.tx_edge_pos.text())
             except:
                 x0 = xs
-
             xs_id = find_nearest(self.xanes_eng, xs)
             xe_id = find_nearest(self.xanes_eng, xe)
             x0_id = find_nearest(self.xanes_eng, x0)
-
             x = x[xs_id: xe_id]
             y = y[xs_id: xe_id]
-
             w = float(self.tx_pre_edge_wt.text())
             wt = np.ones(len(x))
             wt[:x0_id - xs_id] = w
-
             edge_smooth = float(self.tx_edge_smooth.text())
-
             s = UnivariateSpline(x, y, k=k, s=edge_smooth, w=wt)
             xx = np.linspace(x[0], x[-1], 1001)
             y_eval = s(xx)
@@ -3755,7 +3306,6 @@ class App(QWidget):
             self.msg = 'Fails to find edge for ROI'
             self.update_msg()
 
-
     def find_edge_peak_image(self):
         try:
             self.pb_find_edge_img.setEnabled(False)
@@ -3771,25 +3321,20 @@ class App(QWidget):
             xs_id = find_nearest(self.xanes_eng, xs)
             xe_id = find_nearest(self.xanes_eng, xe)
             x0_id = find_nearest(self.xanes_eng, x0)
-
             eng = self.xanes_eng
             x = eng[xs_id:xe_id]
             w = float(self.tx_pre_edge_wt.text())
-
             xx = np.linspace(x[0], x[-1], 1001)
             wt = np.ones(len(x))
             wt[:x0_id-xs_id] = w
             edge_smooth = float(self.tx_edge_smooth.text())
-
             return_flag, img = self.choose_image_for_fittting()
             img = self.smooth(img * self.mask)
-
             s = img.shape
             self.xanes_edge_fit = np.zeros([1, s[1], s[2]])
             self.xanes_peak_fit = np.zeros([1, s[1], s[2]])
             self.xanes_peak_fit_height = np.zeros([1, s[1], s[2]])
             self.spl = {}
-
             if self.rd_peak_max.isChecked():
                 factor = 1
             else:
@@ -3808,7 +3353,6 @@ class App(QWidget):
                     self.xanes_peak_fit_height[0, i, j] = spl(xx[tmp_peak])
                     #tmp = np.argmax(np.abs(np.diff(spl(xx))))
                     self.spl[f'{i},{j}'] = spl
-
             if self.chkbox_edge.isChecked():
                 if self.cb1.findText('XANES Edge Fit') < 0:
                     self.cb1.addItem('XANES Edge Fit')
@@ -3826,9 +3370,6 @@ class App(QWidget):
             self.pb_find_edge_img.setEnabled(True)
             QApplication.processEvents()
             self.update_msg()
-
-
-
 
     def extract_roi_spectrum_data(self, use_current_image = 0):
         try:
@@ -3863,7 +3404,7 @@ class App(QWidget):
             x1, x2 = 0, img.shape[2]
             y1, y2 = 0, img.shape[1]
             roi_selected = 'image average'
-
+            x = []
         if len(self.mask) == 1:
             y_data = np.mean(np.mean(img[:, y1:y2, x1:x2], axis=1), axis=1)
         else:
@@ -3874,8 +3415,7 @@ class App(QWidget):
         cord = [y1, y2, x1, x2]
         return x, y_data, cord, roi_selected
 
-
-
+    '''
     def plot_edge_estimation_obsolete(self):
         try:
             x0 = float(self.tx_edge_pos.text())
@@ -3907,7 +3447,7 @@ class App(QWidget):
         except:
             self.msg = 'fails to draw'
             self.update_msg()
-
+    '''
 
     def plot_fit_edge_peak_roi(self):
         try:
@@ -3936,7 +3476,6 @@ class App(QWidget):
                 for j in col:
                     y_eval += self.spl[f'{int(i)},{int(j)}'](xx)
                     n += 1
-
             y_eval /= n
             plt.figure()
             plt.plot(x, y, '.', label='experiment data')
@@ -3946,8 +3485,6 @@ class App(QWidget):
             plt.show()
         except:
             pass
-
-
 
     def convert_rgb_img(self, img, color_vec):
         s = img.shape
@@ -3962,12 +3499,8 @@ class App(QWidget):
         img_color[:, :, 2] = cB
         return img_color
 
-
-
     def xanes_apply_color_scale(self):
         self.xanes_colormix()
-
-
 
     def xanes_color_scale_up(self):
         current_scale = float(self.tx_color_scale.text())
@@ -3977,8 +3510,6 @@ class App(QWidget):
             self.tx_color_scale.setText(f'{current_scale+0.1:2.1f}')
         self.xanes_colormix()
 
-
-
     def xanes_color_scale_down(self):
         current_scale = float(self.tx_color_scale.text())
         if current_scale >= 2:
@@ -3986,8 +3517,6 @@ class App(QWidget):
         elif current_scale > 0.1:
             self.tx_color_scale.setText(f'{current_scale - 0.1:2.1f}')
         self.xanes_colormix()
-
-
 
     def xanes_colormix(self):
         try:
@@ -4027,30 +3556,6 @@ class App(QWidget):
             img[selected_channel] *= scale
             img_color = self.convert_rgb_img(img, color_vec)
             self.img_colormix = deepcopy(img_color)
-
-            '''
-            s = img.shape
-            img_color = np.zeros([s[1], s[2], 3])
-            cR, cG, cB = 0, 0, 0
-            for i in range(s[0]):
-                cR += img[i] * color_vec[i][0]
-                cG += img[i] * color_vec[i][1]
-                cB += img[i] * color_vec[i][2]
-            img_color[:,:,0] = cR
-            img_color[:,:,1] = cG
-            img_color[:,:,2] = cB
-            '''
-            '''
-            self.figure['f'].clf()
-            self.figure['ax'].clear()
-            self.figure['ax'] = self.figure['f'].add_subplot(111)
-            self.figure['ax'].imshow(img_color)
-            self.figure['f'].show()
-            
-            plt.figure()
-            plt.imshow(img_color)
-            plt.show()
-            '''
             print('plot the colormix ')
 
             if self.cb1.findText('Color mix') < 0:
@@ -4062,21 +3567,23 @@ class App(QWidget):
         except:
             pass
 
-
-
     def convert_rgb_vector(self, color):
         n = len(color)
         vec = np.zeros([n, 3])
         for i in range(n):
-            if color[i] == 'r': vec[i] = [1, 0, 0]
-            if color[i] == 'g': vec[i] = [0, 1, 0] 
-            if color[i] == 'b': vec[i] = [0, 0, 1]
-            if color[i] == 'c': vec[i] = [0, 1, 1] 
-            if color[i] == 'p': vec[i] = [1, 0, 1] 
-            if color[i] == 'y': vec[i] = [1, 1, 0]
+            if color[i] == 'r':
+                vec[i] = [1, 0, 0]
+            if color[i] == 'g':
+                vec[i] = [0, 1, 0]
+            if color[i] == 'b':
+                vec[i] = [0, 0, 1]
+            if color[i] == 'c':
+                vec[i] = [0, 1, 1]
+            if color[i] == 'p':
+                vec[i] = [1, 0, 1]
+            if color[i] == 'y':
+                vec[i] = [1, 1, 0]
         return vec 
-
-
 
     def save_2Dfit(self):
         pre_s = float(self.tx_fit_pre_s.text())
@@ -4088,10 +3595,9 @@ class App(QWidget):
         s = mask.shape
         if len(s) == 2:
             mask = mask.reshape(1, s[0], s[1])
-            
-        img = self.xanes_2d_fit #/ np.sum(self.xanes_2d_fit, axis=0, keepdims=True)
+        img = self.xanes_2d_fit  #/ np.sum(self.xanes_2d_fit, axis=0, keepdims=True)
         img_sum = np.sum(img, axis=0, keepdims=True)
-        img_sum[np.abs(img_sum)<1e-6] = 1e6
+        img_sum[np.abs(img_sum) < 1e-6] = 1e6
         img = img / img_sum
         img = rm_abnormal(img)
         if not label:
@@ -4114,7 +3620,6 @@ class App(QWidget):
             hf.create_dataset('xanes_fit_concentration', data=self.xanes_2d_fit * self.img_pre_edge_sub_mean * mask)
             hf.create_dataset('mask', data=mask)
             '''
-
             for key, val in self.data_summary.items():
                 try:
                     attr_name = key.replace(' ', '_')
@@ -4122,7 +3627,7 @@ class App(QWidget):
                 except:
                     pass
             for i in range(self.num_ref):
-                hf.create_dataset(f'ref{(i)}', data=label[i])
+                hf.create_dataset(f'ref{i}', data=label[i])
             hf.close()
             print(f'xanes_fit has been saved to file: {fn}')
             self.msg = f'xanes_fit has been saved to file: {fn}'
@@ -4130,8 +3635,6 @@ class App(QWidget):
             self.msg = 'file saving fails ...'
         finally:
             self.update_msg()
-
-
 
     def remove_bkg(self):
         '''
@@ -4176,8 +3679,6 @@ class App(QWidget):
             self.cb1.setCurrentText('Image updated')
             self.update_canvas_img()
 
-
-
     def xanes_img_smooth(self):
         self.pb_filt.setEnabled(False)
         self.pb_filt.setText('Smoothing ...')
@@ -4191,8 +3692,6 @@ class App(QWidget):
         self.update_msg()
         QApplication.processEvents()
 
-
-
     def smooth(self, img, axis=0):
         img_stack = deepcopy(img)
         if self.smooth_param['flag'] == 1:
@@ -4205,7 +3704,6 @@ class App(QWidget):
             finally:
                 self.smooth_param['flag'] = 0
         return img_stack
-
 
     def get_roi_mask(self, roi_list, roi_item, roi_shape):
         if 'SM' in roi_item.text():
@@ -4223,16 +3721,15 @@ class App(QWidget):
             x2 = max(a, c)
             y1 = min(b, d)
             y2 = max(b, d)
-            mask_roi[ y1:y2, x1:x2] = 1
+            mask_roi[y1:y2, x1:x2] = 1
             mask_type = 'ROI'
         return mask_roi, mask_type
-
 
     def plot_spectrum(self):
         canvas = self.canvas1
         img_stack = deepcopy(canvas.img_stack)
         roi_shape = img_stack.shape
-        plt.figure();
+        plt.figure()
         roi_color = canvas.roi_color
         roi_list = canvas.roi_list
         x = self.xanes_eng
@@ -4249,23 +3746,6 @@ class App(QWidget):
                     plot_color = roi_color[item.text()]
                     line, = plt.plot(x, roi_spec, marker='.', color=plot_color, label=plot_label)
                     legend.append(line)
-
-                    '''
-                    if not 'SM' in item.text():
-                        plot_color = roi_color[item.text()]
-                        roi_cord = np.int32(np.array(roi_list[item.text()][:4]))
-                        plot_label = item.text()
-                        a,b,c,d = roi_cord[0], roi_cord[1], roi_cord[2], roi_cord[3]
-                        x1 = min(a, c)
-                        x2 = max(a, c)
-                        y1 = min(b, d)
-                        y2 = max(b, d)
-                        roi_spec = np.mean(np.mean(img_stack[:, y1:y2, x1:x2], axis=1), axis=1)
-                        line, = plt.plot(x, roi_spec, marker='.', color=plot_color, label=plot_label)
-                        legend.append(line)
-                    else: # smart mask
-                        pass
-                    '''
             else:
                 mask = self.mask
                 if np.squeeze(mask).shape != img_stack[0].shape:
@@ -4280,38 +3760,33 @@ class App(QWidget):
             self.msg = 'no spectrum available for current image stack ...'
             self.update_msg()
 
-
-
     def evaluate_glitch(self):
             canvas = self.canvas1
             img_stack = deepcopy(canvas.img_stack)
             roi_list = canvas.roi_list
-            
             x = self.xanes_eng
             item = self.lst_roi.selectedItems()[0]
             roi_cord = np.int32(np.array(roi_list[item.text()][:4]))
-            a,b,c,d = roi_cord[0], roi_cord[1], roi_cord[2], roi_cord[3]
+            a, b, c, d = roi_cord[0], roi_cord[1], roi_cord[2], roi_cord[3]
             x1 = min(a, c)
             x2 = max(a, c)
             y1 = min(b, d)
             y2 = max(b, d)
-            roi_spec = np.mean(np.mean(img_stack[:, y1:y2, x1:x2, ], axis=1), axis=1)
+            roi_spec = np.mean(np.mean(img_stack[:, y1:y2, x1:x2], axis=1), axis=1)
             roi_spec_median = medfilt(roi_spec, 5)
             self.roi_spec_dif = roi_spec/roi_spec_median
             plt.figure()
-            plt.subplot(2,1,1)          
+            plt.subplot(2, 1, 1)
             plt.plot(x[:-1], self.roi_spec_dif[:-1], 'r.')
             plt.title('Identify the threshold for removing glitch')
             plt.subplots_adjust(hspace = 0.5)
-            plt.subplot(2,1,2)
+            plt.subplot(2, 1, 2)
             plt.plot(x, roi_spec, 'b.-')
             plt.plot(x[:-1], roi_spec_median[:-1], 'r.-')
             plt.title(f'median value: {np.median(self.roi_spec_dif)}')
             plt.show()
             self.msg = 'no spectrum available for current image stack ...'
             self.update_msg()
-
-
 
     def remove_glitch(self):
         tmp = self.tx_glitch_thresh.text()           
@@ -4349,8 +3824,6 @@ class App(QWidget):
                     self.update_msg()
             self.update_canvas_img()
             QApplication.processEvents()
-  
-
 
     def show_roi(self):
         plt.figure()
@@ -4358,12 +3831,11 @@ class App(QWidget):
         canvas.show_roi_flag = True
         current_img = canvas.current_img
         current_colormap = canvas.colormap
-        #cmin, cmax = canvas.cmin, canvas.cmax
+        # cmin, cmax = canvas.cmin, canvas.cmax
         self.update_canvas_img()
-        #canvas.update_img_stack()
+        # canvas.update_img_stack()
         mask = canvas.mask
         s = current_img.shape
-
         type_index = self.cb1.currentText()
         cmax = np.float(self.tx_cmax.text())
         cmin = np.float(self.tx_cmin.text())
@@ -4378,9 +3850,7 @@ class App(QWidget):
 
         if len(mask.shape) > 1:
             print(f'canvas_mask.shape = {canvas.mask.shape}')
-            sh = canvas.img_stack.shape
             canvas.special_info = None
-
         plt.axis('equal')
         plt.axis('off')
         plt.colorbar()
@@ -4410,18 +3880,14 @@ class App(QWidget):
                 plt.imshow(mask_roi)
         plt.show()
 
-
-
     def hide_roi(self):
         canvas = self.canvas1
         canvas.show_roi_flag = False
         self.update_canvas_img()
 
-
-
     def export_spectrum(self):
         self.show_roi()
-        #self.tx_file_index = int(self.tx_file_index.text())
+        # self.tx_file_index = int(self.tx_file_index.text())
         '''
         try:
             os.makedirs(self.fpath + '/ROI')
@@ -4437,12 +3903,6 @@ class App(QWidget):
         '''
         make_director_success = 1 # temporay to enable saving anyway
         if make_director_success:
-            #fn_spec = 'spectrum_roi_from_' + self.cb1.currentText() + '_' + self.tx_file_index.text() + '.txt'
-            #fn_spec = self.fpath + '/ROI/' + fn_spec
-
-            #fn_cord = 'coordinates_roi_from_' + self.cb1.currentText() + '_' + self.tx_file_index.text() + '.txt'
-            #fn_cord = self.fpath + '/ROI/' + fn_cord
-
             canvas = self.canvas1
             img_stack = deepcopy(canvas.img_stack)
             s = img_stack.shape
@@ -4454,30 +3914,17 @@ class App(QWidget):
                 for item in self.lst_roi.selectedItems():
                     plot_label = item.text()
                     mask_roi, mask_type = self.get_roi_mask(roi_list, item, s)
-                    ''''
-                    roi_cord = np.int32(np.array(roi_list[item.text()][:4]))
-                    a, b, c, d = roi_cord[0], roi_cord[1], roi_cord[2], roi_cord[3]
-                    x1 = min(a, c)
-                    x2 = max(a, c)
-                    y1 = min(b, d)
-                    y2 = max(b, d)
-                    area = (x2 - x1) * (y2 - y1)
-                    '''
                     roi_spec = np.sum(np.sum(img_stack * mask_roi, axis=1), axis=1) / np.sum(mask_roi)
                     roi_spec = np.around(roi_spec, 9)
                     roi_dict_spec[plot_label] = pd.Series(roi_spec)
-                    #roi_dict_cord[plot_label] = pd.Series([x1, y1, x2, y2, area], index=['x1', 'y1', 'x2', 'y2', 'area'])
             else:
                 mask = self.mask
                 if np.squeeze(mask).shape != img_stack[0].shape:
                     mask = np.ones(img_stack[0].shape)
                 roi_spec = np.sum(np.sum(img_stack * mask, axis=1), axis=1) / np.sum(mask)
                 roi_dict_spec = {'-1':pd.Series(roi_spec)}
-                #roi_dict_cord = {'-1':pd.Series([0, 0, s[1], s[2], s[1]*s[2]], index=['x1', 'y1', 'x2', 'y2', 'area'])}
 
             df_spec = pd.DataFrame(roi_dict_spec)
-            #df_cord = pd.DataFrame(roi_dict_cord)
-
             options = QFileDialog.Option()
             options |= QFileDialog.DontUseNativeDialog
             file_type = 'txt files (*.txt)'
@@ -4485,18 +3932,13 @@ class App(QWidget):
             if fn[-4:] == '.txt':
                 fn = fn[:-4]
             fn_spec = f'{fn}_spec.txt'
-            #fn_cord = f'{fn}_cord.txt'
             with open(fn_spec, 'w') as f:
                 df_spec.to_csv(f, float_format='%.9f', sep=' ', index=False)
-            #with open(fn_cord, 'w') as f:
-            #    df_cord.to_csv(f, float_format='%.5f', sep=' ')
             self.roi_file_id += 1
             self.tx_file_index.setText(str(self.roi_file_id))
             print(fn_spec + '  saved')
             self.msg = 'ROI spectrum file saved:   ' + fn_spec
             self.update_msg()
-        
-
 
     def reset_roi(self):
         canvas = self.canvas1
@@ -4514,15 +3956,11 @@ class App(QWidget):
         self.tx_roi_y1.setText('{:3.1f}'.format(0))
         self.tx_roi_y2.setText('{:3.1f}'.format(s[0]))
 
-
-
     def draw_roi(self):
         self.pb_roi_draw.setEnabled(False)
         QApplication.processEvents()
         canvas = self.canvas1
         canvas.draw_roi()
-
-
 
     def load_external_spec(self):
         options = QFileDialog.Option()
@@ -4543,8 +3981,6 @@ class App(QWidget):
                 plt.show()
             except:
                 print('un-supported spectrum format')
-
-
 
     def norm_external_spec(self):
         try:
@@ -4571,7 +4007,6 @@ class App(QWidget):
             self.msg = 'faild to fit external spectrum'
             self.update_msg()
 
-
     def save_external_spec(self):
         try:
             options = QFileDialog.Option()
@@ -4579,17 +4014,15 @@ class App(QWidget):
             file_type = 'txt files (*.txt)'
             fn, _ = QFileDialog.getSaveFileName(self, 'Save File', "", file_type, options=options)
             if fn:
-                if fn.split('.')[-1] != 'txt':
+                if not fn[-4:] == 'txt':
                     fn += '.txt'
                 np.savetxt(fn, np.array(self.external_spec_fit), '%2.5f')
                 print(fn + '  saved')
                 self.msg = f'{fn} is saved'
-
         except:
             self.msg = 'fails to save normed external spectrum'
         finally:
             self.update_msg()
-
 
     def fit_edge(self):
         try:
@@ -4619,7 +4052,7 @@ class App(QWidget):
                 y2 = max(b, d)
                 roi_spec = np.mean(np.mean(img_stack[:, y1:y2, x1:x2, ], axis=1), axis=1)
                 roi_spec_fit[:,n], y_pre_fit, y_post_fit = normalize_1D_xanes(roi_spec, x_eng, [pre_s, pre_e], [post_s, post_e])
-                plt.subplots_adjust(hspace = 0.5)
+                plt.subplots_adjust(hspace=0.5)
                 plt.plot(x_eng, roi_spec, '.', color='gray')
                 plt.plot(x_eng, y_pre_fit, 'b', linewidth=1)
                 plt.plot(x_eng, y_post_fit + y_pre_fit, 'r', linewidth=1)
@@ -4633,8 +4066,6 @@ class App(QWidget):
             self.msg = 'Fitting error ...'
             self.update_msg()
 
-
-
     def save_normed_roi(self):
         try:
             os.makedirs(self.fpath + '/ROI/fitted_roi')
@@ -4644,10 +4075,8 @@ class App(QWidget):
         try:
             fn_spec = 'fitted_spectrum_roi_from_' + self.cb1.currentText() + '_' + self.tx_file_index.text() + '.txt'
             fn_spec = self.fpath + '/ROI/fitted_roi/' + fn_spec
-    
-            fn_cord = 'fitted_coordinates_roi_from_' + self.cb1.currentText() + '_' + self.tx_file_index.text() + '.txt'
-            fn_cord = self.fpath + '/ROI/fitted_roi/' + fn_cord
-    
+            # fn_cord = 'fitted_coordinates_roi_from_' + self.cb1.currentText() + '_' + self.tx_file_index.text() + '.txt'
+            # fn_cord = self.fpath + '/ROI/fitted_roi/' + fn_cord
             canvas = self.canvas1            
             roi_spec = deepcopy(self.roi_spec)
             roi_spec = np.around(roi_spec, 4)
@@ -4675,8 +4104,10 @@ class App(QWidget):
             file_type = 'txt files (*.txt)'
             fn, _ = QFileDialog.getSaveFileName(self, 'Save File', "", file_type, options=options)
             if fn:
-                np.savetxt(fn+'.txt', np.array(df_spec), '%2.5f')
-                fn_cord_another = fn+f'_fitted_coordinates_roi_from_{self.cb1.currentText()}_{self.tx_file_index.text()}.txt'
+                if not fn[-4:] == '.txt':
+                    fn += 'txt'
+                np.savetxt(fn, np.array(df_spec), '%2.5f')
+                # fn_cord_another = fn+f'_fitted_coordinates_roi_from_{self.cb1.currentText()}_{self.tx_file_index.text()}.txt'
                 with open(fn_spec, 'w') as f:
                     df_cord.to_csv(f, sep=' ')
                 print(fn_spec + '  saved')
@@ -4685,8 +4116,6 @@ class App(QWidget):
             self.msg = 'Save fitted roi spectrum fails ...'
         finally:
             self.update_msg()
-
-
 
     def fit_edge_img(self):
         pre_s = float(self.tx_fit_pre_s.text())
@@ -4699,7 +4128,6 @@ class App(QWidget):
             self.pb_fit_img.setEnabled(False)
             QApplication.processEvents()
             img_norm = deepcopy(canvas.img_stack) * self.mask
-            s0 = img_norm.shape
             x_eng = deepcopy(self.xanes_eng)
             pre_edge_only_flag = 1 if self.chkbox_norm_pre_edge_only.isChecked() else 0
             if self.rd_norm1.isChecked():
@@ -4707,7 +4135,7 @@ class App(QWidget):
                 self.msg = '2D Spectra image normalized (using method1)'
             elif self.rd_norm2.isChecked():
                 img_norm, tmp = normalize_2D_xanes_old(img_norm, x_eng, [pre_s, pre_e], [post_s, post_e], pre_edge_only_flag)
-                #if len(self.img_pre_edge_sub_mean.shape) == 1:
+                # if len(self.img_pre_edge_sub_mean.shape) == 1:
                 #    self.img_pre_edge_sub_mean = tmp
                 self.img_pre_edge_sub_mean = tmp
                 self.msg = '2D Spectra image normalized (using method2)'
@@ -4731,8 +4159,6 @@ class App(QWidget):
             QApplication.processEvents()
             self.update_msg()
 
-
-
     def regular_edge_img(self):
         try:
             canvas = self.canvas1
@@ -4744,7 +4170,6 @@ class App(QWidget):
             x_eng = deepcopy(self.xanes_eng)
             regular_max = float(self.tx_reg_max.text())
             regular_width = float(self.tx_reg_width.text())
-
             self.pb_reg_img.setText('wait ...')
             self.pb_reg_img.setEnabled(False)
             QApplication.processEvents()
@@ -4761,8 +4186,6 @@ class App(QWidget):
             self.pb_reg_img.setEnabled(True)
             QApplication.processEvents()
             self.update_msg()
-
-
 
     def save_img_stack(self):
         try:
@@ -4781,7 +4204,6 @@ class App(QWidget):
                     fn += '.tiff'
                 io.imsave(fn, img_stack)
                 print(f'current image stack has been saved to file: {fn}')
-
                 self.msg = f'image stack saved to: {fn}'
         except:
             self.msg = 'file saving fails ...'
@@ -4789,8 +4211,6 @@ class App(QWidget):
             self.update_msg()
             self.pb_save_img_stack.setEnabled(True)
             QApplication.processEvents()
-       
-
 
     def save_img_single(self):
         try:
@@ -4800,10 +4220,9 @@ class App(QWidget):
             cmax = np.float(self.tx_cmax.text())
             cmin = np.float(self.tx_cmin.text())
             if self.cb1.currentText() == 'Color mix':
-
                 img = self.img_colormix
                 for i in range(img.shape[2]):
-                    img[:,:, i] = img[:,:,i] * canvas.rgb_mask
+                    img[:, :, i] = img[:, :, i] * canvas.rgb_mask
                 plt.figure()
                 img = (img - cmin) / (cmax - cmin)
                 plt.imshow(img, clim=[cmin, cmax])
@@ -4815,7 +4234,7 @@ class App(QWidget):
                 options |= QFileDialog.DontUseNativeDialog
                 file_type = 'tif files (*.tiff)'
                 fn, _ = QFileDialog.getSaveFileName(self, 'Save File', "", file_type, options=options)
-                if not(fn[-5:] == '.tiff' or fn[-4:]=='.tif'):
+                if not(fn[-5:] == '.tiff' or fn[-4:] =='.tif'):
                     fn += '.tiff'
                 io.imsave(fn, img_stack)
                 print(f'current image has been saved to file: {fn}')
@@ -4831,8 +4250,6 @@ class App(QWidget):
             self.pb_save_img_single.setEnabled(True)
             QApplication.processEvents()
 
-
-
     def delete_single_img(self):
         canvas = self.canvas1
         if canvas.img_stack.shape[0] < 2:
@@ -4845,7 +4262,7 @@ class App(QWidget):
             msg.setStandardButtons(QMessageBox.Ok | QMessageBox.Cancel)
             reply = msg.exec_()
             if reply == QMessageBox.Ok:
-                img_type = self.cb1.currentText()
+                #img_type = self.cb1.currentText()
                 current_slice = self.sl1.value()
                 try:
                     self.img_xanes = np.delete(self.img_xanes, current_slice, axis=0)
@@ -4865,8 +4282,6 @@ class App(QWidget):
                 self.update_msg()
                 self.update_canvas_img()
 
-
-
     def load_energy(self):
         options = QFileDialog.Option()
         options |= QFileDialog.DontUseNativeDialog
@@ -4875,8 +4290,7 @@ class App(QWidget):
             dataset_eng = self.tx_hdf_eng.text()
         else:
             dataset_eng = 'X_eng'
-
-        if self.rd_hdf_eng.isChecked() == True:
+        if self.rd_hdf_eng.isChecked():
             file_type = 'hdf files (*.h5)'
             file_txt_flag = 0
         else:                                           # self.rd_txt_eng.isChecked() == True:
@@ -4910,16 +4324,15 @@ class App(QWidget):
             self.update_msg()
             self.update_canvas_img()
 
-        
-
     def open_imagej(self):
-        os.system('imagej &')
-        
+        try:
+            os.system('imagej &')
+        except:
+            self.msg = 'can not find/open imagej'
+            self.update_msg()
 
     def close_all_figures(self):
         plt.close('all')
-
-
 
     def load_image(self):
         self.default_layout()
@@ -4933,14 +4346,13 @@ class App(QWidget):
             dataset_eng = self.tx_hdf_eng.text()
         else:
             dataset_eng = 'X_eng'
-        
         options = QFileDialog.Option()
         options |= QFileDialog.DontUseNativeDialog
-        if self.rd_hdf.isChecked() == True:
+        if self.rd_hdf.isChecked():
             file_type = 'hdf files (*.h5)'
             flag_read_from_file = 1
             flag_read_from_database =0
-        elif self.rd_tif.isChecked() == True:
+        elif self.rd_tif.isChecked():
             print('read tiff or tif file')
             file_type = 'tif files (*.tif, *.tiff)'
             flag_read_from_file = 1
@@ -4948,7 +4360,6 @@ class App(QWidget):
         else:
             flag_read_from_database = 1
             flag_read_from_file = 0
-            
         if flag_read_from_file:
             fn, _ = QFileDialog.getOpenFileName(xanes, "QFileDialog.getOpenFileName()", "", file_type, options=options)
             if fn:
@@ -4956,10 +4367,9 @@ class App(QWidget):
                 fn_relative = fn.split('/')[-1]
                 self.fpath = fn[:-len(fn_relative)-1]
                 print(f'current path: {self.fpath}')
-                self.fn_relative = fn_relative
 
                 self.lb_ip.setStyleSheet('color: rgb(200, 50, 50);')
-                if self.rd_hdf.isChecked() == True:  # read hdf file
+                if self.rd_hdf.isChecked():  # read hdf file
                     f = h5py.File(fn, 'r')
                     # read energy
                     try:
@@ -4982,7 +4392,6 @@ class App(QWidget):
                         self.pb_eng.setVisible(True)
                         self.msg = self.msg + ';  Energy list not exist'
                         self.update_msg()
-
                     # read xanes-scan image
                     try:
                         self.img_xanes = np.array(f[dataset_xanes])
@@ -4990,10 +4399,8 @@ class App(QWidget):
                         if len(s) == 2:
                             self.img_xanes = np.expand_dims(self.img_xanes, axis=0)
                         self.img_update = deepcopy(self.img_xanes)
-                        self.rot_cen = self.img_xanes.shape[2] / 2
                         print('Image size: ' + str(self.img_xanes.shape))
                         self.pb_norm_txm.setEnabled(True)
-
                         self.pb_align.setEnabled(True)
                         self.pb_del.setEnabled(True)  # delete single image
                         self.pb_filt.setEnabled(True)  # delete single image
@@ -5001,11 +4408,9 @@ class App(QWidget):
                         self.pb_align_roi.setEnabled(True)
                         self.msg = 'image shape: {0}'.format(self.img_xanes.shape)
                         self.lb_ip.setText('File loaded:   {}'.format(fn))
-
                         if self.cb1.findText('Raw image') < 0:
                             self.cb1.addItem('Raw image')
                         self.cb1.setCurrentText('Raw image')
-
                         print(f'num of eng: {len(self.xanes_eng)}   image_shape: {self.img_xanes.shape}')
                         if (len(self.xanes_eng) != self.img_xanes.shape[0]):
                             self.msg = 'number of energy does not match number of images, try manual input ...'
@@ -5018,7 +4423,6 @@ class App(QWidget):
                         self.update_canvas_img()
                         self.update_msg()
                     f.close()
-    
                 else:  # read tiff file
                     try:
                         self.img_xanes = np.array(io.imread(fn))
@@ -5052,14 +4456,10 @@ class App(QWidget):
         self.pb_ld.setEnabled(True)
         QApplication.processEvents()
 
-
-
     def update_msg(self):
         self.lb_msg.setFont(self.font1)
         self.lb_msg.setText('Message: ' + self.msg)
         self.lb_msg.setStyleSheet('color: rgb(200, 50, 50);')
-
-
 
     def manu_energy_input(self):
         energy_list_old = deepcopy(self.xanes_eng)
@@ -5078,8 +4478,6 @@ class App(QWidget):
         finally:
             self.update_msg()
 
-
-
     def sliderval(self):
         canvas = self.canvas1
         img_index = self.sl1.value()
@@ -5088,20 +4486,15 @@ class App(QWidget):
         img = canvas.img_stack[img_index]
         canvas.update_img_one(img, img_index=img_index)
 
-
-
     def get_slider_color_scale_value(self):
         t = self.sl_color.value()
         t = np.power(10, t / 50. - 1)
         return t
 
-
-
     def slider_color_scale(self):
         scale = self.get_slider_color_scale_value()
         self.lb_colormax.setText(f'x {scale:1.2f}')
         selected_channel = int(self.cb_color_channel.currentText())
-        canvas = self.canvas1
         if self.cb1.currentText() == 'Color mix':
             img = self.img_colormix_raw
             img[selected_channel] *= scale
@@ -5110,8 +4503,6 @@ class App(QWidget):
         else:
             self.msg = 'invalid colormix'
             self.update_msg()
-
-
 
     def norm_txm(self):
         self.pb_norm_txm.setText('wait ...')
@@ -5137,8 +4528,6 @@ class App(QWidget):
         else:
             self.update_canvas_img()
 
-
-
     def xanes_align_img(self):
         self.pb_align.setText('Aligning ...')
         QApplication.processEvents()
@@ -5160,7 +4549,6 @@ class App(QWidget):
                     elif self.rd_ali2.isChecked():
                         _, rsft, csft = align_img(prj[i - 1], prj[i])
                         img_ali[i] = shift(canvas.img_stack[i], [rsft, csft], mode='constant', cval=0)
-
                     self.shift_list.append([rsft, csft])
                     self.msg = f'Aligned image slice {i}, row_shift: {rsft:3.2f}, col_shift: {csft:3.2f}'
                     self.update_msg()
@@ -5170,13 +4558,11 @@ class App(QWidget):
                     print('Aligning image slice ' + str(i))
                     self.msg = 'Aligning image slice ' + str(i)
                     self.update_msg()
-
                     if self.rd_ali1.isChecked():
                         img_ali[i], rsft, csft = align_img_stackreg(prj[ref_index], prj[i])
                     elif self.rd_ali2.isChecked():
                         _, rsft, csft = align_img(prj[ref_index], prj[i])
                         img_ali[i] = shift(canvas.img_stack[i], [rsft, csft], mode='constant', cval=0)
-
                     self.msg = f'Aligned image slice {i}, row_shift: {rsft:3.2f}, col_shift: {csft:3.2f}'
                     self.update_msg()
                     self.shift_list.append([rsft, csft])
@@ -5197,8 +4583,6 @@ class App(QWidget):
         finally:
             self.update_msg()
             del prj, img_ali
-
-
 
     def xanes_align_img_roi(self):
         self.pb_align_roi.setText('Aligning ...')
@@ -5250,7 +4634,6 @@ class App(QWidget):
                 else:  # align all images with image_stack[ref_index]
                     for i in range(0, s[0]):
                         print('Aligning image slice ' + str(i))
-
                         if self.rd_ali1.isChecked():
                             _, rsft, csft = align_img_stackreg(prj[ref_index], prj[i])
                         elif self.rd_ali2.isChecked():
@@ -5272,15 +4655,12 @@ class App(QWidget):
             finally:
                 self.pb_align_roi.setText('Align Img (ROI)')
                 self.pb_align_roi.setEnabled(True)
-                self.update_msg()
-                #del prj, img_ali
+                self.update_msg()      
         else:
             self.pb_align_roi.setText('Align Img (ROI)')
             self.pb_align_roi.setEnabled(True)
             self.msg = 'Invalid roi index for aligning, nothing applied'
             self.update_msg()
-
-
 
     def apply_shift(self):
         canvas =self.canvas1
@@ -5305,8 +4685,6 @@ class App(QWidget):
             self.msg = 'Applied shift to current image stack, Image upated'
         self.update_msg()
 
-
-
     def load_shift(self):
         options = QFileDialog.Option()
         options |= QFileDialog.DontUseNativeDialog
@@ -5325,8 +4703,6 @@ class App(QWidget):
                 print('un-recognized shift list')
             finally:
                 self.update_msg()
-
-
 
     def save_shift(self):
         num = len(self.shift_list)
@@ -5348,8 +4724,6 @@ class App(QWidget):
                 self.msg = f'fails to save {fn}'
         self.update_msg()
 
-
-
     def update_canvas_img(self):
         canvas = self.canvas1
         slide = self.sl1
@@ -5359,7 +4733,6 @@ class App(QWidget):
         self.pb_adj_cmap.setEnabled(True)
         self.pb_set_cmap.setEnabled(True)
         self.pb_del.setEnabled(True)
-
         if len(canvas.mask.shape) > 1:
             print(f'canvas_mask.shape = {canvas.mask.shape}')
             sh = canvas.img_stack.shape
@@ -5417,9 +4790,9 @@ class App(QWidget):
             elif type_index == 'XANES Fit (ratio, summed to 1)': # will be saved
                 self.img_colormix_raw = np.array([])
                 canvas.rgb_flag = 0
-                img = self.xanes_2d_fit #/ np.sum(self.xanes_2d_fit, axis=0, keepdims=True)
+                img = self.xanes_2d_fit  #/ np.sum(self.xanes_2d_fit, axis=0, keepdims=True)
                 img_sum = np.sum(img, axis=0, keepdims=True)
-                img_sum[np.abs(img_sum)<1e-6] = 1e6
+                img_sum[np.abs(img_sum) < 1e-6] = 1e6
                 img = img / img_sum
                 img = rm_abnormal(img)
                 self.pb_roi_draw.setEnabled(True)
@@ -5428,7 +4801,7 @@ class App(QWidget):
                 sh = img.shape
                 canvas.img_stack = self.smooth(img)
                 canvas.special_info = None
-                #canvas.current_img_index = 0
+                # canvas.current_img_index = 0
                 canvas.current_img_index = self.sl1.value()
                 canvas.title = self.elem_label
                 canvas.update_img_stack()
@@ -5462,7 +4835,7 @@ class App(QWidget):
                 canvas.axes.clear()  # this is important, to clear the current image before another imshow()
                 canvas.img_stack = self.smooth(img)
                 canvas.special_info = None
-                #canvas.current_img_index = 0
+                # canvas.current_img_index = 0
                 canvas.current_img_index = self.sl1.value()
                 canvas.title = []
                 canvas.update_img_stack()
@@ -5530,7 +4903,7 @@ class App(QWidget):
                 canvas.axes.clear()  # this is important, to clear the current image before another imshow()
                 canvas.img_stack = self.smooth(img)
                 canvas.special_info = None
-                #canvas.current_img_index = 0
+                # canvas.current_img_index = 0
                 canvas.current_img_index = self.sl1.value()
                 canvas.title = []
                 canvas.update_img_stack()
@@ -5545,7 +4918,7 @@ class App(QWidget):
                 canvas.axes.clear()  # this is important, to clear the current image before another imshow()
                 canvas.img_stack = self.smooth(img)
                 canvas.special_info = None
-                #canvas.current_img_index = 0
+                # canvas.current_img_index = 0
                 canvas.current_img_index = self.sl1.value()
                 canvas.title = []
                 canvas.update_img_stack()
@@ -5576,13 +4949,12 @@ class App(QWidget):
                 canvas.img_stack = self.smooth(img)
                 canvas.special_info = None
                 canvas.current_img_index = 0
-                #canvas.current_img_index = self.sl1.value()
+                # canvas.current_img_index = self.sl1.value()
                 canvas.title = []
                 canvas.update_img_stack()
                 slide.setMaximum(0)
                 self.current_image = img[0]
                 self.data_summary[type_index] = self.canvas1.img_stack
-
             elif type_index == 'XANES Peak Fit':
                 self.img_colormix_raw = np.array([])
                 canvas.rgb_flag = 0
@@ -5600,7 +4972,7 @@ class App(QWidget):
                     self.tx_cmax.setText(f'{canvas.cmax}')
                 except:
                     pass
-                #canvas.current_img_index = self.sl1.value()
+                # canvas.current_img_index = self.sl1.value()
                 canvas.title = []
                 canvas.update_img_stack()
                 slide.setMaximum(0)
@@ -5649,22 +5021,19 @@ class App(QWidget):
                 canvas.rgb_flag = 1
                 cmax = np.float(self.tx_cmax.text())
                 cmin = np.float(self.tx_cmin.text())
-     #           img = (img - cmin) / (cmax - cmin)
+                # img = (img - cmin) / (cmax - cmin)
                 canvas.img_stack = img
                 canvas.cmin = cmin
                 canvas.cmax = cmax
                 canvas.current_img_index = 0
                 canvas.title = 'RGB colormix'
                 slide.setMaximum(0)
-                #canvas.update_img_stack()
+                # canvas.update_img_stack()
                 canvas.set_contrast(cmin, cmax)
         except:
             self.msg = f'fails to update {type_index}'
             self.update_msg()
         QApplication.processEvents()
-
-
-
 
     def update_roi_list(self, mode='add', item_name=''):
         # de-select all the existing selection
@@ -5681,8 +5050,6 @@ class App(QWidget):
             for selectItem in self.lst_roi.selectedItems():
                 self.lst_roi.removeItemWidget(selectItem)
 
-
-
     def change_colormap(self):
         canvas = self.canvas1
         cmap = self.cb_cmap.currentText()
@@ -5690,22 +5057,17 @@ class App(QWidget):
         canvas.colorbar_on_flag = True
         canvas.update_img_one(canvas.current_img, canvas.current_img_index)
 
-
-
     def auto_contrast(self):
         canvas = self.canvas1
         cmin, cmax = canvas.auto_contrast()
         self.tx_cmax.setText('{:6.3f}'.format(cmax))
         self.tx_cmin.setText('{:6.3f}'.format(cmin))
 
-
-
     def set_contrast(self):
         canvas = self.canvas1
         cmax = np.float(self.tx_cmax.text())
         cmin = np.float(self.tx_cmin.text())
         canvas.set_contrast(cmin, cmax)
-
 
 
 class MyCanvas(FigureCanvas):
@@ -5744,7 +5106,6 @@ class MyCanvas(FigureCanvas):
         self.setParent(parent)
         self.mpl_connect('motion_notify_event', self.mouse_moved)
 
-
     def mouse_moved(self, mouse_event):
         if mouse_event.inaxes:
             x, y = mouse_event.xdata, mouse_event.ydata
@@ -5758,10 +5119,9 @@ class MyCanvas(FigureCanvas):
             except:
                 self.obj.lb_z_l.setText('')
 
-
     def update_img_stack(self):
         self.axes = self.fig.add_subplot(111)
-        if self.rgb_flag: # RGB image
+        if self.rgb_flag:  # RGB image
             return self.update_img_one(self.img_stack)
         elif self.img_stack.shape[0] == 0:
             img_blank = np.zeros([100, 100])
@@ -5773,7 +5133,6 @@ class MyCanvas(FigureCanvas):
             if self.current_img_index >= len(self.img_stack):
                 self.current_img_index = 0
             return self.update_img_one(self.img_stack[self.current_img_index], img_index=self.current_img_index)
-
 
     def update_img_one(self, img=np.array([]), img_index=0):
         self.axes.clear()
@@ -5808,7 +5167,6 @@ class MyCanvas(FigureCanvas):
         except:
             print('Error in updating image')
 
-
     def add_line(self):
         if self.draw_line:
             if self.overlay_flag:
@@ -5822,18 +5180,15 @@ class MyCanvas(FigureCanvas):
                 self.axes.set_aspect('auto')
                 self.draw()
 
-
     def draw_roi(self):
         self.cidpress = self.mpl_connect('button_press_event', self.on_press)
         self.cidrelease = self.mpl_connect('button_release_event', self.on_release)
         self.show_roi_flag = True
 
-
     def on_press(self, event):
         x1, y1 = event.xdata, event.ydata
         self.current_roi[0] = x1
         self.current_roi[1] = y1
-
 
     def on_release(self, event):
         x2, y2 = event.xdata, event.ydata
@@ -5844,11 +5199,9 @@ class MyCanvas(FigureCanvas):
         self.roi_display(self.current_roi)
         self.roi_disconnect()
 
-
     def roi_disconnect(self):
         self.mpl_disconnect(self.cidpress)
         self.mpl_disconnect(self.cidrelease)
-
 
     def roi_display(self, selected_roi):
         x1, y1 = selected_roi[0], selected_roi[1]
@@ -5872,7 +5225,6 @@ class MyCanvas(FigureCanvas):
         self.obj.pb_roi_draw.setEnabled(True)
         QApplication.processEvents()
 
-
     def roi_add_to_list(self, roi_name=''):
         if not len(roi_name):
             roi_name = 'roi_' + str(self.roi_count)
@@ -5881,7 +5233,6 @@ class MyCanvas(FigureCanvas):
         self.roi_color[roi_name] = self.current_color
         self.roi_count += 1
         self.obj.update_roi_list(mode='add', item_name=roi_name)
-
 
     def set_contrast(self, cmin, cmax):
         self.cmax = cmax
@@ -5897,7 +5248,6 @@ class MyCanvas(FigureCanvas):
         else:
             self.update_img_one(self.current_img*self.mask, self.current_img_index)
 
-
     def auto_contrast(self):
         img = self.current_img*self.mask
         self.cmax = np.max(img)
@@ -5906,14 +5256,12 @@ class MyCanvas(FigureCanvas):
         self.update_img_one(self.current_img*self.mask, self.current_img_index)
         return self.cmin, self.cmax
 
-
     def rm_colorbar(self):
         try:
             self.cb.remove()
             self.draw()
         except:
             pass
-
 
     def add_colorbar(self):
         if self.colorbar_on_flag:
@@ -5927,7 +5275,6 @@ class MyCanvas(FigureCanvas):
             self.cb = self.fig.colorbar(self.im, cax=self.cax, orientation='vertical')
             self.cb.ax.tick_params(labelsize=10)
             self.draw()
-
 
 
 if __name__ == '__main__':

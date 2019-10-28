@@ -209,8 +209,8 @@ def get_eng_from_file(file_path, file_prefix='fly', file_type='.h5'):
     scan_id_list =[]
     for fn in files:
         f = h5py.File(fn, 'r')
-        eng_list.append(np.array(f['X_eng']))
-        scan_id_list.append(np.array(f['scan_id']))
+        eng_list.append(float(np.array(f['X_eng'])))
+        scan_id_list.append(float(np.array(f['scan_id'])))
         f.close()
     res = {'scan_id_list': scan_id_list, 'eng_list':eng_list}
     df = pd.DataFrame(res)
