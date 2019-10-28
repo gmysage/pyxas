@@ -472,7 +472,7 @@ def normalize_2D_xanes_regulation_version2(img_norm, x_eng, peak_pos, peak_width
 
 
 
-def normalize_2D_xanes(img_stack, xanes_eng, pre_edge, post_edge, pre_edge_only_flag):
+def normalize_2D_xanes(img_stack, xanes_eng, pre_edge, post_edge, pre_edge_only_flag, method='new'):
     '''
     post_s, post_e = post_edge
     img_norm = deepcopy(img_stack)
@@ -498,7 +498,10 @@ def normalize_2D_xanes(img_stack, xanes_eng, pre_edge, post_edge, pre_edge_only_
     img_norm = normalize_2D_xanes_rescale(img_norm, xanes_eng, pre_edge, post_edge)
     return img_norm, img_pre_edge_sub_mean
     '''
-    img_norm, img_pre_edge_sub_mean = normalize_2D_xanes2(img_stack, xanes_eng, pre_edge, post_edge, pre_edge_only_flag)
+    if method == 'new':
+        img_norm, img_pre_edge_sub_mean = normalize_2D_xanes2(img_stack, xanes_eng, pre_edge, post_edge, pre_edge_only_flag)
+    else:
+        img_norm, img_pre_edge_sub_mean = normalize_2D_xanes_old(img_stack, xanes_eng, pre_edge, post_edge, pre_edge_only_flag)
     #img_norm = normalize_2D_xanes_rm_abornmal(img_norm)
     return img_norm, img_pre_edge_sub_mean
 

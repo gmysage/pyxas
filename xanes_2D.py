@@ -4151,7 +4151,7 @@ class App(QWidget):
             num = len(self.lst_roi.selectedItems())
             for item in self.lst_roi.selectedItems():
                 print(item.text())
-                roi_cord = np.int32(np.array(roi_list[item.text()]))
+                roi_cord = np.int32(roi_list[item.text()][:4])
                 a, b, c, d = roi_cord[0], roi_cord[1], roi_cord[2], roi_cord[3]
                 x1 = min(a, c)
                 x2 = max(a, c)
@@ -4160,7 +4160,7 @@ class App(QWidget):
                 roi_spec += np.mean(np.mean(img_stack[:, y1:y2, x1:x2, ], axis=1), axis=1)
             roi_spec = roi_spec / num
             for i in range(img_stack.shape[0]):
-                img_stack[i] *= roi_spec[i]
+                img_stack[i] -= roi_spec[i]
             self.img_update = deepcopy(img_stack)
             del img_stack
             self.msg = 'Background removed '

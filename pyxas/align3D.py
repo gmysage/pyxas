@@ -244,7 +244,7 @@ def align_3D_coarse(img_ref, img1, circle_mask_ratio=1, method='other'):
 
 
 
-def align_3D_tomo_file(file_path='.', ref_index=-1, binning=1, circle_mask_ratio=0.9, file_prefix='recon', file_type='.h5'):
+def align_3D_tomo_file(file_path='.', ref_index=-1, binning=1, circle_mask_ratio=0.9, file_prefix='recon', file_type='.h5', align_coarse=1):
     import time
     file_path = os.path.abspath(file_path)
     files_recon = pyxas.retrieve_file_type(file_path, file_prefix=file_prefix, file_type=file_type)
@@ -274,7 +274,8 @@ def align_3D_tomo_file(file_path='.', ref_index=-1, binning=1, circle_mask_ratio
         X_eng = float(res['X_eng'])
         if binning > 1:
             img1 = pyxas.bin_image(img1, binning)
-        img1, shift_matrix = pyxas.align_3D_coarse(img_ref, img1, circle_mask_ratio=circle_mask_ratio, method='other')
+        if align_coarse:
+            img1, shift_matrix = pyxas.align_3D_coarse(img_ref, img1, circle_mask_ratio=circle_mask_ratio, method='other')
         img1_ali, shift_matrix = pyxas.align_3D_fine(img_ref, img1, circle_mask_ratio=circle_mask_ratio, sli_select=0, row_select=0, test_range=[-30, 30], sli_shift_guess=0, row_shift_guess=0, col_shift_guess=0, cen_mass_flag=1)
         fn_save = f'{file_path}/ali_recon_{scan_id}_bin_{binning}.h5'  
         print(f'saving aligned file: {fn_save.split("/")[-1]}\n')
@@ -303,10 +304,10 @@ def align_3D_tomo_file_mpi_sub(files_recon, ref_tomo, file_path='.', ref_index=-
 
         
 
-def align_3D_tomo_file_mpi(file_path='.', ref_index=-1, binning=1, circle_mask_ratio=0.8, file_prefix='recon', file_type='.h5'):
+def align_3D_tomo_file_mpi(file_path='.', ref_index=-1, binning=1, circle_mask_ratio=0.8, file_prefix='recon', file_type='.h5', num_cpu=4):
     from multiprocessing import Pool, cpu_count
     from functools import partial
-    num_cpu = round(cpu_count() * 0.8)
+    num_cpu = min(round(cpu_count() * 0.8), num_cpu)
     print(f'align_3D_tomo using {num_cpu:2d} CPUs')
     # save ref image
     file_path = os.path.abspath(file_path)

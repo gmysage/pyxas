@@ -117,19 +117,17 @@ def align_tomo_prj_mpi(file_path, file_prefix='fly', file_type='.h5', ref_index=
 
 
 
-def batch_recon(file_path, file_prefix='fly', file_type='.h5', rot_cen=[], binning=1, sli=[], blokc_list=[], txm_normed_flag=0, read_full_memory=1):
+def batch_recon(file_path, file_prefix='fly', file_type='.h5', rot_cen=[], binning=1, sli=[], block_list=[], txm_normed_flag=0, read_full_memory=1):
     files_scan = pyxas.retrieve_file_type(file_path, file_prefix, file_type)
     n = len(files_scan)
     if not type(rot_cen) is list:
         rot_cen = [rot_cen] * n
     for i in range(n):
-        try:
-            fn = files_scan[i]
-            print(f'recon {i+1}/{n}: {fn.split("/")[-1]}')
-            recon(fn, rot_cen[i], sli=sli, binning=binning, txm_normed_flag=txm_normed_flag, block_list=block_list, read_full_memory=read_full_memory)
-        except:
-            print(f'fails to recon {fn.split("/")[-1]}')
-
+        time_s = time.time()
+        fn = files_scan[i]
+        print(f'recon {i+1}/{n}: {fn.split("/")[-1]}')
+        recon(fn, rot_cen[i], sli=sli, binning=binning, txm_normed_flag=txm_normed_flag, block_list=block_list, read_full_memory=read_full_memory)
+        print(f'************* take {time.time()-time_s:4.1f} sec ***************\n')
 
 
 

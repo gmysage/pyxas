@@ -82,6 +82,9 @@ def fit_2D_xanes(img_xanes, xanes_eng, spectrum_ref, fit_param):
         n_comp = int(np.max([n_comp, 2]))
         img_xanes_norm_smooth = pyxas.medfilt(img, 3)
         mask_comp, _ = kmean_mask(img_xanes_norm_smooth, n_comp=n_comp)
+    else:
+        mask_comp = np.ones([1, img.shape[1], img.shape[2]])
+        n_comp = 1
      #   if n_comp ==  2:
      #       tmp_mask = mask_comp[0]
      #   else:    

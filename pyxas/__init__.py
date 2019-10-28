@@ -13,6 +13,7 @@ from pyxas.batch_xanes import *
 from pyxas.align3D import *
 from pyxas.colormix import *
 from pyxas.tomo_recon import *
+from pyxas.align_tomo_proj import *
 from skimage import io
 
 import numpy as np
