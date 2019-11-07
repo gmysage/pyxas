@@ -1743,8 +1743,8 @@ class App(QWidget):
         # smart mask
         lb_smart_mask = QLabel()
         lb_smart_mask.setFont(self.font1)
-        lb_smart_mask.setText('Smart Mask')
-        lb_smart_mask.setFixedWidth(105)
+        lb_smart_mask.setText('Clustering Mask')
+        lb_smart_mask.setFixedWidth(120)
 
         self.pb_smart_mask = QPushButton('Gen. Mask')
         self.pb_smart_mask.setFont(self.font2)
@@ -2126,9 +2126,16 @@ class App(QWidget):
         self.align_group = QButtonGroup()
         self.align_group.setExclusive(True)
         self.rd_ali1 = QRadioButton('StackReg')
-        self.rd_ali1.setFixedWidth(140)
+        self.rd_ali1.setFixedWidth(150)
         self.rd_ali1.setChecked(True)
         # self.rd_norm1.toggled.connect(self.select_file)
+
+        self.cb_ali = QComboBox()
+        self.cb_ali.setFont(self.font2)
+        self.cb_ali.addItem('  translation')
+        self.cb_ali.addItem('  rigid')
+        self.cb_ali.addItem('  scaled rotation')
+        self.cb_ali.setFixedWidth(150)
 
         self.rd_ali2 = QRadioButton('Cross-Correlation')
         self.rd_ali2.setFixedWidth(160)
@@ -2203,11 +2210,17 @@ class App(QWidget):
         hbox_ali_roi.addWidget(self.tx_ali_roi)
         hbox_ali_roi.setAlignment(QtCore.Qt.AlignLeft)
 
-        hbox_ali_method = QHBoxLayout()
+
+        hbox_ali_stackreg = QHBoxLayout()
+        hbox_ali_stackreg.addWidget(self.rd_ali1)
+        hbox_ali_stackreg.addWidget(self.cb_ali)
+        hbox_ali_stackreg.setAlignment(QtCore.Qt.AlignLeft)
+
+        vbox_ali_method = QVBoxLayout()
         # hbox_ali_method.addWidget(lb_ali_method)
-        hbox_ali_method.addWidget(self.rd_ali1)
-        hbox_ali_method.addWidget(self.rd_ali2)
-        hbox_ali_method.setAlignment(QtCore.Qt.AlignLeft)
+        vbox_ali_method.addLayout(hbox_ali_stackreg)
+        vbox_ali_method.addWidget(self.rd_ali2)
+        vbox_ali_method.setAlignment(QtCore.Qt.AlignTop)
 
         hbox_shft = QHBoxLayout()
         hbox_shft.addWidget(self.pb_save_shft)
@@ -2224,7 +2237,7 @@ class App(QWidget):
         vbox_prep.addLayout(hbox_prep)
         vbox_prep.addLayout(hbox_ali)
         vbox_prep.addLayout(hbox_ali_roi)
-        vbox_prep.addLayout(hbox_ali_method)
+        vbox_prep.addLayout(vbox_ali_method)
         vbox_prep.addLayout(hbox_shft)
         vbox_prep.addLayout(hbox_shft1)
         vbox_prep.addWidget(lb_empty)
@@ -2786,7 +2799,6 @@ class App(QWidget):
             roi_name = f'roi_SM_{self.sl1.value()}'
             self.msg = f'{roi_name} has been set to the "Mask"'
 
-
     def smart_mask_update_label(self):
         val = np.int8(self.tx_update_img_label.text().split(','))
         img_label = np.zeros(self.img_labels.shape)
@@ -2801,7 +2813,6 @@ class App(QWidget):
             del img_label
         except:
             self.msg = 'fails to update image label'
-
 
     def rm_mask1(self):
         try:
@@ -4539,13 +4550,14 @@ class App(QWidget):
         self.shift_list = []
         try:
             ref_index = int(self.tx_ali_ref.text())
-            if  ref_index <0 or ref_index >= prj.shape[0]:   # sequential align next image with its previous image
+            if ref_index >= prj.shape[0]:   # sequential align next image with its previous image
                 self.shift_list.append([0, 0])
                 for i in range(1, n):
                     print('Aligning image slice ' + str(i))
 
                     if self.rd_ali1.isChecked():
-                        img_ali[i], rsft, csft = align_img_stackreg(prj[i - 1], prj[i])
+                        method = self.cb_ali.currentText().strip()
+                        img_ali[i], rsft, csft, _ = align_img_stackreg(prj[i - 1], prj[i], method=method)
                     elif self.rd_ali2.isChecked():
                         _, rsft, csft = align_img(prj[i - 1], prj[i])
                         img_ali[i] = shift(canvas.img_stack[i], [rsft, csft], mode='constant', cval=0)
@@ -4559,7 +4571,8 @@ class App(QWidget):
                     self.msg = 'Aligning image slice ' + str(i)
                     self.update_msg()
                     if self.rd_ali1.isChecked():
-                        img_ali[i], rsft, csft = align_img_stackreg(prj[ref_index], prj[i])
+                        method = self.cb_ali.currentText().strip()
+                        img_ali[i], rsft, csft, _ = align_img_stackreg(prj[ref_index], prj[i], method=method)
                     elif self.rd_ali2.isChecked():
                         _, rsft, csft = align_img(prj[ref_index], prj[i])
                         img_ali[i] = shift(canvas.img_stack[i], [rsft, csft], mode='constant', cval=0)
@@ -4616,17 +4629,18 @@ class App(QWidget):
                 prj = (img_ali * self.mask1 * self.mask2)[:, y1: y2, x1: x2]
                 s = prj.shape
                 ref_index = int(self.tx_ali_ref.text())
-                if ref_index < 0 or ref_index >= s[0]:  # sequantial align next image with its previous image
+                if ref_index >= s[0]:  # sequantial align next image with its previous image
                     print(f'sequency : {ref_index}')
                     self.shift_list.append([0, 0])
                     for i in range(1, s[0]):
                         print('Aligning image slice ' + str(i))
                         if self.rd_ali1.isChecked():
-                            _, rsft, csft = align_img_stackreg(prj[i - 1], prj[i])
+                            method = self.cb_ali.currentText().strip()
+                            rsft, csft, sr = align_img_stackreg(prj[i - 1], prj[i], align_flag=0, method=method)
+                            img_ali[i] = sr.transform(img_ali[i])
                         elif self.rd_ali2.isChecked():
-                            _, rsft, csft = align_img(prj[i - 1], prj[i])
-
-                        img_ali[i] = shift(img_ali[i], [rsft, csft], mode='constant', cval=0)
+                            rsft, csft = align_img(prj[i - 1], prj[i], align_flag=0)
+                            img_ali[i] = shift(img_ali[i], [rsft, csft], mode='constant', cval=0)
                         self.msg = f'Aligned image slice {i}, row_shift: {rsft:3.2f}, col_shift: {csft:3.2f}'
                         self.update_msg()
                         self.shift_list.append([rsft, csft])
@@ -4635,11 +4649,12 @@ class App(QWidget):
                     for i in range(0, s[0]):
                         print('Aligning image slice ' + str(i))
                         if self.rd_ali1.isChecked():
-                            _, rsft, csft = align_img_stackreg(prj[ref_index], prj[i])
+                            method = self.cb_ali.currentText().strip()
+                            rsft, csft, sr = align_img_stackreg(prj[ref_index], prj[i], align_flag=0, method=method)
+                            img_ali[i] = sr.transform(img_ali[i])
                         elif self.rd_ali2.isChecked():
-                             _, rsft, csft = align_img(prj[ref_index], prj[i])
-
-                        img_ali[i] = shift(img_ali[i], [rsft, csft], mode='constant', cval=0)
+                            rsft, csft = align_img(prj[ref_index], prj[i], align_flag=0)
+                            img_ali[i] = shift(img_ali[i], [rsft, csft], mode='constant', cval=0)
                         self.shift_list.append([rsft, csft])
                         self.msg = f'Aligned image slice {i}, row_shift: {rsft:3.2f}, col_shift: {csft:3.2f}'
                         self.update_msg()
