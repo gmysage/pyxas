@@ -187,7 +187,7 @@ def fit_2D_xanes_file(file_path, file_prefix, file_type, fit_param, xanes_eng, s
     n_comp = int(fit_param['n_comp'])
 
     file_save_path = f'{file_path}/fitted_xanes'
-    create_directory(file_save_path)
+    pyxas.create_directory(file_save_path)
 
     files_scan = pyxas.retrieve_file_type(file_path, file_prefix=file_prefix, file_type=file_type)
     tmp = pyxas.get_img_from_tif_file(files_scan[0])
@@ -215,7 +215,7 @@ def fit_2D_xanes_file(file_path, file_prefix, file_type, fit_param, xanes_eng, s
     #### start file loop ####
     for i in range(num_file):
         if i < fs or i >= fe:
-            print('skipping slice #{i+1}/{num_file}')
+            print(f'skipping slice #{i+1}/{num_file}')
             continue
         time_s_sub = time.time()
         fn = files_scan[i].split('.')[0]
@@ -228,7 +228,7 @@ def fit_2D_xanes_file(file_path, file_prefix, file_type, fit_param, xanes_eng, s
         res['mask'] = np.squeeze(mask)
 
         # save to jpg image   
-        save_xanes_fitting_image(res, file_save_path, files_scan[i])
+        pyxas.save_xanes_fitting_image(res, file_save_path, files_scan[i])
 
         if save_hdf:
             mask_3D[i] = np.squeeze(mask)
@@ -421,8 +421,9 @@ def fit_xanes2D_norm_edge(img_xanes, xanes_eng, pre_edge, post_edge, fit_eng=[],
     else:
         img_xanes_norm = img_xanes.copy()
 
+
     if fit_pre_edge_flag:
-        img_xanes_norm, img_thickness = pyxas.normalize_2D_xanes(img_xanes_norm, xanes_eng, pre_edge, post_edge, method=norm_method)
+        img_xanes_norm, img_thickness = pyxas.normalize_2D_xanes(img_xanes_norm, xanes_eng, pre_edge, post_edge, pre_edge_only_flag=1, method=norm_method)
         img_thickness_calulated_flag = 1
     else:
         img_thickness_calculated_flag = 0

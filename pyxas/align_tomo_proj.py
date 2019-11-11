@@ -1,3 +1,8 @@
+import pyxas
+import numpy as np
+import time
+import h5py
+
 def align_tomo_proj_serial(file_path, file_prefix='fly', file_type='.h5', ref_index=-1):
     files_scan = pyxas.retrieve_file_type(file_path, file_prefix, file_type)
     n = len(files_scan)
@@ -69,6 +74,8 @@ def align_two_tomo_prj_mpi(fn_ref, fn_target, num_cpu=20):
     from functools import partial
     res_ref = pyxas.get_img_from_hdf_file(fn_ref, 'angle', 'img_tomo', 'img_bkg_avg', 'img_dark_avg', 'scan_id', 'X_eng')
     fn_current = fn_ref.split('/')[:-1]
+    if not len(fn_current):
+        fn_current = '.'
     fn_current = '/'.join(tmp for tmp in fn_current)
     fn_short = fn_ref.split('/')[-1]
     fn_save = f'{fn_current}/ali_{fn_short}'
