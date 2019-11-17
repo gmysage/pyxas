@@ -3323,6 +3323,7 @@ class App(QWidget):
             self.msg = 'Fitting image, it may take few miniuts, please wait ...'
             self.update_msg()
             QApplication.processEvents()
+            fit_order = int(self.tx_edge_order.text())
             xs = float(self.tx_edge_s.text())
             xe = float(self.tx_edge_e.text())
             try:
@@ -3339,7 +3340,8 @@ class App(QWidget):
             wt = np.ones(len(x))
             wt[:x0_id-xs_id] = w
             edge_smooth = float(self.tx_edge_smooth.text())
-            return_flag, img = self.choose_image_for_fittting()
+            #return_flag, img = self.choose_image_for_fittting()
+            img = self.canvas1.img_stack.copy()
             img = self.smooth(img * self.mask)
             s = img.shape
             self.xanes_edge_fit = np.zeros([1, s[1], s[2]])
@@ -3356,7 +3358,7 @@ class App(QWidget):
                     print(f'row # {i:4d}: {time.time() - time_s:3.2f} sec')
                 for j in range(s[2]):
                     y = img[xs_id:xe_id, i, j]
-                    spl = UnivariateSpline(x, y,k=3,s=edge_smooth, w=wt)
+                    spl = UnivariateSpline(x, y,k=fit_order,s=edge_smooth, w=wt)
                     tmp_edge = np.argmax(np.abs(np.diff(spl(xx))))
                     tmp_peak = np.argmax(spl(xx) * factor)
                     self.xanes_edge_fit[0, i,j] = xx[tmp_edge]
