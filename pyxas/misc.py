@@ -39,7 +39,6 @@ def save_xanes_fit_param_file(fit_param, fn='xanes_fit_param.csv'):
 
 
 def string_to_list(string):
-<<<<<<< HEAD
     if string == '[]':
         b = []
     elif string[0] == '[' and string[-1] == ']':
@@ -54,21 +53,6 @@ def string_to_list(string):
             b = string
     return b
 
-=======
-    try:
-        if string == '[]':
-            b = []
-        elif string[0] == '[' and string[-1] == ']':
-            a = string[1:-1].split(',')
-            b = [float(a[0]), float(a[1])]   
-        else:
-            b = np.float32(string)
-            if b - np.round(b) == 0:
-                b = int(b)    
-        return b
-    except:
-        pass
->>>>>>> 48d2735dfb713dfe1979b2e28441a7b5290d7723
         
    
 
