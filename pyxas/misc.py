@@ -15,6 +15,17 @@ from skimage import io
 #from pyxas.fit_cos import fit_cos
 
 
+def create_directory(fn):
+    try:
+        if not os.path.exists(fn):
+            os.makedirs(fn)
+            print(f'creat {fn}')
+        #else:
+            #print(f'{fn} exists')
+    except:
+        print(f'fails to create {fn}')
+
+
 def save_xanes_fit_param_file(fit_param, fn='xanes_fit_param.csv'):
     import csv
     if len(fn) == 0:
@@ -28,25 +39,27 @@ def save_xanes_fit_param_file(fit_param, fn='xanes_fit_param.csv'):
 
 
 def string_to_list(string):
-    try:
-        if string[0] == '[' and string[-1] == ']':
-            a = string[1:-1].split(',')
-            b = [float(a[0]), float(a[1])]
-            return b
-        else:
+    if string == '[]':
+        b = []
+    elif string[0] == '[' and string[-1] == ']':
+        a = string[1:-1].split(',')
+        b = [float(a[0]), float(a[1])]
+    else:
+        try:
             b = np.float32(string)
             if b - np.round(b) == 0:
-                b = int(b)    
-            return b
-    except:
-        pass
+                b = int(b)
+        except:
+            b = string
+    return b
+
         
    
 
-def load_xanes_fit_param_file(fn='xanes_fit_param.csv', num_items=17):
+def load_xanes_fit_param_file(fn='xanes_fit_param.csv', num_items=0):
     import csv
     fit_param = {}
-    items = "\n'pre_edge'\n'post_edge'\n'fit_eng'\n'norm_txm_flag'\n'fit_post_edge_flag'\n'align_flag'\n'align_ref_index' \n'roi_ratio'\n'fit_iter_flag'\n'fit_iter_learning_rate'\n'fit_iter_num'\n'fit_iter_bound'\n'regulation_flag'\n'regulation_designed_max'\n'regulation_gamma'\n'fit_mask_thickness_threshold'\n'fit_mask_cost_threshold'"
+    items = "\n'pre_edge'\n'post_edge'\n'fit_eng'\n'norm_txm_flag'\n'fit_pre_edge_flag'\n'fit_post_edge_flag'\n'align_flag'\n'align_ref_index' \n'align_flag'\n'align_ref_index'\n'roi_ratio'\n'fit_iter_flag'\n'fit_iter_learning_rate'\n'fit_iter_num'\n'fit_iter_bound'\n'regulation_flag'\n'regulation_designed_max'\n'regulation_gamma'\n'fit_mask_thickness_threshold'\n'fit_mask_cost_threshold'"
     with open(fn, 'r') as csvfile:
         f = csv.reader(csvfile)
         for row in f:
@@ -190,15 +203,15 @@ def retrieve_shift_list(fn_ref, fn_need_to_align, region=0.8, save_flag=1):
     return row_shift, col_shift
 
 
-def get_eng_from_file(file_path, file_file_prefix='fly', file_type='.h5'):
+def get_eng_from_file(file_path, file_prefix='fly', file_type='.h5'):
     import pandas as pd
     files = pyxas.retrieve_file_type(file_path, file_prefix, file_type)
     eng_list = []
     scan_id_list =[]
     for fn in files:
         f = h5py.File(fn, 'r')
-        eng_list.append(np.array(f['X_eng']))
-        scan_id_list.append(np.array(f['scan_id']))
+        eng_list.append(float(np.array(f['X_eng'])))
+        scan_id_list.append(float(np.array(f['scan_id'])))
         f.close()
     res = {'scan_id_list': scan_id_list, 'eng_list':eng_list}
     df = pd.DataFrame(res)

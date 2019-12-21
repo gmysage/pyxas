@@ -66,6 +66,8 @@ def img_erosion(img, binary_threshold=0.5, iterations=2):
     return mask, img_erosion
 
 
+
+
 def rm_noise(img, noise_level=2e-3, filter_size=3):
     img_s = medfilt2d(img, filter_size)
     img_diff = np.abs(img - img_s)
@@ -624,7 +626,8 @@ def idxmax(data):
    ndim = np.shape(data)
    #maxd = np.max(data)
    maxd = np.max(np.abs(data))
-   t1 = plt.mlab.find(np.abs(data) == maxd)
+   #t1 = plt.mlab.find(np.abs(data) == maxd)
+   t1 = np.argmin(np.abs((np.abs(data) - maxd)))
    idx = np.zeros([len(ndim),])
    for ii in range(len(ndim)-1):
        t1,t2 = np.modf(1.*t1/np.prod(ndim[(ii+1):]))

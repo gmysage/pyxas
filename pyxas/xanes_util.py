@@ -205,6 +205,10 @@ def fit_2D_xanes_iter(img_xanes, eng, spectrum_ref, coef0=None, offset=None, lea
 
 
 def fit_2D_xanes_iter2(img_xanes, eng, spectrum_ref, coef0=None, offset=None, lamda=0.01, rho=0.01, n_iter=10, bounds=[0,1], method=1):
+    '''
+    method = 1: using coordinate_descent 
+    method = 2: using admm
+    '''
     num_ref = len(spectrum_ref)
     s = img_xanes.shape
     A = []
@@ -468,7 +472,7 @@ def normalize_2D_xanes_regulation_version2(img_norm, x_eng, peak_pos, peak_width
 
 
 
-def normalize_2D_xanes(img_stack, xanes_eng, pre_edge, post_edge, pre_edge_only_flag):
+def normalize_2D_xanes(img_stack, xanes_eng, pre_edge, post_edge, pre_edge_only_flag, method='new'):
     '''
     post_s, post_e = post_edge
     img_norm = deepcopy(img_stack)
@@ -494,7 +498,10 @@ def normalize_2D_xanes(img_stack, xanes_eng, pre_edge, post_edge, pre_edge_only_
     img_norm = normalize_2D_xanes_rescale(img_norm, xanes_eng, pre_edge, post_edge)
     return img_norm, img_pre_edge_sub_mean
     '''
-    img_norm, img_pre_edge_sub_mean = normalize_2D_xanes2(img_stack, xanes_eng, pre_edge, post_edge, pre_edge_only_flag)
+    if method == 'new':
+        img_norm, img_pre_edge_sub_mean = normalize_2D_xanes2(img_stack, xanes_eng, pre_edge, post_edge, pre_edge_only_flag)
+    else:
+        img_norm, img_pre_edge_sub_mean = normalize_2D_xanes_old(img_stack, xanes_eng, pre_edge, post_edge, pre_edge_only_flag)
     #img_norm = normalize_2D_xanes_rm_abornmal(img_norm)
     return img_norm, img_pre_edge_sub_mean
 

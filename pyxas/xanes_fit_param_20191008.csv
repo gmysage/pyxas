@@ -1,0 +1,21 @@
+pre_edge,"[8.2, 8.33]"
+post_edge,"[8.4, 9]"
+fit_eng,"[8.3, 8.4]"
+norm_txm_flag,0
+norm_edge_method,new
+fit_pre_edge_flag,0
+fit_post_edge_flag,0
+align_flag,0
+align_ref_index,-1
+roi_ratio,0.9
+fit_iter_flag,0
+fit_iter_learning_rate,0.005
+fit_iter_num,5
+fit_iter_bound,[]
+regulation_flag,0
+regulation_designed_max,1.6
+regulation_gamma,0.05
+fit_mask_thickness_threshold,0.0008
+fit_mask_cost_threshold,0.1
+mask_xanes_flag,0
+n_comp,1
