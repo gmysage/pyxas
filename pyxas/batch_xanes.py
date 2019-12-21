@@ -161,11 +161,16 @@ def demo4():
     #fn_ref1 = '/NSLS2/xf18id1/users/2019Q1/SEONGMIN_Proposal_303787/ref/ref_Ni_II.txt'
     #fn_ref2 = '/NSLS2/xf18id1/users/2019Q1/SEONGMIN_Proposal_303787/ref/ref_Ni_III.txt'
 
+<<<<<<< HEAD
     fn_ref1 = '/home/mingyuan/data1/Mingyuan/TXM_2019/Mingyuan_2019Q2/in_situ_NCA_20190823/Ni_ref/ref_NiO.txt'
     fn_ref2 = '/home/mingyuan/data1/Mingyuan/TXM_2019/Mingyuan_2019Q2/in_situ_NCA_20190823/Ni_ref/ref_LiNiO2.txt'
 
     #fn_ref1 = '/home/mingyuan/data1/Mingyuan/TXM_2019/Mingyuan_2019Q2/in_situ_NCA_20190823/ref_shift_to_FX_eng/ref_pristine_shifted_this_time.txt'
     #fn_ref2 = '/home/mingyuan/data1/Mingyuan/TXM_2019/Mingyuan_2019Q2/in_situ_NCA_20190823/ref_shift_to_FX_eng/ref_4.6V_shifted_this_time.txt'
+=======
+    fn_ref1 = '/home/mingyuan/data1/Mingyuan/TXM_2019/Mingyuan_2019Q2/in_situ_NCA_20190823/ref_shift_to_FX_eng/ref_pristine_shifted_this_time.txt'
+    fn_ref2 = '/home/mingyuan/data1/Mingyuan/TXM_2019/Mingyuan_2019Q2/in_situ_NCA_20190823/ref_shift_to_FX_eng/ref_4.6V_shifted_this_time.txt'
+>>>>>>> 48d2735dfb713dfe1979b2e28441a7b5290d7723
 
     spectrum_ref = pyxas.load_xanes_ref_file(fn_ref1, fn_ref2)
     #xanes_eng = np.loadtxt('/NSLS2/xf18id1/users/2019Q1/SEONGMIN_Proposal_303787/NC_48V_70cy_pos1/eng_list.txt')

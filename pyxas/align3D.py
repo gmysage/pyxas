@@ -110,6 +110,7 @@ def align_two_img_stack(img_ref, img):
     return img_ali
 
 
+<<<<<<< HEAD
 def align_img3D(img_ref, img, align_flag=1):
     #from scipy.fftpack import fftn, ifftn, fftshift, ifftshift
     from scipy.ndimage import shift
@@ -135,6 +136,8 @@ def align_img3D(img_ref, img, align_flag=1):
 
 
 
+=======
+>>>>>>> 48d2735dfb713dfe1979b2e28441a7b5290d7723
 def move_3D_to_center(img, circle_mask_ratio):
     from scipy.ndimage import center_of_mass
     img0 = img
@@ -290,6 +293,7 @@ def align_3D_coarse(img_ref, img1, circle_mask_ratio=1, method='other'):
     return img_ali, shift_matrix
 
 
+<<<<<<< HEAD
 def align_3D_tomo_file(file_path='.', ref_index=-1, binning=1, circle_mask_ratio=0.9, file_prefix='recon', file_type='.h5', align_coarse=1, align_method=1):    
     '''
     align_method: 
@@ -297,6 +301,9 @@ def align_3D_tomo_file(file_path='.', ref_index=-1, binning=1, circle_mask_ratio
         2:  3D cross-correlation
     '''
 
+=======
+def align_3D_tomo_file(file_path='.', ref_index=-1, binning=1, circle_mask_ratio=0.9, file_prefix='recon', file_type='.h5', align_coarse=1):
+>>>>>>> 48d2735dfb713dfe1979b2e28441a7b5290d7723
     import time
     file_path = os.path.abspath(file_path)
     files_recon = pyxas.retrieve_file_type(file_path, file_prefix=file_prefix, file_type=file_type)
@@ -329,6 +336,7 @@ def align_3D_tomo_file(file_path='.', ref_index=-1, binning=1, circle_mask_ratio
         X_eng = float(res['X_eng'])
         if binning > 1:
             img1 = pyxas.bin_image(img1, binning)
+<<<<<<< HEAD
         if align_method == 1:
             if align_coarse:
                 img1, shift_matrix = pyxas.align_3D_coarse(img_ref, img1, circle_mask_ratio=circle_mask_ratio, method='other')
@@ -336,29 +344,43 @@ def align_3D_tomo_file(file_path='.', ref_index=-1, binning=1, circle_mask_ratio
         elif align_method == 2:            
             img1_ali, h_shft, r_shft, c_shft = align_img3D(img_ref, img1, align_flag=1)   
             print(f'h_shft = {h_shft:4.1f}, r_shft = {r_shft:4.1f}, c_shft = {c_shft:4.1f}')     
+=======
+        if align_coarse:
+            img1, shift_matrix = pyxas.align_3D_coarse(img_ref, img1, circle_mask_ratio=circle_mask_ratio, method='other')
+        img1_ali, shift_matrix = pyxas.align_3D_fine(img_ref, img1, circle_mask_ratio=circle_mask_ratio, sli_select=0, row_select=0, test_range=[-30, 30], sli_shift_guess=0, row_shift_guess=0, col_shift_guess=0, cen_mass_flag=1)
+>>>>>>> 48d2735dfb713dfe1979b2e28441a7b5290d7723
         fn_save = f'{file_path}/ali_recon_{scan_id}_bin_{binning}.h5'  
         print(f'saving aligned file: {fn_save.split("/")[-1]}\n')
         pyxas.save_hdf_file(fn_save, 'img', img1_ali, 'scan_id', scan_id, 'X_eng', X_eng)   
         print(f'time elasped: {time.time() - time_start:05.1f}\n')
         
         
+<<<<<<< HEAD
 def align_3D_tomo_file_mpi_sub(files_recon, ref_tomo, file_path='.', binning=1, circle_mask_ratio=0.9, align_method=1):
     '''
     align_method: 
         1:  old method
         2:  3D cross-correlation
     '''
+=======
+def align_3D_tomo_file_mpi_sub(files_recon, ref_tomo, file_path='.', binning=1, circle_mask_ratio=0.9):
+
+>>>>>>> 48d2735dfb713dfe1979b2e28441a7b5290d7723
     img_ref = ref_tomo
     fn = files_recon
     fn_short = fn.split('/')[-1]
     print(f'aligning {fn_short} ...')
     res = pyxas.get_img_from_hdf_file(fn, 'img', 'scan_id', 'X_eng')
     img1 = res['img']
+<<<<<<< HEAD
     img1 = tomopy.circ_mask(img1, axis=0, ratio=circle_mask_ratio)
+=======
+>>>>>>> 48d2735dfb713dfe1979b2e28441a7b5290d7723
     scan_id = int(res['scan_id'])
     X_eng = float(res['X_eng'])
     if binning > 1:
         img1 = pyxas.bin_image(img1, binning)
+<<<<<<< HEAD
     if align_method == 1:
         img1, shift_matrix = pyxas.align_3D_coarse(img_ref, img1, circle_mask_ratio=circle_mask_ratio, method='other')
         img1_ali, shift_matrix = pyxas.align_3D_fine(img_ref, img1, circle_mask_ratio=circle_mask_ratio,
@@ -380,6 +402,19 @@ def align_3D_tomo_file_mpi(file_path='.', ref_index=-1, binning=1, circle_mask_r
         2:  3D cross-correlation
     '''
 
+=======
+    img1, shift_matrix = pyxas.align_3D_coarse(img_ref, img1, circle_mask_ratio=circle_mask_ratio, method='other')
+    img1_ali, shift_matrix = pyxas.align_3D_fine(img_ref, img1, circle_mask_ratio=circle_mask_ratio,
+                                                 sli_select=0, row_select=0, test_range=[-30, 30],
+                                                 sli_shift_guess=0, row_shift_guess=0,
+                                                 col_shift_guess=0, cen_mass_flag=1)
+    fn_save = f'{file_path}/ali_recon_{scan_id}_bin_{binning}.h5'  
+    print(f'saving aligned file: {fn_save.split("/")[-1]}\n')
+    pyxas.save_hdf_file(fn_save, 'img', img1_ali, 'scan_id', scan_id, 'X_eng', X_eng)   
+
+        
+def align_3D_tomo_file_mpi(file_path='.', ref_index=-1, binning=1, circle_mask_ratio=0.8, file_prefix='recon', file_type='.h5', num_cpu=4):
+>>>>>>> 48d2735dfb713dfe1979b2e28441a7b5290d7723
     from multiprocessing import Pool, cpu_count
     from functools import partial
     num_cpu = min(round(cpu_count() * 0.8), num_cpu)
@@ -394,13 +429,22 @@ def align_3D_tomo_file_mpi(file_path='.', ref_index=-1, binning=1, circle_mask_r
     s = img_ref.shape
     if binning > 1:
         img_ref = pyxas.bin_image(img_ref, binning)
+<<<<<<< HEAD
     if align_method == 1: 
         img_ref = pyxas.move_3D_to_center(img_ref, circle_mask_ratio=circle_mask_ratio)
     else:
         img_ref = tomopy.circ_mask(img_ref, axis=0, ratio=circle_mask_ratio)
+=======
+    img_ref = pyxas.move_3D_to_center(img_ref, circle_mask_ratio=circle_mask_ratio)
+>>>>>>> 48d2735dfb713dfe1979b2e28441a7b5290d7723
     fn_save = f'{file_path}/ali_recon_{scan_id}_bin_{binning}.h5'
     pyxas.save_hdf_file(fn_save, 'img', img_ref, 'scan_id', scan_id, 'X_eng', X_eng)
     # start align
     pool = Pool(num_cpu)
+<<<<<<< HEAD
     pool.map(partial(align_3D_tomo_file_mpi_sub, ref_tomo=img_ref, file_path=file_path, binning=binning, circle_mask_ratio=circle_mask_ratio, align_method=align_method), files_recon)
     pool.close()
+=======
+    pool.map(partial(align_3D_tomo_file_mpi_sub, ref_tomo=img_ref, file_path=file_path, ref_index=ref_index, binning=binning, circle_mask_ratio=circle_mask_ratio), files_recon)
+    pool.close()
+>>>>>>> 48d2735dfb713dfe1979b2e28441a7b5290d7723
