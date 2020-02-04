@@ -77,13 +77,14 @@ def fit_2D_xanes(img_xanes, xanes_eng, spectrum_ref, fit_param):
         img = pyxas.align_img_stack_stackreg(img_xanes, img_mask, select_image_index=align_ref_index)  
     elif align_flag == 2:
         img = pyxas.align_img_stack(img_xanes, img_mask, select_image_index=align_ref_index)
-
+    else:
+        img = img_xanes
     #tmp_mask = np.ones([img.shape[1], img.shape[2]])
     #mask_comp = {}
     #mask_comp['0'] = tmp_mask
 
     if norm_txm_flag:
-        img = pyxas.norm_txm(img_xanes)
+        img = pyxas.norm_txm(img)
     # mask components using kmean_mask
     if mask_xanes_flag:
         n_comp = int(np.max([n_comp, 2]))
@@ -163,7 +164,8 @@ def save_xanes_fitting_image(res, file_save_path, fn):
     if np.max(img_color) == 0:
         img_color[0,0,0] = 1
     fn_save = f'{file_save_colormix}/colormix_{fn}.jpg'
-    scipy.misc.toimage(img_color, cmin=0, cmax=1).save(fn_save)
+
+    pyxas.toimage(img_color, cmin=0, cmax=1).save(fn_save)
 
     # save fitting cost
     fn_save = f'{file_save_fit_cost}/fitting_cost_{fn}.tiff'

@@ -82,7 +82,7 @@ def align_img_stack(img, img_mask=None, select_image_index=None, print_flag=1):
 def align_img_stack_stackreg(img, img_mask=None, select_image_index=None, print_flag=1, method='translation'):
     img_align = deepcopy(img)
     n = img_align.shape[0]
-    if not len(img_mask):
+    if img_mask is None:
         img_mask = deepcopy(img)
     if select_image_index is None:
         for i in range(1, n):
@@ -135,11 +135,12 @@ def align_img3D(img_ref, img, align_flag=1):
 
 
 
-def move_3D_to_center(img, circle_mask_ratio):
+def move_3D_to_center(img, circle_mask_ratio=1):
     from scipy.ndimage import center_of_mass
     img0 = img
     s = np.array(img0.shape)/2
-    img0 = tomopy.circ_mask(img0, axis=0, ratio=circle_mask_ratio, val=0)
+    if circle_mask_ratio < 1:
+        img0 = tomopy.circ_mask(img0, axis=0, ratio=circle_mask_ratio, val=0)
     cm = np.array(center_of_mass(img0))
     shift_matrix = list(s - cm)
     img_cen = pyxas.shift(img, shift_matrix, order=0)
@@ -155,10 +156,12 @@ def align_3D_fine(img_ref, img1, circle_mask_ratio=1, sli_select=0, row_select=0
     from scipy.ndimage import center_of_mass
     time_s = time.time()
     img_tmp = img_ref.copy()
-    img_ref_crop = tomopy.circ_mask(img_tmp, axis=0, ratio=circle_mask_ratio, val=0)
+    if circle_mask_ratio < 1:
+        img_ref_crop = tomopy.circ_mask(img_tmp, axis=0, ratio=circle_mask_ratio, val=0)
     
     img_tmp = img1.copy()
-    img_raw_crop = tomopy.circ_mask(img_tmp, axis=0, ratio=circle_mask_ratio, val=0)
+    if circle_mask_ratio < 1:
+        img_raw_crop = tomopy.circ_mask(img_tmp, axis=0, ratio=circle_mask_ratio, val=0)
     if sli_shift_guess != 0 or row_shift_guess != 0 or col_shift_guess != 0:
         img_raw_crop= shift(img_raw_crop, [sli_shift_guess, row_shift_guess, col_shift_guess], order=0)
 
@@ -237,13 +240,15 @@ def align_3D_coarse_axes(img_ref, img1, circle_mask_ratio=0.6, axes=0, shift_fla
     '''
 
     img_tmp = img_ref.copy()
-    img_ref_crop = tomopy.circ_mask(img_tmp, axis=0, ratio=circle_mask_ratio, val=0)    
+    if circle_mask_ratio < 1:
+        img_ref_crop = tomopy.circ_mask(img_tmp, axis=0, ratio=circle_mask_ratio, val=0)    
     s = img_ref_crop.shape
     stack_range = [int(s[0]*(0.5-circle_mask_ratio/2)), int(s[0]*(0.5+circle_mask_ratio/2))]
     prj0 = np.sum(img_ref_crop[stack_range[0]:stack_range[1]], axis=axes)
 
     img_tmp = img1.copy()    
-    img_raw_crop = tomopy.circ_mask(img_tmp, axis=0, ratio=circle_mask_ratio, val=0)
+    if circle_mask_ratio < 1:
+        img_raw_crop = tomopy.circ_mask(img_tmp, axis=0, ratio=circle_mask_ratio, val=0)
     prj1 = np.sum(img_raw_crop[stack_range[0]:stack_range[1]], axis=axes)
     
     sr = StackReg(StackReg.TRANSLATION)
@@ -275,8 +280,9 @@ def align_3D_coarse(img_ref, img1, circle_mask_ratio=1, method='other'):
         
         img0_crop = img_ref
         img1_crop = img1
-        img0_crop = tomopy.circ_mask(img0_crop, axis=0, ratio=circle_mask_ratio, val=0)
-        img1_crop = tomopy.circ_mask(img1_crop, axis=0, ratio=circle_mask_ratio, val=0)
+        if circle_mask_ratio < 1:
+            img0_crop = tomopy.circ_mask(img0_crop, axis=0, ratio=circle_mask_ratio, val=0)
+            img1_crop = tomopy.circ_mask(img1_crop, axis=0, ratio=circle_mask_ratio, val=0)
         cm0 = np.array(center_of_mass(img0_crop))
         cm1 = np.array(center_of_mass(img1_crop))
         shift_matrix = cm1 - cm0
@@ -311,7 +317,8 @@ def align_3D_tomo_file(file_path='.', ref_index=-1, binning=1, circle_mask_ratio
     if align_method == 1:
         img_ref = pyxas.move_3D_to_center(img_ref, circle_mask_ratio=circle_mask_ratio)
     else:
-        img_ref = tomopy.circ_mask(img_ref, axis=0, ratio=circle_mask_ratio)
+        if circle_mask_ratio < 1:
+            img_ref = tomopy.circ_mask(img_ref, axis=0, ratio=circle_mask_ratio)
     fn_save = f'{file_path}/ali_recon_{scan_id}_bin_{binning}.h5'
     pyxas.save_hdf_file(fn_save, 'img', img_ref, 'scan_id', scan_id, 'X_eng', X_eng)
 
@@ -324,7 +331,8 @@ def align_3D_tomo_file(file_path='.', ref_index=-1, binning=1, circle_mask_ratio
         print(f'#{i+1}/{num_file}  aligning {fn_short} ...')
         res = pyxas.get_img_from_hdf_file(fn, 'img', 'scan_id', 'X_eng')
         img1 = res['img']
-        img1 = tomopy.circ_mask(img1, axis=0, ratio=circle_mask_ratio)
+        if circle_mask_ratio < 1:
+            img1 = tomopy.circ_mask(img1, axis=0, ratio=circle_mask_ratio)
         scan_id = int(res['scan_id'])
         X_eng = float(res['X_eng'])
         if binning > 1:
@@ -354,7 +362,8 @@ def align_3D_tomo_file_mpi_sub(files_recon, ref_tomo, file_path='.', binning=1, 
     print(f'aligning {fn_short} ...')
     res = pyxas.get_img_from_hdf_file(fn, 'img', 'scan_id', 'X_eng')
     img1 = res['img']
-    img1 = tomopy.circ_mask(img1, axis=0, ratio=circle_mask_ratio)
+    if circle_mask_ratio < 1:
+        img1 = tomopy.circ_mask(img1, axis=0, ratio=circle_mask_ratio)
     scan_id = int(res['scan_id'])
     X_eng = float(res['X_eng'])
     if binning > 1:
@@ -397,7 +406,8 @@ def align_3D_tomo_file_mpi(file_path='.', ref_index=-1, binning=1, circle_mask_r
     if align_method == 1: 
         img_ref = pyxas.move_3D_to_center(img_ref, circle_mask_ratio=circle_mask_ratio)
     else:
-        img_ref = tomopy.circ_mask(img_ref, axis=0, ratio=circle_mask_ratio)
+        if circle_mask_ratio < 1:
+            img_ref = tomopy.circ_mask(img_ref, axis=0, ratio=circle_mask_ratio)
     fn_save = f'{file_path}/ali_recon_{scan_id}_bin_{binning}.h5'
     pyxas.save_hdf_file(fn_save, 'img', img_ref, 'scan_id', scan_id, 'X_eng', X_eng)
     # start align
