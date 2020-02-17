@@ -27,21 +27,29 @@ def backpropagate(Y_test, A, W, B, f_scale1=1, f_scale2=1):
     #cost = (np.sum(dy**2, axis=0) + (np.sum(W, axis=0) - 1)**2)
     cost = np.sum(dy ** 2, axis=0) / m
     dw1 = f_scale1 * np.abs((np.sum(W, axis=0) - 1)) / m
+    tmp = W.copy()
+    tmp[tmp>0] = 0
+    dw2 = f_scale2 * np.abs(tmp)
     #dw2 = f_scale * np.abs(W)
     #dw2 = f_scale2 * np.sum(W**2, axis=1, keepdims=True) / n
     #dw = -2 * (np.dot(A.T, dy) + dw1 + dw2)
-    dw = -2 * (np.dot(A.T, dy) + dw1)
+    dw = -2 * (np.dot(A.T, dy) + dw1 + dw2)
     db = -2 * np.sum(dy, axis=0)
     db = db.reshape(B.shape)
     return dw, db, cost
 
 
-def backpropagate0(Y_test, A, W, B):
+def backpropagate0(Y_test, A, W, B, f_scale2=0):
+    # f_scale2 is used for control non-negative fitting
     Y_hat = np.dot(A, W) + B
     m = Y_test.shape[0]
     dy = Y_test - Y_hat
     cost = np.sum(dy**2, axis=0)/m
-    dw = -2 * (np.dot(A.T, dy))/m
+    tmp = W.copy()
+    tmp[tmp>0] = 0
+    dw2 = f_scale2 * np.abs(tmp)
+    # dw = -2 * (np.dot(A.T, dy))/m
+    dw = -2 * (np.dot(A.T, dy) + dw2)
     db = (-2 * np.sum(dy, axis=0)).reshape(B.shape)
     return dw, db, cost
 
@@ -81,16 +89,16 @@ def lsq_fit_iter(X, Y, W=None, learning_rate=0.002, n_iter=100, bounded=True, pr
 
 
 
-def lsq_fit_iter2(A, Y, W=None, B=0, learning_rate=0.002, n_iter=100, bounds=[0,1]):
+def lsq_fit_iter2(A, Y, W=None, B=0, learning_rate=0.002, n_iter=100, bounds=[0,1], f_scale1=0.5):
     # solve AW + B = Y (W and B need to be solved)
 
     if W is None:
         W = np.random.random([A.shape[1], Y.shape[1]])/A.shape[1]
         W[-1,:] = 1 - np.sum(W[:-1,:], axis=0)
-    else:
-        if len(bounds)==2:
-            W[W <= bounds[0]] = bounds[0]
-            W[W >= bounds[1]] = bounds[1]
+    #else:
+    #    if len(bounds)==2:
+    #        W[W <= bounds[0]] = bounds[0]
+    #        W[W >= bounds[1]] = bounds[1]
 
     Y_test = deepcopy(Y)
     cost = []
@@ -99,24 +107,42 @@ def lsq_fit_iter2(A, Y, W=None, B=0, learning_rate=0.002, n_iter=100, bounds=[0,
         print('iter #{}'.format(i))
 
         if len(bounds)==2:
-            dw, db, cost_temp = backpropagate(Y_test, A, W, B, f_scale1=0.5, f_scale2=0.5)
+            f_scale2 = 0.1/learning_rate
+            dw, db, cost_temp = backpropagate(Y_test, A, W, B, f_scale1=f_scale1, f_scale2=f_scale2)
             tmp = dw * learning_rate
             index = np.abs(tmp) > 0.5 * np.abs(W)
             tmp[index] = 0.5 * np.abs(W[index])
             W -= tmp
             B -= db*learning_rate
-            W[W <= bounds[0]] = bounds[0]
-            W[W >= bounds[1]] = bounds[1]
+            #W[W <= bounds[0]] = bounds[0]
+            #W[W >= bounds[1]] = bounds[1]
         elif len(bounds)==0:
-            dw, cost_temp = backpropagate0(Y_test, A, W, B)
+            dw, db, cost_temp = backpropagate0(Y_test, A, W, B)
             W -= dw*learning_rate
+            W[W < 0] = 0
             B -= db * learning_rate
         cost.append(cost_temp)
+    if len(bounds) == 2:
+        W[W <= bounds[0]] = bounds[0]
+        W[W >= bounds[1]] = bounds[1]
     W = np.squeeze(W)
     B = np.squeeze(B)
     cost = np.array(cost)
     return W, B, cost
 
+def rm_neg_coef(W):
+    w = W.copy()
+    s = w.shape
+    n = s[0]
+    for i in range(n):
+        idx = np.where(w[i] < 0)
+        v = w[i][idx]
+        for j in range(n):
+            if j == i:
+                continue
+            else:
+                w[j][idx] += v / (n-1)
+    return w
 
 #################################################
 ######### Coordinate descent and ADMM ###########

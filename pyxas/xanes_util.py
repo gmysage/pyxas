@@ -2,7 +2,7 @@ from scipy.signal import medfilt
 import numpy as np
 import matplotlib.pyplot as plt
 from pyxas.lsq_fit import lsq_fit_iter, lsq_fit_iter2, coordinate_descent_lasso, admm_iter
-from scipy.interpolate import interp1d
+from scipy.interpolate import InterpolatedUnivariateSpline, interp1d
 from copy import deepcopy
 from numpy.polynomial.polynomial import polyfit, polyval
 from pyxas.image_util import rm_abnormal, bin_ndarray, img_smooth
@@ -120,13 +120,13 @@ def fit_2D_xanes_non_iter(img_xanes, eng, spectrum_ref):
     x = x.reshape(num_ref, s[1], s[2])
 
     '''
-
     # Y = bX + b0: X is the reference spectrum
     num_ref = len(spectrum_ref)
     s = img_xanes.shape
     X = np.ones([s[0], num_ref + 1])
     for i in range(num_ref):
-        tmp = interp1d(spectrum_ref[f'ref{i}'][:,0], spectrum_ref[f'ref{i}'][:,1], kind='cubic')
+        #tmp = interp1d(spectrum_ref[f'ref{i}'][:,0], spectrum_ref[f'ref{i}'][:,1], kind='cubic')
+        tmp = InterpolatedUnivariateSpline(spectrum_ref[f'ref{i}'][:,0], spectrum_ref[f'ref{i}'][:,1], k=3)
         X[:, i] = tmp(eng)
     M = np.dot(X.T, X)
     M_inv = np.linalg.inv(M)
@@ -146,7 +146,7 @@ def fit_2D_xanes_non_iter(img_xanes, eng, spectrum_ref):
 
 
 
-def fit_2D_xanes_iter(img_xanes, eng, spectrum_ref, coef0=None, offset=None, learning_rate=0.005, n_iter=10, bounds=[0,1]):
+def fit_2D_xanes_iter(img_xanes, eng, spectrum_ref, coef0=None, offset=None, learning_rate=0.005, n_iter=10, bounds=[0,1], lamda=0):
     '''
     Solve the equation A*x = b iteratively
 
@@ -172,6 +172,8 @@ def fit_2D_xanes_iter(img_xanes, eng, spectrum_ref, coef0=None, offset=None, lea
     error_thresh: float
           used to generate a mask, mask[fitting_cost > error_thresh] = 0
 
+    lamda: weight of constrain to force (the sum of fitting coefficient to be 1)
+
     Outputs:
     ---------
     w: fitted 2D_xanes coefficient
@@ -179,12 +181,12 @@ def fit_2D_xanes_iter(img_xanes, eng, spectrum_ref, coef0=None, offset=None, lea
 
     cost: 2D fitting cost
     '''
-
     num_ref = len(spectrum_ref)
     s = img_xanes.shape
     A = [] 
     for i in range(num_ref):
-        tmp = interp1d(spectrum_ref[f'ref{i}'][:,0], spectrum_ref[f'ref{i}'][:,1], kind='cubic')
+        #tmp = interp1d(spectrum_ref[f'ref{i}'][:,0], spectrum_ref[f'ref{i}'][:,1], kind='cubic')
+        tmp = InterpolatedUnivariateSpline(spectrum_ref[f'ref{i}'][:, 0], spectrum_ref[f'ref{i}'][:, 1], k=3)
         A.append(tmp(eng).reshape(1, len(eng)))
     A = np.squeeze(A).T
     Y = img_xanes.reshape(img_xanes.shape[0], -1)
@@ -196,11 +198,13 @@ def fit_2D_xanes_iter(img_xanes, eng, spectrum_ref, coef0=None, offset=None, lea
         offset = offset.reshape(1, -1)
     else:
         offset = np.zeros((1, s[1]*s[2]))
-    w, b, cost = lsq_fit_iter2(A, Y, W, offset, learning_rate, n_iter, bounds)
+    w, b, cost = lsq_fit_iter2(A, Y, W, offset, learning_rate, n_iter, bounds, f_scale1=lamda)
     w = w.reshape(len(w), img_xanes.shape[1], img_xanes.shape[2])
     b = b.reshape(1, s[1], s[2])
-    cost = cost[-1].reshape(1, s[1], s[2])
-
+    try:
+        cost = cost[-1].reshape(1, s[1], s[2])
+    except:
+        cost = []
     return w, b, cost
 
 
@@ -213,7 +217,8 @@ def fit_2D_xanes_iter2(img_xanes, eng, spectrum_ref, coef0=None, offset=None, la
     s = img_xanes.shape
     A = []
     for i in range(num_ref):
-        tmp = interp1d(spectrum_ref[f'ref{i}'][:, 0], spectrum_ref[f'ref{i}'][:, 1], kind='cubic')
+        #tmp = interp1d(spectrum_ref[f'ref{i}'][:, 0], spectrum_ref[f'ref{i}'][:, 1], kind='cubic')
+        tmp = InterpolatedUnivariateSpline(spectrum_ref[f'ref{i}'][:, 0], spectrum_ref[f'ref{i}'][:, 1], k=3)
         A.append(tmp(eng).reshape(1, len(eng)))
     A = np.squeeze(A).T
     Y = img_xanes.reshape(s[0], -1)

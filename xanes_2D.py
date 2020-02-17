@@ -2425,7 +2425,7 @@ class App(QWidget):
         if self.rd_method1.isChecked(): # conjugated gradient
             self.fitting_method = 1
             self.tx_method1.setEnabled(True)
-            self.tx_method2.setEnabled(False)
+            self.tx_method2.setEnabled(True)
             self.tx_method3.setEnabled(False)
         elif self.rd_method2.isChecked():
             self.fitting_method = 2
@@ -2559,7 +2559,8 @@ class App(QWidget):
 
                 if self.fitting_method == 1:
                     learning_rate = float(self.tx_method1.text())
-                    self.xanes_2d_fit, self.xanes_2d_fit_offset, self.xanes_fit_cost = fit_2D_xanes_iter(img_stack[fit_region], self.xanes_eng[fit_region], self.spectrum_ref, coef0, offset, learning_rate, num_iter)
+                    lamda = float(self.tx_method2.text())
+                    self.xanes_2d_fit, self.xanes_2d_fit_offset, self.xanes_fit_cost = fit_2D_xanes_iter(img_stack[fit_region], self.xanes_eng[fit_region], self.spectrum_ref, coef0, offset, learning_rate, num_iter, bounds=bounds, lamda=lamda)
                 elif self.fitting_method == 2 or self.fitting_method == 3:
                     lamda = float(self.tx_method2.text())
                     rho = float(self.tx_method3.text())
