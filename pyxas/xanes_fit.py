@@ -52,6 +52,10 @@ def fit_2D_xanes(img_xanes, xanes_eng, spectrum_ref, fit_param):
         fit_iter_learning_rate = fit_param['fit_iter_learning_rate']
         fit_iter_num = int(fit_param['fit_iter_num'])
         fit_iter_bound = fit_param['fit_iter_bound']
+        try:
+            fit_iter_lambda = fit_param['fit_iter_lambda']
+        except:
+            fit_iter_lambda = 0
 
     regulation_flag = fit_param['regulation_flag']
     if regulation_flag:
@@ -111,7 +115,12 @@ def fit_2D_xanes(img_xanes, xanes_eng, spectrum_ref, fit_param):
 
     # fitting: iter
     if fit_iter_flag:
-        xanes_2d_fit, xanes_2d_fit_offset, xanes_fit_cost = pyxas.fit_2D_xanes_iter(img_xanes_norm[fit_eng_index[0]:fit_eng_index[1]], xanes_eng[fit_eng_index[0]:fit_eng_index[1]], spectrum_ref, coef0=xanes_2d_fit, offset=xanes_2d_fit_offset, learning_rate=fit_iter_learning_rate, n_iter=fit_iter_num, bounds=fit_iter_bound)
+        xanes_2d_fit, xanes_2d_fit_offset, xanes_fit_cost = pyxas.fit_2D_xanes_iter(img_xanes_norm[fit_eng_index[0]:fit_eng_index[1]],
+                                                                                    xanes_eng[fit_eng_index[0]:fit_eng_index[1]],
+                                                                                    spectrum_ref, coef0=xanes_2d_fit, offset=xanes_2d_fit_offset,
+                                                                                    learning_rate=fit_iter_learning_rate,
+                                                                                    n_iter=fit_iter_num, bounds=fit_iter_bound,
+                                                                                    fit_iter_lambda=fit_iter_lambda)
 
     # normalize fitting to [0, 1]
     xanes_2d_fit_norm = pyxas.rm_abnormal(xanes_2d_fit / np.sum(xanes_2d_fit, axis=0))
@@ -132,8 +141,9 @@ def fit_2D_xanes(img_xanes, xanes_eng, spectrum_ref, fit_param):
 
 
 
-def save_xanes_fitting_image(res, file_save_path, fn):
-    file_save_colormix = f'{file_save_path}/colormix'
+def save_xanes_fitting_image(res, file_save_path, fn, color='r,g,b'):
+    file_save_colormix1 = f'{file_save_path}/colormix_concentration'
+    file_save_colormix2 = f'{file_save_path}/colormix_ratio'
     file_save_fit_cost = f'{file_save_path}/fitting_cost'
     file_save_thickness = f'{file_save_path}/fitting_thickness'    
     file_save_mask = f'{file_save_path}/fitting_mask'
@@ -141,7 +151,8 @@ def save_xanes_fitting_image(res, file_save_path, fn):
     file_save_fit_norm = f'{file_save_path}/fitting_result_norm'
     
     create_directory(file_save_path)
-    create_directory(file_save_colormix)
+    create_directory(file_save_colormix1)
+    create_directory(file_save_colormix2)
     create_directory(file_save_fit_cost)
     create_directory(file_save_thickness)
     create_directory(file_save_mask)
@@ -153,19 +164,29 @@ def save_xanes_fitting_image(res, file_save_path, fn):
 
     fn = fn.split('/')[-1].split('.')[0]
 
-    # save to jpg image   
-    tmp = res['xanes_2d_fit_norm'] * res['xanes_fit_thickness']
-    tmp_f = pyxas.medfilt(tmp, 3)
-    img_color = pyxas.colormix(tmp, clim=[0, np.max(tmp_f)])     
+    # save to jpg image
+    tmp_concentration = res['xanes_2d_fit_norm'] * res['xanes_fit_thickness']
+    tmp_ratio = res['xanes_2d_fit_norm']
+    tmp_f_concentration = pyxas.medfilt(tmp_concentration, 3)
+    tmp_f_ratio = pyxas.medfilt(tmp_ratio, 3)
+    img_color_concentration = pyxas.colormix(tmp_concentration, color=color, clim=[0, np.max(tmp_f_concentration)])
+    img_color_ratio = pyxas.colormix(tmp_ratio, color=color, clim=[0, 1])
     mask1 = np.expand_dims(np.squeeze(res['mask_0']), axis=2)
     mask1 = np.repeat(mask1, 3, axis=2)
-    img_color = img_color * mask1
-    img_color[img_color<0] = 0
-    if np.max(img_color) == 0:
-        img_color[0,0,0] = 1
-    fn_save = f'{file_save_colormix}/colormix_{fn}.jpg'
 
-    pyxas.toimage(img_color, cmin=0, cmax=1).save(fn_save)
+    img_color_concentration *= mask1
+    img_color_concentration[img_color_concentration<0] = 0
+    if np.max(img_color_concentration) == 0:
+        img_color_concentration[0,0,0] = 1
+    fn_save = f'{file_save_colormix1}/colormix_concentration_{fn}.jpg'
+    pyxas.toimage(img_color_concentration, cmin=0, cmax=1).save(fn_save)
+
+    img_color_ratio *= mask1
+    img_color_ratio[img_color_ratio<0] = 0
+    if np.max(img_color_ratio) == 0:
+        img_color_ratio[0,0,0] = 1
+    fn_save = f'{file_save_colormix2}/colormix_ratio_{fn}.jpg'
+    pyxas.toimage(img_color_ratio, cmin=0, cmax=1).save(fn_save)
 
     # save fitting cost
     fn_save = f'{file_save_fit_cost}/fitting_cost_{fn}.tiff'
@@ -255,8 +276,12 @@ def fit_2D_xanes_file(file_path, file_prefix, file_type, fit_param, xanes_eng, s
         mask = pyxas.fit_xanes2D_generate_mask(res['xanes_fit_thickness'], res['xanes_fit_cost'], thresh_cost, thresh_thick, num_iter=0)    
         res['mask'] = np.squeeze(mask)
 
-        # save to jpg image   
-        pyxas.save_xanes_fitting_image(res, file_save_path, files_scan[i])
+        # save to jpg image
+        try:
+            color = fit_param['color']
+        except:
+            color = 'r, g, b'
+        pyxas.save_xanes_fitting_image(res, file_save_path, files_scan[i], color)
 
         if save_hdf:
             mask_3D[i] = np.squeeze(mask)
@@ -416,17 +441,18 @@ def fit_2D_xanes_file_mpi_sub(files_scan, fit_param, xanes_eng, spectrum_ref, fi
     res = pyxas.fit_2D_xanes(img_xanes, xanes_eng, spectrum_ref, fit_param)
      
     mask = pyxas.fit_xanes2D_generate_mask(res['xanes_fit_thickness'], res['xanes_fit_cost'], thresh_cost, thresh_thick, num_iter=0)
-    res['mask'] = mask   
-    save_xanes_fitting_image(res, file_save_path, files_scan)    
+    res['mask'] = mask
+    try:
+        color = fit_param['color']
+    except:
+        color = 'r, g, b'
+    save_xanes_fitting_image(res, file_save_path, files_scan, color)
     
     for j in range(num_channel):
         res[f'fitted_xanes_3D_ch{j}'] = np.squeeze(res['xanes_2d_fit'][j])
         res[f'fitted_xanes_3D_ch{j}_norm'] = np.squeeze(res['xanes_2d_fit_norm'][j])
     print(f'{files_scan_short} taking time: {time.time() - time_start:05.1f}\n')
     return res
-
-
-
 
 
 def fit_xanes2D_norm_edge(img_xanes, xanes_eng, pre_edge, post_edge, fit_eng=[], norm_txm_flag=1, fit_pre_edge_flag=1, fit_post_edge_flag=0, norm_method='new'):

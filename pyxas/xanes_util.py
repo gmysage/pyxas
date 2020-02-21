@@ -146,7 +146,7 @@ def fit_2D_xanes_non_iter(img_xanes, eng, spectrum_ref):
 
 
 
-def fit_2D_xanes_iter(img_xanes, eng, spectrum_ref, coef0=None, offset=None, learning_rate=0.005, n_iter=10, bounds=[0,1], lamda=0):
+def fit_2D_xanes_iter(img_xanes, eng, spectrum_ref, coef0=None, offset=None, learning_rate=0.005, n_iter=10, bounds=[0,1], fit_iter_lambda=0):
     '''
     Solve the equation A*x = b iteratively
 
@@ -198,7 +198,7 @@ def fit_2D_xanes_iter(img_xanes, eng, spectrum_ref, coef0=None, offset=None, lea
         offset = offset.reshape(1, -1)
     else:
         offset = np.zeros((1, s[1]*s[2]))
-    w, b, cost = lsq_fit_iter2(A, Y, W, offset, learning_rate, n_iter, bounds, f_scale1=lamda)
+    w, b, cost = lsq_fit_iter2(A, Y, W, offset, learning_rate, n_iter, bounds, f_scale1=fit_iter_lambda)
     w = w.reshape(len(w), img_xanes.shape[1], img_xanes.shape[2])
     b = b.reshape(1, s[1], s[2])
     try:

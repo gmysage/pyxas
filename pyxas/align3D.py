@@ -158,10 +158,13 @@ def align_3D_fine(img_ref, img1, circle_mask_ratio=1, sli_select=0, row_select=0
     img_tmp = img_ref.copy()
     if circle_mask_ratio < 1:
         img_ref_crop = tomopy.circ_mask(img_tmp, axis=0, ratio=circle_mask_ratio, val=0)
-    
+    else:
+        img_ref_crop = img_tmp.copy()
     img_tmp = img1.copy()
     if circle_mask_ratio < 1:
         img_raw_crop = tomopy.circ_mask(img_tmp, axis=0, ratio=circle_mask_ratio, val=0)
+    else:
+        img_raw_crop = img_tmp.copy()
     if sli_shift_guess != 0 or row_shift_guess != 0 or col_shift_guess != 0:
         img_raw_crop= shift(img_raw_crop, [sli_shift_guess, row_shift_guess, col_shift_guess], order=0)
 
@@ -241,7 +244,9 @@ def align_3D_coarse_axes(img_ref, img1, circle_mask_ratio=0.6, axes=0, shift_fla
 
     img_tmp = img_ref.copy()
     if circle_mask_ratio < 1:
-        img_ref_crop = tomopy.circ_mask(img_tmp, axis=0, ratio=circle_mask_ratio, val=0)    
+        img_ref_crop = tomopy.circ_mask(img_tmp, axis=0, ratio=circle_mask_ratio, val=0)   
+    else:
+        img_ref_crop = img_tmp.copy() 
     s = img_ref_crop.shape
     stack_range = [int(s[0]*(0.5-circle_mask_ratio/2)), int(s[0]*(0.5+circle_mask_ratio/2))]
     prj0 = np.sum(img_ref_crop[stack_range[0]:stack_range[1]], axis=axes)
@@ -249,6 +254,8 @@ def align_3D_coarse_axes(img_ref, img1, circle_mask_ratio=0.6, axes=0, shift_fla
     img_tmp = img1.copy()    
     if circle_mask_ratio < 1:
         img_raw_crop = tomopy.circ_mask(img_tmp, axis=0, ratio=circle_mask_ratio, val=0)
+    else:
+        img_raw_crop = img_tmp.copy()
     prj1 = np.sum(img_raw_crop[stack_range[0]:stack_range[1]], axis=axes)
     
     sr = StackReg(StackReg.TRANSLATION)
