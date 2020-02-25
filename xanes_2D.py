@@ -1641,7 +1641,7 @@ class App(QWidget):
 
         self.tx_filt = QLineEdit(self)
         self.tx_filt.setFont(self.font2)
-        self.tx_filt.setText('3')
+        self.tx_filt.setText('1')
         self.tx_filt.setValidator(QIntValidator())
         self.tx_filt.setFixedWidth(50)
 
@@ -2479,6 +2479,7 @@ class App(QWidget):
         QApplication.processEvents()
         #canvas = self.canvas1
         return_flag, img_stack = self.choose_image_for_fittting()
+        img_stack = self.smooth(img_stack * self.mask)
         if return_flag:
             try:
                 eng_s = float(self.tx_fit2d_s.text())
@@ -2491,8 +2492,9 @@ class App(QWidget):
                     self.cb1.addItem('XANES Fit (ratio, summed to 1)')
                 if self.cb1.findText('XANES Fit (Elem. concentration)') < 0:
                     self.cb1.addItem('XANES Fit (Elem. concentration)')
-                #if self.cb1.findText('XANES Fit (thickness)') < 0:
-                #    self.cb1.addItem('XANES Fit (thickness)')
+                if self.cb1.findText('XANES Fit (thickness)') < 0:
+                    self.img_pre_edge_sub_mean = img_stack[fit_region][-1]
+                    self.cb1.addItem('XANES Fit (thickness)')
                 if self.cb1.findText('XANES Fit error') < 0:
                     self.cb1.addItem('XANES Fit error')
                 self.cb1.setCurrentText('XANES Fit (ratio, summed to 1)')
@@ -2530,6 +2532,7 @@ class App(QWidget):
         self.pb_fit2d_iter.setEnabled(False)
         QApplication.processEvents()
         return_flag, img_stack = self.choose_image_for_fittting()
+        img_stack = self.smooth(img_stack * self.mask)
         if return_flag:
             if self.chkbox_bound.isChecked():
                 bounds = [0, 1]
@@ -2559,20 +2562,25 @@ class App(QWidget):
 
                 if self.fitting_method == 1:
                     learning_rate = float(self.tx_method1.text())
-                    lamda = float(self.tx_method2.text())
-                    self.xanes_2d_fit, self.xanes_2d_fit_offset, self.xanes_fit_cost = fit_2D_xanes_iter(img_stack[fit_region], self.xanes_eng[fit_region], self.spectrum_ref, coef0, offset, learning_rate, num_iter, bounds=bounds, lamda=lamda)
+                    fit_iter_lambda = float(self.tx_method2.text())
+                    self.xanes_2d_fit, self.xanes_2d_fit_offset, self.xanes_fit_cost = \
+                        fit_2D_xanes_iter(img_stack[fit_region], self.xanes_eng[fit_region], self.spectrum_ref,
+                                          coef0, offset, learning_rate, num_iter, bounds=bounds, fit_iter_lambda=fit_iter_lambda)
                 elif self.fitting_method == 2 or self.fitting_method == 3:
-                    lamda = float(self.tx_method2.text())
+                    fit_iter_lambda = float(self.tx_method2.text())
                     rho = float(self.tx_method3.text())
-                    self.xanes_2d_fit, self.xanes_2d_fit_offset, self.xanes_fit_cost = fit_2D_xanes_iter2(img_stack[fit_region], self.xanes_eng[fit_region], self.spectrum_ref, coef0, offset, lamda, rho, num_iter, bounds=bounds, method=self.fitting_method-1)
+                    self.xanes_2d_fit, self.xanes_2d_fit_offset, self.xanes_fit_cost = \
+                        fit_2D_xanes_iter2(img_stack[fit_region], self.xanes_eng[fit_region], self.spectrum_ref,
+                                           coef0, offset, fit_iter_lambda, rho, num_iter, bounds=bounds, method=self.fitting_method-1)
                 self.pb_fit2d_iter.setEnabled(True)
                 QApplication.processEvents()
                 if self.cb1.findText('XANES Fit (ratio, summed to 1)') < 0:
                     self.cb1.addItem('XANES Fit (ratio, summed to 1)')
                 if self.cb1.findText('XANES Fit (Elem. concentration)') < 0:
                     self.cb1.addItem('XANES Fit (Elem. concentration)')
-                #if self.cb1.findText('XANES Fit (thickness)') < 0:
-                #    self.cb1.addItem('XANES Fit (thickness)')
+                if self.cb1.findText('XANES Fit (thickness)') < 0:
+                    self.img_pre_edge_sub_mean = img_stack[fit_region][-1]
+                    self.cb1.addItem('XANES Fit (thickness)')
                 if self.cb1.findText('XANES Fit error') < 0:
                     self.cb1.addItem('XANES Fit error')
                 self.cb1.setCurrentText('XANES Fit (ratio, summed to 1)')
@@ -3712,7 +3720,8 @@ class App(QWidget):
         if self.smooth_param['flag'] == 1:
             try:
                 kernal_size = self.smooth_param['kernal_size']
-                img_stack = img_smooth(img_stack, kernal_size, axis=axis)
+                if kernal_size > 1:
+                    img_stack = img_smooth(img_stack, kernal_size, axis=axis)
             except:
                 self.msg = 'image smoothing fails...'
                 self. update_msg()

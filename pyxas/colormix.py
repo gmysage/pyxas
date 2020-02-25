@@ -9,7 +9,7 @@ def colormix(img, color='r, g, b', scale=[1], clim=[0,1], plot_flag=0):
     color = color.replace(' ','')
     color = color.replace(';', ',')
     color = color.split(',') 
-    if len(color) <= num_channel:
+    if len(color) < num_channel:
         color = ['r', 'g', 'b', 'c', 'p', 'y']
     color = color[:num_channel]
     color_vec = convert_rgb_vector(color)
