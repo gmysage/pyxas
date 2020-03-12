@@ -25,6 +25,7 @@ python xanes_2D.py
 
 
 ## Acknowledgement
-
+We kindly request that you cite the following article:
+Mingyuan Ge, Wah-Keat Lee. PyXAS – an open-source package for 2D X-ray near-edge spectroscopy analysis. Journal of Synchrotron Radiation,27, 567 (2020)
 
 
