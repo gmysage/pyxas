@@ -159,7 +159,7 @@ class App(QWidget):
 
         self.pb_plot_roi.setEnabled(False)
         self.pb_export_roi_fit.setEnabled(False)
-        self.pb_colormix.setEnabled(False)
+        self.pb_colormix.setEnabled(True)
         self.pb_save.setEnabled(False)
 
         self.canvas1.cmax = 1
@@ -455,6 +455,14 @@ class App(QWidget):
         hbox1.addWidget(lb_empty)
         hbox1.setAlignment(QtCore.Qt.AlignLeft)
 
+        # load fitted file
+        self.pb_ld_fitted = QPushButton('Load Fitted')
+        self.pb_ld_fitted.setToolTip('File: .h5')
+        self.pb_ld_fitted.setFont(self.font2)
+        self.pb_ld_fitted.clicked.connect(self.load_fitted_file)
+        self.pb_ld_fitted.setFixedWidth(140)
+
+
         # databroker 
         hbox2 = QHBoxLayout()
         hbox2.addWidget(lb_empty3)
@@ -471,6 +479,7 @@ class App(QWidget):
         hbox3.addWidget(lb_hdf_eng)
         hbox3.addWidget(self.tx_hdf_eng)
         hbox3.addWidget(self.pb_ld_eng)
+        hbox3.addWidget(self.pb_ld_fitted)
         hbox3.addWidget(lb_empty)
         hbox3.setAlignment(QtCore.Qt.AlignLeft)
 
@@ -1147,18 +1156,22 @@ class App(QWidget):
         self.tx_fit_pre_s = QLineEdit()
         self.tx_fit_pre_s.setFont(self.font2)
         self.tx_fit_pre_s.setFixedWidth(60)
+        self.tx_fit_pre_s.setValidator(QDoubleValidator())
 
         self.tx_fit_pre_e = QLineEdit()
         self.tx_fit_pre_e.setFont(self.font2)
         self.tx_fit_pre_e.setFixedWidth(60)
+        self.tx_fit_pre_e.setValidator(QDoubleValidator())
 
         self.tx_fit_post_s = QLineEdit()
         self.tx_fit_post_s.setFont(self.font2)
         self.tx_fit_post_s.setFixedWidth(60)
+        self.tx_fit_post_s.setValidator(QDoubleValidator())
 
         self.tx_fit_post_e = QLineEdit()
         self.tx_fit_post_e.setFont(self.font2)
         self.tx_fit_post_e.setFixedWidth(60)
+        self.tx_fit_post_e.setValidator(QDoubleValidator())
 
         lb_fit_roi = QLabel()
         lb_fit_roi.setFont(self.font2)
@@ -1565,7 +1578,7 @@ class App(QWidget):
         self.pb_plot_roi = QPushButton('Plot ROI fit.')
         self.pb_plot_roi.setFont(self.font2)
         self.pb_plot_roi.clicked.connect(lambda return_flag: self.plot_roi_fit(1))
-        self.pb_plot_roi.setEnabled(False)
+        self.pb_plot_roi.setEnabled(True)
         self.pb_plot_roi.setFixedWidth(105)
 
         lb_fit_roi = QLabel()
@@ -1585,11 +1598,17 @@ class App(QWidget):
         self.pb_export_roi_fit.setEnabled(False)
         self.pb_export_roi_fit.setFixedWidth(105)
 
+        self.chkbox_overlay_ref = QCheckBox('Overlay Ref.')
+        self.chkbox_overlay_ref.setFont(self.font2)
+        self.chkbox_overlay_ref.setChecked(True)
+        self.chkbox_overlay_ref.setFixedWidth(105)
+
+
         hbox_plot = QHBoxLayout()
         hbox_plot.addWidget(self.pb_plot_roi)
         hbox_plot.addWidget(lb_fit_roi)
         hbox_plot.addWidget(self.tx_fit_roi)
-        hbox_plot.addWidget(self.pb_export_roi_fit)
+        hbox_plot.addWidget(self.chkbox_overlay_ref)
         hbox_plot.setAlignment(QtCore.Qt.AlignTop)
 
         ############################################
@@ -1601,6 +1620,7 @@ class App(QWidget):
         self.pb_save.setFixedWidth(105)
 
         hbox_save = QHBoxLayout()
+        hbox_save.addWidget(self.pb_export_roi_fit)
         hbox_save.addWidget(self.pb_save)
         hbox_save.setAlignment(QtCore.Qt.AlignTop)
 
@@ -2002,7 +2022,7 @@ class App(QWidget):
         self.pb_colormix = QPushButton('Color Mix')
         self.pb_colormix.setFont(self.font2)
         self.pb_colormix.clicked.connect(self.xanes_colormix)
-        self.pb_colormix.setEnabled(False)
+        self.pb_colormix.setEnabled(True)
         self.pb_colormix.setFixedWidth(105)
 
         lb_fit_color = QLabel()
@@ -2497,6 +2517,8 @@ class App(QWidget):
                     self.cb1.addItem('XANES Fit (thickness)')
                 if self.cb1.findText('XANES Fit error') < 0:
                     self.cb1.addItem('XANES Fit error')
+                if self.cb1.findText('XANES Fit offset') < 0:
+                    self.cb1.addItem('XANES Fit offset')
                 self.cb1.setCurrentText('XANES Fit (ratio, summed to 1)')
                 elem = self.tx_elem.text()
                 elem = elem.replace(' ', '')
@@ -2512,6 +2534,7 @@ class App(QWidget):
                 self.pb_colormix.setEnabled(True)
                 self.pb_save.setEnabled(True)
                 num_ref = len(self.spectrum_ref)
+                self.cb_color_channel.clear()
                 for i in range(num_ref):
                     if self.cb_color_channel.findText(f'{i}') < 0:
                         self.cb_color_channel.addItem(f'{i}')
@@ -2944,15 +2967,43 @@ class App(QWidget):
                 self.msg = 'fails to perform dilation on "mask"'
                 self.update_msg()
 
+
+    def _select_xanes_fit_img(self):
+        if self.dataset_used_for_fitting == 0:
+            img = self.img_xanes
+        elif self.dataset_used_for_fitting == 1:
+            img = self.img_update
+        elif self.dataset_used_for_fitting == 2:
+            img = self.img_regulation
+        else:
+            img = []
+        return img
+
     def _roi_fit(self):
-        eng_s = self.xanes_eng[0]
-        eng_e = self.xanes_eng[-1]
-        fit_eng_s, fit_eng_e = find_nearest(self.xanes_eng, eng_s), find_nearest(self.xanes_eng, eng_e)
-        tmp = np.array(self.xanes_eng[fit_eng_s: fit_eng_e] > self.spectrum_ref['ref0'][0, 0]) * np.array(self.xanes_eng[fit_eng_s: fit_eng_e] < self.spectrum_ref['ref0'][-1, 0])
-        fit_region = np.arange(fit_eng_s, fit_eng_e)[tmp]
-        roi_selected = 1
-        canvas = self.canvas1
-        roi_list = canvas.roi_list
+        try:
+            eng_s = self.xanes_eng[0]
+            eng_e = self.xanes_eng[-1]
+            fit_eng_s, fit_eng_e = find_nearest(self.xanes_eng, eng_s), find_nearest(self.xanes_eng, eng_e)
+            tmp = np.array(self.xanes_eng[fit_eng_s: fit_eng_e] > self.spectrum_ref['ref0'][0, 0]) * \
+                  np.array(self.xanes_eng[fit_eng_s: fit_eng_e] < self.spectrum_ref['ref0'][-1, 0])
+            fit_region = np.arange(fit_eng_s, fit_eng_e)[tmp]
+            roi_selected = 1
+            canvas = self.canvas1
+            roi_list = canvas.roi_list
+        except:
+            self.msg = 'something wrong (e.g., check ROI, reference spectrum, etc.)'
+            self.update_msg()
+            x_data = [0]
+            y_data = [0]
+            y_fit = y_data
+            fit_success = 0
+            cord = [0, 0, 0, 0]
+            fit_coef = [0]
+            fit_offset = 0
+            roi_selected = 0
+
+            return x_data, y_data, y_fit, fit_coef, fit_offset, cord, fit_success, roi_selected
+        '''
         if self.dataset_used_for_fitting == 0:
             img = deepcopy(self.img_xanes[fit_region])
         elif self.dataset_used_for_fitting == 1:
@@ -2961,7 +3012,11 @@ class App(QWidget):
             img = deepcopy(self.img_regulation[fit_region])
         else:
             img = []
-        img = self.smooth(img)
+        '''
+        img = self._select_xanes_fit_img()
+        if len(img):
+            img = img[fit_region]
+            img = self.smooth(img)
 
         x_data = self.xanes_eng[fit_region]
         try:
@@ -2969,10 +3024,9 @@ class App(QWidget):
             roi_selected = 'roi_' + n
         except:
             print(f'{roi_selected} not exist')
-            n = 0
+            n = '-1'
         try:
-            if (type(roi_selected) is str) and ('roi_' in roi_selected) and (not 'SM' in roi_selected):
-
+            if (type(roi_selected) is str) and ('roi_' in roi_selected) and (int(n) >= 0) and (not 'SM' in roi_selected):
                 roi_cord = np.int32(np.array(roi_list[roi_selected][:4]))
                 print(f'{roi_cord}')
                 a, b, c, d = roi_cord[0], roi_cord[1], roi_cord[2], roi_cord[3]
@@ -2981,47 +3035,59 @@ class App(QWidget):
                 y1 = min(b, d)
                 y2 = max(b, d)
                 cord = [x1, x2, y1, y2]
-                prj = img[:, y1:y2, x1:x2]
-                '''
-                prj_mean = np.zeros([prj.shape[0], 1, 1])
-                prj_mean[:,0,0] = np.mean(np.mean(prj, axis=1), axis=1)
-                fit_coef, fit_cost = fit_2D_xanes_non_iter(prj_mean, self.xanes_eng[fit_eng_s:fit_eng_e],self.spectrum_ref)
-                fit_coef = np.squeeze(fit_coef)
-                fit_cost = np.squeeze(fit_cost)
-                '''
+                if len(img):
+                    prj = img[:, y1:y2, x1:x2]
+                    y_data = np.mean(np.mean(prj, axis=1), axis=1)
+                else: # img = []
+                    y_data = np.zeros(x_data.shape)
                 fit_coef = self.xanes_2d_fit[:, y1:y2, x1:x2]
-                fit_offset = self.xanes_2d_fit_offset[:, y1:y2, x1:x2]
+                try:
+                    fit_offset = self.xanes_2d_fit_offset[:, y1:y2, x1:x2]
+                    fit_offset = np.mean(np.mean(fit_offset, axis=1), axis=1)
+                except:
+                    fit_offset = 0
                 fit_coef = np.mean(np.mean(fit_coef, axis=1), axis=1)
-                fit_offset = np.mean(np.mean(fit_offset, axis=1), axis=1)
-                y_data = np.mean(np.mean(prj, axis=1), axis=1)
             else:
                 if 'SM' in roi_selected:
                     sm_index = int(roi_selected.split('_')[-1])
                     mask = self.smart_mask[sm_index]
-                elif roi_selected == -1:
+                elif '-1' in roi_selected:
                     mask = self.mask
-                    if not np.squeeze(mask).shape == img[0].shape:
-                        mask = np.ones(img[0].shape)
                 else:
                     raise IndexError
-                prj = img * mask
-                prj_mean = np.zeros([prj.shape[0], 1, 1])
-                prj_mean[:, 0, 0] = np.sum(np.sum(prj, axis=1), axis=1) / np.sum(mask)
-                fit_coef, fit_offset, fit_cost = fit_2D_xanes_non_iter(prj_mean, x_data, self.spectrum_ref)
-                fit_coef = np.squeeze(fit_coef)
-                fit_offset = np.squeeze(fit_offset)
-                #fit_coef = self.xanes_2d_fit * mask
-                #fit_offset = self.xanes_2d_fit_offset * mask
-                #fit_coef = np.sum(np.sum(fit_coef, axis=1), axis=1) / np.sum(mask)
-                #fit_offset = np.sum(fit_offset) / np.sum(mask)
-                y_data = np.sum(np.sum(prj, axis=1), axis=1) / np.sum(mask)
-                cord = [0,0,0,0]
-            s = prj.shape
+                if len(img):
+                    '''
+                    if 'SM' in roi_selected:
+                        sm_index = int(roi_selected.split('_')[-1])
+                        mask = self.smart_mask[sm_index]
+                    elif roi_selected == -1:
+                        mask = self.mask
+                        if not np.squeeze(mask).shape == img[0].shape:
+                            mask = np.ones(img[0].shape)
+                    else:
+                        raise IndexError
+                    '''
+                    prj = img * mask
+                    prj_mean = np.zeros([prj.shape[0], 1, 1])
+                    prj_mean[:, 0, 0] = np.sum(np.sum(prj, axis=1), axis=1) / np.sum(mask)
+                    fit_coef, fit_offset, fit_cost = fit_2D_xanes_non_iter(prj_mean, x_data, self.spectrum_ref)
+                    fit_coef = np.squeeze(fit_coef)
+                    fit_offset = np.squeeze(fit_offset)
+                    y_data = np.sum(np.sum(prj, axis=1), axis=1) / np.sum(mask)
+                else: # img = []
+                    fit_coef = self.xanes_2d_fit * mask
+                    fit_offset = self.xanes_2d_fit_offset * mask
+                    fit_coef = np.sum(np.sum(fit_coef, axis=1), axis=1) / np.sum(mask)
+                    fit_offset = np.sum(fit_offset) / np.sum(mask)
+                    y_data = np.zeros(x_data.shape)
+                cord = [0, 0, 0, 0]
+
             y_fit = 0
             for i in range(self.num_ref):
                 ref = self.spectrum_ref[f'ref{i}']
                 tmp = interp1d(ref[:,0], ref[:,1], kind='cubic')
-                ref_interp = tmp(x_data).reshape(y_data.shape)
+                #ref_interp = tmp(x_data).reshape(y_data.shape)
+                ref_interp = tmp(x_data)
                 y_fit += fit_coef[i] * ref_interp
             y_fit += fit_offset
             fit_success = 1
@@ -3037,7 +3103,7 @@ class App(QWidget):
         return x_data, y_data, y_fit, fit_coef, fit_offset, cord, fit_success, roi_selected
 
     '''
-    def _roi_fit(self):
+    def _roi_fit_mean(self):
         eng_s = self.xanes_eng[0]
         eng_e = self.xanes_eng[-1]
         fit_eng_s, fit_eng_e = find_nearest(self.xanes_eng, eng_s), find_nearest(self.xanes_eng, eng_e)
@@ -3073,8 +3139,12 @@ class App(QWidget):
                 y1 = min(b, d)
                 y2 = max(b, d)
                 cord = [x1, x2, y1, y2]
-                prj = img[:, y1:y2, x1:x2]
-                
+                try:
+                    prj = img[:, y1:y2, x1:x2]
+                    s = prj.shape
+                    y_data = np.mean(np.mean(prj, axis=1), axis=1) 
+                except:
+                    y_data = []
                 #prj_mean = np.zeros([prj.shape[0], 1, 1])
                 #prj_mean[:,0,0] = np.mean(np.mean(prj, axis=1), axis=1)
                 #fit_coef, fit_cost = fit_2D_xanes_non_iter(prj_mean, self.xanes_eng[fit_eng_s:fit_eng_e],self.spectrum_ref)
@@ -3083,10 +3153,12 @@ class App(QWidget):
                 
                 fit_coef = self.xanes_2d_fit[:, y1:y2, x1:x2]
                 fit_coef = np.mean(np.mean(fit_coef, axis=1), axis=1)
-                fit_offset = self.xanes_2d_fit_offset[:, y1:y2, x1:x2]
-                fit_offset = np.mean(np.mean(fit_offset, axis=1), axis=1)
-                s = prj.shape
-                y_data = np.mean(np.mean(prj, axis=1), axis=1)                
+                try:
+                    fit_offset = self.xanes_2d_fit_offset[:, y1:y2, x1:x2]
+                    fit_offset = np.mean(np.mean(fit_offset, axis=1), axis=1)
+                except:
+                    fit_offset = 0
+                               
                 y_fit = 0
                 for i in range(self.num_ref):
                     ref = self.spectrum_ref[f'ref{i}']
@@ -3139,6 +3211,22 @@ class App(QWidget):
             legend.append(line_raw)
             line_fit, = plt.plot(x_data, y_fit, color='r', label='Fitted')
             legend.append(line_fit)
+            if self.chkbox_overlay_ref.isChecked():
+                t_color = ['g', 'orange', 'm', 'c', 'y']
+                line_ref = {}
+                try:
+                    scale = (np.max(y_fit) - fit_offset) / np.max(self.spectrum_ref['ref0'][:,1])
+                    for i in range(self.num_ref):
+                        ref_name = f'ref{i}'
+                        scale_i = fit_coef[i]/fit_coef_sum
+                        x_ref = self.spectrum_ref[ref_name][:,0]
+                        y_ref = self.spectrum_ref[ref_name][:,1]
+                        line_ref[ref_name], = plt.plot(x_ref, y_ref*scale*scale_i+fit_offset,
+                                                       alpha=0.6, color=t_color[i%5], label=ref_name)
+                        plt.xlim([x_data[0]-0.02, x_data[-1]+0.02])
+                        legend.append(line_ref[ref_name])
+                except:
+                    pass
             plt.legend(handles=legend)
             plt.title(title)
             plt.show()
@@ -3560,11 +3648,17 @@ class App(QWidget):
                     self.img_colormix_raw = deepcopy(img)
                 except:
                     img = []
+
                 if not len(img) == len(self.spectrum_ref):
+                    '''
                     self.msg = 'invalid image stack for colormix, will using "XANES fit (concentration)" to demonstrate'
                     img = self.xanes_2d_fit * self.mask1 * self.mask2 * self.img_pre_edge_sub_mean
                     self.update_msg()
                     self.img_colormix_raw = deepcopy(img)
+                    '''
+                    self.cb_color_channel.clear()
+                    for i in range(len(img)):
+                        self.cb_color_channel.addItem(str(i))
             else:
                 img = deepcopy(self.img_colormix_raw)
             '''
@@ -3630,7 +3724,7 @@ class App(QWidget):
             options |= QFileDialog.DontUseNativeDialog
             file_type = 'hdf files (*.h5)'
             fn, _ = QFileDialog.getSaveFileName(self, 'Save File', "", file_type, options=options)
-            if fn.split('.')[-1] != 'h5':
+            if fn[-3:] != '.h5':
                 fn += '.h5'
             hf = h5py.File(fn, 'w')
             hf.create_dataset('X_eng', data=self.xanes_eng)
@@ -3650,7 +3744,7 @@ class App(QWidget):
                 except:
                     pass
             for i in range(self.num_ref):
-                hf.create_dataset(f'ref{i}', data=label[i])
+                hf.create_dataset(f'ref{i}', data=self.spectrum_ref[f'ref{i}'])
             hf.close()
             print(f'xanes_fit has been saved to file: {fn}')
             self.msg = f'xanes_fit has been saved to file: {fn}'
@@ -4129,13 +4223,13 @@ class App(QWidget):
             fn, _ = QFileDialog.getSaveFileName(self, 'Save File', "", file_type, options=options)
             if fn:
                 if not fn[-4:] == '.txt':
-                    fn += 'txt'
+                    fn += '.txt'
                 np.savetxt(fn, np.array(df_spec), '%2.5f')
                 # fn_cord_another = fn+f'_fitted_coordinates_roi_from_{self.cb1.currentText()}_{self.tx_file_index.text()}.txt'
                 with open(fn_spec, 'w') as f:
                     df_cord.to_csv(f, sep=' ')
                 print(fn_spec + '  saved')
-                self.msg = 'Fitted ROI spectrum saved:   ' + fn + '.txt'
+                self.msg = 'Fitted ROI spectrum saved:   ' + fn
         except:
             self.msg = 'Save fitted roi spectrum fails ...'
         finally:
@@ -4348,6 +4442,94 @@ class App(QWidget):
             self.update_msg()
             self.update_canvas_img()
 
+    def load_fitted_file(self):
+        self.default_layout()
+        options = QFileDialog.Option()
+        options |= QFileDialog.DontUseNativeDialog
+        file_type = 'hdf files (*.h5)'
+        fn, _ = QFileDialog.getOpenFileName(xanes, "QFileDialog.getOpenFileName()", "", file_type, options=options)
+        if fn:
+            self.dataset_used_for_fitting = -1
+            self.xanes_2d_fit_offset = 0
+            self.num_ref = 0
+            thickness_flag = 0
+            concentration_flag = 0
+            f = h5py.File(fn, 'r')
+            keys = list(f.keys())
+            # edge
+            post_edge = np.array(f['post_edge'])
+            pre_edge = np.array(f['pre_edge'])
+            self.tx_fit_pre_s.setText(str(pre_edge[0]))
+            self.tx_fit_pre_e.setText(str(pre_edge[1]))
+            self.tx_fit_post_s.setText(str(post_edge[0]))
+            self.tx_fit_post_e.setText(str(post_edge[1]))
+
+            self.msg = f"reading: {', '.join(t for t in keys)}"
+            for k in keys:
+                if k.lower() == 'mask':
+                    self.mask = np.squeeze(np.array(f[k]))
+                    self.canvas1.mask = self.mask
+                    self.mask1 = self.mask
+                    self.pb_mask1.setStyleSheet('color: rgb(200, 50, 50);')
+                    self.cb1.addItem('Mask')
+                    continue
+                if 'smart' in k.lower():
+                    self.smart_mask = np.array(f[k])
+                    self.cb1.addItem('Smart Mask')
+                    continue
+                if 'eng' in k.lower():
+                    self.xanes_eng = np.array(f[k])
+                    st = '{0:2.4f}, {1:2.4f}, ..., {2:2.4f} keV   totally, {3} energies'.format(self.xanes_eng[0],
+                            self.xanes_eng[1], self.xanes_eng[-1], len(self.xanes_eng))
+                    self.lb_eng1.setText(st)
+                if 'ratio' in k.lower():
+                    self.xanes_2d_fit = np.array(f[k])
+                    self.cb1.addItem('XANES Fit (ratio, summed to 1)')
+                    continue
+                if 'thickness' in k.lower():
+                    self.img_pre_edge_sub_mean = np.array(f[k])
+                    self.cb1.addItem('XANES Fit (thickness)')
+                    concentration_flag = 1
+                    thickness_flag = 1
+                    continue
+                if 'error' in k.lower():
+                    self.xanes_fit_cost = np.array(f[k])
+                    self.cb1.addItem('XANES Fit error')
+                    continue
+                if 'ref' in k.lower():
+                    self.num_ref += 1
+                    continue
+                if 'offset' in k.lower():
+                    self.xanes_2d_fit_offset = np.array(f[k])
+                    self.cb1.addItem('XANES Fit offset')
+                    continue
+
+
+            if thickness_flag == 0:
+                for k in keys:
+                    if 'concentration' in k.lower():
+                        self.img_pre_edge_sub_mean = self.xanes_2d_fit / np.array(f[k])
+                        concentration_flag = 1
+                        break
+
+            if concentration_flag:
+                self.cb1.addItem('XANES Fit (Elem. concentration)')
+
+            for i in range(self.num_ref):
+                try:
+                    ref_name = f'ref{i}'
+                    self.spectrum_ref[ref_name] = np.float32(np.array(f[ref_name]))
+                    self.lb_ref_info.setText(self.lb_ref_info.text() + '\n' + ref_name + '  loaded')
+                    self.lb_ref_info.setStyleSheet('color: rgb(200, 50, 50);')
+                    QApplication.processEvents()
+                except:
+                    self.num_ref -= 1
+        f.close()
+        self.lb_ip.setText('File loaded:   {}'.format(fn))
+        self.pb_plot_roi.setEnabled(True)
+
+
+
     def open_imagej(self):
         try:
             os.system('imagej &')
@@ -4418,7 +4600,7 @@ class App(QWidget):
                         self.update_msg()
                     # read xanes-scan image
                     try:
-                        self.img_xanes = np.array(f[dataset_xanes])
+                        self.img_xanes = rm_abnormal(np.array(f[dataset_xanes]))
                         s = self.img_xanes.shape
                         if len(s) == 2:
                             self.img_xanes = np.expand_dims(self.img_xanes, axis=0)
@@ -4449,7 +4631,7 @@ class App(QWidget):
                     f.close()
                 else:  # read tiff file
                     try:
-                        self.img_xanes = np.array(io.imread(fn))
+                        self.img_xanes = rm_abnormal(np.array(io.imread(fn)))
                         s = self.img_xanes.shape
                         if len(s) == 2:
                             self.img_xanes = np.expand_dims(self.img_xanes, axis=0)
@@ -4558,7 +4740,7 @@ class App(QWidget):
         self.pb_align.setEnabled(False)
         canvas = self.canvas1
         prj = deepcopy(canvas.img_stack) * self.mask1 * self.mask2
-        img_ali = deepcopy(canvas.img_stack)
+        img_ali = deepcopy(prj)
         n = prj.shape[0]
         self.shift_list = []
         try:
@@ -4818,7 +5000,7 @@ class App(QWidget):
             elif type_index == 'XANES Fit (ratio, summed to 1)': # will be saved
                 self.img_colormix_raw = np.array([])
                 canvas.rgb_flag = 0
-                img = self.xanes_2d_fit  #/ np.sum(self.xanes_2d_fit, axis=0, keepdims=True)
+                img = self.xanes_2d_fit
                 img_sum = np.sum(img, axis=0, keepdims=True)
                 img_sum[np.abs(img_sum) < 1e-6] = 1e6
                 img = img / img_sum
@@ -4858,6 +5040,22 @@ class App(QWidget):
                 self.img_colormix_raw = np.array([])
                 canvas.rgb_flag = 0
                 img = self.xanes_fit_cost
+                self.pb_roi_draw.setEnabled(True)
+                canvas.x, canvas.y = [], []
+                canvas.axes.clear()  # this is important, to clear the current image before another imshow()
+                canvas.img_stack = self.smooth(img)
+                canvas.special_info = None
+                # canvas.current_img_index = 0
+                canvas.current_img_index = self.sl1.value()
+                canvas.title = []
+                canvas.update_img_stack()
+                slide.setMaximum(0)
+                self.current_image = img[0]
+                self.data_summary[type_index] = self.canvas1.img_stack
+            elif type_index == 'XANES Fit offset':
+                self.img_colormix_raw = np.array([])
+                canvas.rgb_flag = 0
+                img = self.xanes_2d_fit_offset
                 self.pb_roi_draw.setEnabled(True)
                 canvas.x, canvas.y = [], []
                 canvas.axes.clear()  # this is important, to clear the current image before another imshow()
