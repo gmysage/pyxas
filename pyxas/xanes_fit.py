@@ -93,7 +93,7 @@ def fit_2D_xanes(img_xanes, xanes_eng, spectrum_ref, fit_param):
     if mask_xanes_flag:
         n_comp = int(np.max([n_comp, 2]))
         img_xanes_norm_smooth = pyxas.medfilt(img, 3)
-        mask_comp, _ = kmean_mask(img_xanes_norm_smooth, n_comp=n_comp)
+        mask_comp, _ = kmean_mask(img_xanes_norm_smooth[20:50], n_comp=n_comp)
     else:
         mask_comp = np.ones([1, img.shape[1], img.shape[2]])
         n_comp = 1
@@ -171,7 +171,8 @@ def save_xanes_fitting_image(res, file_save_path, fn, color='r,g,b'):
     tmp_f_ratio = pyxas.medfilt(tmp_ratio, 3)
     img_color_concentration = pyxas.colormix(tmp_concentration, color=color, clim=[0, np.max(tmp_f_concentration)])
     img_color_ratio = pyxas.colormix(tmp_ratio, color=color, clim=[0, 1])
-    mask1 = np.expand_dims(np.squeeze(res['mask_0']), axis=2)
+    # mask1 = np.expand_dims(np.squeeze(res['mask_0']), axis=2)
+    mask1 = np.expand_dims(np.squeeze(res['mask']), axis=2)
     mask1 = np.repeat(mask1, 3, axis=2)
 
     img_color_concentration *= mask1
