@@ -2268,10 +2268,12 @@ class App(QWidget):
         return vbox_prep
 
     def layout_canvas(self):
+        from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
         lb_empty = QLabel()
         lb_empty2 = QLabel()
         lb_empty2.setFixedWidth(10)
         self.canvas1 = MyCanvas(obj=self)
+        self.toolbar = NavigationToolbar(self.canvas1,self)
         self.sl1 = QScrollBar(QtCore.Qt.Horizontal)
         self.sl1.setMaximum(0)
         self.sl1.setMinimum(0)
@@ -2397,6 +2399,7 @@ class App(QWidget):
         hbox_cmap.setAlignment(QtCore.Qt.AlignLeft)
 
         vbox_can1 = QVBoxLayout()
+        vbox_can1.addWidget(self.toolbar)
         vbox_can1.addWidget(self.canvas1)
         vbox_can1.addWidget(self.sl1)
         vbox_can1.addLayout(hbox_can_l)
@@ -3762,7 +3765,7 @@ class App(QWidget):
                         pass
                 for i in range(self.num_ref):
                     hf.create_dataset(f'ref{i}', data=self.spectrum_ref[f'ref{i}'])
-
+            '''
             with h5py.File(self.fn_raw_image, 'a') as hf:
                 #hf.create_dataset('X_eng', data=self.xanes_eng)
                 if 'pre_edge' in hf.keys():
@@ -3789,6 +3792,7 @@ class App(QWidget):
                     if f'ref{i}' in hf.keys():
                         hf.__delitem__(f'ref{i}')
                     hf.create_dataset(f'ref{i}', data=self.spectrum_ref[f'ref{i}'])
+            '''
             msg = f'xanes_fit has been saved to file: "{fn}" and append to ".../{self.fn_raw_image.split("/")[-1]}"'
             msg = textwrap.fill(msg, 100)
             print(msg)
@@ -4571,85 +4575,6 @@ class App(QWidget):
         fn, _ = QFileDialog.getOpenFileName(xanes, "QFileDialog.getOpenFileName()", "", file_type, options=options)
         if fn:
             load_successful = self.load_fitted_file_sub(fn)
-        '''
-        if fn:
-            self.dataset_used_for_fitting = -1
-            self.xanes_2d_fit_offset = 0
-            self.num_ref = len(self.spectrum_ref)
-            thickness_flag = 0
-            concentration_flag = 0
-            f = h5py.File(fn, 'r')
-            keys = list(f.keys())
-            # edge
-            post_edge = np.array(f['post_edge'])
-            pre_edge = np.array(f['pre_edge'])
-            self.tx_fit_pre_s.setText(str(pre_edge[0]))
-            self.tx_fit_pre_e.setText(str(pre_edge[1]))
-            self.tx_fit_post_s.setText(str(post_edge[0]))
-            self.tx_fit_post_e.setText(str(post_edge[1]))
-
-            self.msg = f"reading: {', '.join(t for t in keys)}"
-            for k in keys:
-                if k.lower() == 'mask':
-                    self.mask = np.squeeze(np.array(f[k]))
-                    self.canvas1.mask = self.mask
-                    self.mask1 = self.mask
-                    self.pb_mask1.setStyleSheet('color: rgb(200, 50, 50);')
-                    self.cb1.addItem('Mask')
-                    continue
-                if 'smart' in k.lower():
-                    self.smart_mask = np.array(f[k])
-                    self.cb1.addItem('Smart Mask')
-                    continue
-                if 'eng' in k.lower():
-                    self.xanes_eng = np.array(f[k])
-                    st = '{0:2.4f}, {1:2.4f}, ..., {2:2.4f} keV   totally, {3} energies'.format(self.xanes_eng[0],
-                            self.xanes_eng[1], self.xanes_eng[-1], len(self.xanes_eng))
-                    self.lb_eng1.setText(st)
-                if 'ratio' in k.lower() and 'sum' in k.lower():
-                    self.xanes_2d_fit = np.array(f[k])
-                    self.cb1.addItem('XANES Fit (ratio, summed to 1)')
-                    continue
-                if 'thickness' in k.lower():
-                    self.img_pre_edge_sub_mean = np.array(f[k])
-                    self.cb1.addItem('XANES Fit (thickness)')
-                    concentration_flag = 1
-                    thickness_flag = 1
-                    continue
-                if 'error' in k.lower():
-                    self.xanes_fit_cost = np.array(f[k])
-                    self.cb1.addItem('XANES Fit error')
-                    continue
-                if 'ref' in k.lower():
-                    self.num_ref += 1
-                    continue
-                if 'offset' in k.lower():
-                    self.xanes_2d_fit_offset = np.array(f[k])
-                    self.cb1.addItem('XANES Fit offset')
-                    continue
-
-
-            if thickness_flag == 0:
-                for k in keys:
-                    if 'concentration' in k.lower():
-                        self.img_pre_edge_sub_mean = self.xanes_2d_fit / np.array(f[k])
-                        concentration_flag = 1
-                        break
-
-            if concentration_flag:
-                self.cb1.addItem('XANES Fit (Elem. concentration)')
-
-            for i in range(self.num_ref):
-                try:
-                    ref_name = f'ref{i}'
-                    self.spectrum_ref[ref_name] = np.float32(np.array(f[ref_name]))
-                    self.lb_ref_info.setText(self.lb_ref_info.text() + '\n' + ref_name + '  loaded')
-                    self.lb_ref_info.setStyleSheet('color: rgb(200, 50, 50);')
-                    QApplication.processEvents()
-                except:
-                    self.num_ref -= 1
-        f.close()
-        '''
         self.lb_ip.setText('File loaded:   {}'.format(fn))
         self.pb_plot_roi.setEnabled(True)
         self.pb_export_roi_fit.setEnabled(True)
@@ -5579,7 +5504,8 @@ class MyCanvas(FigureCanvas):
         self.add_line()
         self.draw_line = False
         roi_name = f'#{roi_index}'
-        self.axes.annotate(roi_name, xy=(x1, y1 - 40),
+        s = self.current_img.shape
+        self.axes.annotate(roi_name, xy=(x1, y1 - s[0]//40),
                            bbox={'facecolor': self.current_color, 'alpha': 0.5, 'pad': 2},
                            fontsize=10)
         self.draw()
