@@ -17,7 +17,7 @@ import threading
 import time
 import textwrap
 from PyQt5 import QtGui
-from PyQt5.QtWidgets import (QMainWindow, QFileDialog, QRadioButton, QApplication,QWidget,
+from PyQt5.QtWidgets import (QMainWindow, QFileDialog, QRadioButton, QApplication,QWidget, QPlainTextEdit,
                              QLineEdit, QWidget, QPushButton, QLabel, QCheckBox, QGroupBox,
                              QScrollBar, QVBoxLayout, QHBoxLayout, QGridLayout, QTabWidget,
                              QListWidget, QListWidgetItem, QAbstractItemView, QScrollArea,
@@ -35,8 +35,12 @@ from scipy.ndimage.interpolation import shift
 from scipy.signal import medfilt2d, medfilt
 from scipy.interpolate import interp1d, UnivariateSpline
 from scipy import ndimage
-from pyxas.xanes_util import (fit_2D_xanes_non_iter, fit_2D_xanes_iter, fit_2D_xanes_iter2, normalize_2D_xanes2, normalize_2D_xanes_old, normalize_1D_xanes, find_nearest, normalize_2D_xanes_regulation)
-
+from pyxas.xanes_util import (fit_2D_xanes_non_iter, fit_2D_xanes_iter,
+                              fit_2D_xanes_iter2, normalize_2D_xanes2,
+                              normalize_2D_xanes_old, normalize_1D_xanes,
+                              find_nearest, normalize_2D_xanes_regulation)
+from pyxas.lsq_fit import fit_peak_curve_spline, fit_peak_curve_poly
+import pyxas
 
 global xanes
 
@@ -44,7 +48,7 @@ global xanes
 class App(QWidget):
     def __init__(self):
         super().__init__()
-        self.title = 'XANES Control'
+        self.title = 'pyXAS'
         screen_resolution = QApplication.desktop().screenGeometry()
         width, height = screen_resolution.width(), screen_resolution.height()
         self.width = 1020
@@ -85,24 +89,56 @@ class App(QWidget):
     def initUI(self):
         self.setWindowTitle(self.title)
         self.setGeometry(self.left, self.top, self.width, self.height)
-        self.font1 = QtGui.QFont('Arial', 11, QtGui.QFont.Bold)
-        self.font2 = QtGui.QFont('Arial', 11, QtGui.QFont.Normal)
+        self.font1 = QtGui.QFont('Arial', 11.5, QtGui.QFont.Bold)
+        self.font2 = QtGui.QFont('Arial', 11.5, QtGui.QFont.Normal)
         self.fpath = os.getcwd()
         self.roi_file_id = 0
         self.spectrum_ref = {}
-        grid = QGridLayout()
+        self.lb_empty = QLabel()
+
+        grid1 = QGridLayout()
         gpbox_prep = self.layout_GP_prepare()
         gpbox_msg = self.layout_msg()
         gpbox_xanes = self.layout_xanes()
 
-        grid.addWidget(gpbox_prep, 0, 1)
-        grid.addLayout(gpbox_msg, 1, 1)
-        grid.addWidget(gpbox_xanes, 2, 1)
+        grid1.addWidget(gpbox_prep, 0, 1)
+        grid1.addLayout(gpbox_msg, 1, 1)
+        grid1.addWidget(gpbox_xanes, 2, 1)
 
-        layout = QVBoxLayout()
-        layout.addLayout(grid)
-        layout.addWidget(QLabel())
-        self.setLayout(layout)
+        layout1 = QVBoxLayout()
+        layout1.addLayout(grid1)
+        layout1.addWidget(QLabel())
+
+        '''
+        gpbox_3D_param_file = self.layout_3D_param_open_filefolder()
+        gpbox_3D_msg = self.layout_3D_msg()
+        gpbox_3D_fit_param = self.layout_3D_param_fit()
+
+        grid2 = QGridLayout()
+        grid2.addWidget(gpbox_3D_param_file, 0, 1)
+        grid2.addLayout(gpbox_3D_msg, 1, 1)
+        grid2.addLayout(gpbox_3D_fit_param, 2, 1)
+
+        layout2 = QVBoxLayout()
+        layout2.addLayout(grid2)
+        layout2.addWidget(QLabel())
+
+        '''
+        layout2 = self.layout_3D()
+        tabs = QTabWidget()
+        tab1 = QWidget()
+        tab2 = QWidget()
+
+        tab1.setLayout(layout1)
+        tab2.setLayout(layout2)
+
+        tabs.addTab(tab1, '2D XANES')
+        tabs.addTab(tab2, '3D XANES')
+        tabs.setFont(self.font1)
+
+        self.layout = QVBoxLayout(self)
+        self.layout.addWidget(tabs)
+        self.setLayout(self.layout)
 
     def default_layout(self):
         try:
@@ -117,6 +153,7 @@ class App(QWidget):
         self.img_update = deepcopy(default_img)
         self.current_img = deepcopy(default_img)
         self.img_regulation = deepcopy(default_img)
+        self.fit_peak_method = 2 # using polynomial curve to find peak position
         self.dataset_used_for_fitting = 0
         self.img_colormix_raw = np.array([])
         self.edge_normalized_flag = 0
@@ -136,6 +173,7 @@ class App(QWidget):
         self.smooth_param = {'flag': 0, 'kernal_size': 3}
         self.shift_list = []
         self.lst_roi.clear()
+        self.fit_edge_peak_res = {'method': 'poly'}
         self.roi_spec_dif = ''
         self.lb_eng1.setText('No energy data ...')
         self.data_summary= {}
@@ -825,6 +863,13 @@ class App(QWidget):
         lb_empty1 = QLabel()
         lb_empty1.setFixedWidth(20)
 
+        lb_edge_peak_note = QLabel()
+        lb_edge_peak_note.setFont(self.font2)
+        lb_edge_peak_note.setText('''Two methods provided:
+        "spline" is slow, can fit edge and peak
+        "polynomial" is very fast, can fit peak only''')
+        lb_edge_peak_note.setFixedWidth(400)
+
         lb_find_edge = QLabel()
         lb_find_edge.setFont(self.font1)
         lb_find_edge.setText('Find absorption edge')
@@ -974,9 +1019,38 @@ class App(QWidget):
         hbox_fit_peak.addWidget(self.rd_peak_min)
         hbox_fit_peak.setAlignment(QtCore.Qt.AlignLeft)
 
+        lb_fit_method = QLabel()
+        lb_fit_method.setFont(self.font2)
+        lb_fit_method.setFixedWidth(105)
+        lb_fit_method.setText('Fitting use:')
+
+        self.rd_peak_fit_method1 = QRadioButton('Spline curve')
+        self.rd_peak_fit_method1.setFixedWidth(105)
+        self.rd_peak_fit_method1.setFont(self.font2)
+        self.rd_peak_fit_method1.toggled.connect(self.peak_fit_toggled)
+
+        self.rd_peak_fit_method2 = QRadioButton('polynomial')
+        self.rd_peak_fit_method2.setFixedWidth(105)
+        self.rd_peak_fit_method2.setFont(self.font2)
+        self.rd_peak_fit_method2.setChecked(True)
+        self.rd_peak_fit_method2.toggled.connect(self.peak_fit_toggled)
+        self.peak_fit_toggled()
+
+        self.rdgp_peak_fit = QButtonGroup()
+        self.rdgp_peak_fit.setExclusive(True)
+        self.rdgp_peak_fit.addButton(self.rd_peak_fit_method1)
+        self.rdgp_peak_fit.addButton(self.rd_peak_fit_method2)
+
+        hbox_fit_peak_method = QHBoxLayout()
+        hbox_fit_peak_method.addWidget(lb_fit_method)
+        hbox_fit_peak_method.addWidget(self.rd_peak_fit_method1)
+        hbox_fit_peak_method.addWidget(self.rd_peak_fit_method2)
+        hbox_fit_peak_method.setAlignment(QtCore.Qt.AlignLeft)
+
         vbox_fit_edge_peak = QVBoxLayout()
         vbox_fit_edge_peak.addWidget(self.chkbox_edge)
         vbox_fit_edge_peak.addLayout(hbox_fit_peak)
+        vbox_fit_edge_peak.addLayout(hbox_fit_peak_method)
         vbox_fit_edge_peak.setAlignment(QtCore.Qt.AlignTop)
 
         # scale image
@@ -1101,6 +1175,9 @@ class App(QWidget):
         self.tx_cvt_max.setValidator(QDoubleValidator())
         self.tx_cvt_max.setFixedWidth(60)
 
+        # 2nd method to fit peak only using polynominal
+
+
         hbox_cvt_percentage = QHBoxLayout()
         hbox_cvt_percentage.addWidget(self.pb_cvt_percentage)
         hbox_cvt_percentage.addWidget(lb_cvt_min)
@@ -1111,7 +1188,11 @@ class App(QWidget):
         hbox_cvt_percentage.setAlignment(QtCore.Qt.AlignLeft)
 
         # assemble
+        lb_empty4 = QLabel()
+        lb_empty4.setFixedHeight(10)
         vbox_find_edge = QVBoxLayout()
+        vbox_find_edge.addWidget(lb_edge_peak_note)
+        vbox_find_edge.addWidget(lb_empty4)
         vbox_find_edge.addWidget(lb_find_edge)
         vbox_find_edge.addLayout(vbox_fit_edge_peak)
         vbox_find_edge.addLayout(hbox_edge_range)
@@ -2273,7 +2354,7 @@ class App(QWidget):
         lb_empty2 = QLabel()
         lb_empty2.setFixedWidth(10)
         self.canvas1 = MyCanvas(obj=self)
-        self.toolbar = NavigationToolbar(self.canvas1,self)
+        self.toolbar = NavigationToolbar(self.canvas1, self)
         self.sl1 = QScrollBar(QtCore.Qt.Horizontal)
         self.sl1.setMaximum(0)
         self.sl1.setMinimum(0)
@@ -2711,6 +2792,22 @@ class App(QWidget):
             self.msg = 'fail to scale image'
         finally:
             self.update_msg()
+
+    def peak_fit_toggled(self):
+        if self.rd_peak_fit_method2.isChecked(): # using polynomial
+            self.chkbox_edge.setDisabled(True)
+            self.tx_edge_pos.setDisabled(True)
+            self.tx_pre_edge_wt.setDisabled(True)
+            self.tx_edge_smooth.setDisabled(True)
+            self.fit_peak_method = 2
+        else:                                    # using spline
+            self.chkbox_edge.setEnabled(True)
+            self.tx_edge_pos.setEnabled(True)
+            self.tx_pre_edge_wt.setEnabled(True)
+            self.tx_edge_smooth.setEnabled(True)
+            self.fit_peak_method = 1
+        QApplication.processEvents()
+
 
     def generate_mask1(self):
         try:
@@ -3403,9 +3500,7 @@ class App(QWidget):
             x, y, _, roi_selected = self.extract_roi_spectrum_data(use_current_image=1)
             xs = float(self.tx_edge_s.text())
             xe = float(self.tx_edge_e.text())
-            k = float(self.tx_edge_order.text())
-            k = np.min([k, 3])
-            k = np.max([k, 2])
+            k = int(self.tx_edge_order.text())
             try:
                 x0 = float(self.tx_edge_pos.text())
             except:
@@ -3419,27 +3514,42 @@ class App(QWidget):
             wt = np.ones(len(x))
             wt[:x0_id - xs_id] = w
             edge_smooth = float(self.tx_edge_smooth.text())
-            s = UnivariateSpline(x, y, k=k, s=edge_smooth, w=wt)
-            xx = np.linspace(x[0], x[-1], 1001)
-            y_eval = s(xx)
-            pos = np.argmax(np.abs(np.diff(y_eval)))
             if self.rd_peak_max.isChecked():
                 factor = 1
             else:
                 factor = -1
-            pos_max = np.argmax(y_eval*factor)
+
+            if self.fit_peak_method == 1:             # spline
+                res = fit_peak_curve_spline(x, y*factor, fit_order=k, smooth=edge_smooth, weight=wt)
+                spl = res['spl']
+                xx = res['xx']
+                y_eval = spl(xx) * factor
+                peak_pos = res['peak_pos']
+                peak_val = res['peak_val'] * factor
+                edge_pos = res['edge_pos']
+                edge_val = res['edge_val'] * factor
+            else:                                     # method 2: polynormial
+                res = fit_peak_curve_poly(x, y*factor, fit_order=k)
+                xx = np.linspace(x[0], x[-1], 101).reshape([101, 1])
+                y_eval = res['matrix_Y'].flatten() * factor
+                peak_pos = np.squeeze(res['peak_pos'])
+                peak_val = np.squeeze(res['peak_val']) * factor
 
             plt.figure()
             plt.plot(x, y, '.', label='experiment data')
             plt.plot(xx, y_eval, 'r', label='fitting')
-            plt.plot(xx[pos], y_eval[pos], 'rx',markersize=10, label=f'x = {xx[pos]:2.6f}')
-            plt.plot(xx[pos_max], y_eval[pos_max], 'g+', markersize=16, label=f'x = {xx[pos_max]:2.6f}')
+            plt.plot(peak_pos, peak_val, 'g+', markersize=16, label=f'x = {peak_pos:2.6f}')
+            if self.chkbox_edge.isChecked and self.chkbox_edge.isEnabled():
+                plt.plot(edge_pos, edge_val, 'rx',markersize=10, label=f'x = {edge_pos:2.6f}')
             plt.legend()
             plt.title(roi_selected)
             plt.show()
-        except:
-            self.msg = 'Fails to find edge for ROI'
+            self.msg = 'roi curve fitting successfully'
             self.update_msg()
+        except Exception as err:
+            self.msg = f'Fails to find edge for ROI. Error: {str(err)}'
+            self.update_msg()
+            print(err)
 
     def find_edge_peak_image(self):
         try:
@@ -3459,14 +3569,11 @@ class App(QWidget):
             x0_id = find_nearest(self.xanes_eng, x0)
             eng = self.xanes_eng
             x = eng[xs_id:xe_id]
-            w = float(self.tx_pre_edge_wt.text())
-            xx = np.linspace(x[0], x[-1], 1001)
-            wt = np.ones(len(x))
-            wt[:x0_id-xs_id] = w
-            edge_smooth = float(self.tx_edge_smooth.text())
-            #return_flag, img = self.choose_image_for_fittting()
+
             img = self.canvas1.img_stack.copy()
             img = self.smooth(img * self.mask)
+            img = img[xs_id:xe_id]
+
             s = img.shape
             self.xanes_edge_fit = np.zeros([1, s[1], s[2]])
             self.xanes_peak_fit = np.zeros([1, s[1], s[2]])
@@ -3477,20 +3584,41 @@ class App(QWidget):
             else:
                 factor = -1
             time_s = time.time()
-            for i in range(s[1]):
-                if not i % 10:
-                    print(f'row # {i:4d}: {time.time() - time_s:3.2f} sec')
-                for j in range(s[2]):
-                    y = img[xs_id:xe_id, i, j]
-                    spl = UnivariateSpline(x, y,k=fit_order,s=edge_smooth, w=wt)
-                    tmp_edge = np.argmax(np.abs(np.diff(spl(xx))))
-                    tmp_peak = np.argmax(spl(xx) * factor)
-                    self.xanes_edge_fit[0, i,j] = xx[tmp_edge]
-                    self.xanes_peak_fit[0, i,j] = xx[tmp_peak]
-                    self.xanes_peak_fit_height[0, i, j] = spl(xx[tmp_peak])
-                    #tmp = np.argmax(np.abs(np.diff(spl(xx))))
-                    self.spl[f'{i},{j}'] = spl
-            if self.chkbox_edge.isChecked():
+            if self.fit_peak_method == 1:# spline
+                xx = np.linspace(x[0], x[-1], 1001)
+                wt = np.ones(len(x))
+                w = float(self.tx_pre_edge_wt.text())
+                wt[:x0_id - xs_id] = w
+                edge_smooth = float(self.tx_edge_smooth.text())
+                for i in range(s[1]):
+                    if not i % 10:
+                        print(f'row # {i:4d}: {time.time() - time_s:3.2f} sec')
+                    for j in range(s[2]):
+                        y = img[:, i, j]
+                        res = fit_peak_curve_spline(x, y * factor, fit_order=fit_order, smooth=edge_smooth, weight=wt)
+                        spl = res['spl']
+                        xx = res['xx']
+                        # y_eval = spl(xx) * factor
+                        peak_pos = res['peak_pos']
+                        peak_val = res['peak_val'] * factor
+                        edge_pos = res['edge_pos']
+                        # edge_val = res['edge_val'] * factor
+                        self.xanes_edge_fit[0, i,j] = edge_pos
+                        self.xanes_peak_fit[0, i,j] = peak_pos
+                        self.xanes_peak_fit_height[0, i, j] = peak_val
+                        self.spl[f'{i},{j}'] = res['spl']
+                self.fit_edge_peak_res['method'] = 'spline'
+                self.fit_edge_peak_res['spl'] = self.spl
+            else:   # polynormial
+                s0 = img.shape
+                y = img.reshape([s0[0], -1])
+                res = fit_peak_curve_poly(x, y * factor, fit_order=fit_order)
+                self.xanes_peak_fit[0] = res['peak_pos'].reshape([s0[1], s0[2]])
+                self.xanes_peak_fit_height[0] = res['peak_val'].reshape([s0[1], s0[2]]) * factor
+                self.fit_edge_peak_res = res.copy()
+                self.fit_edge_peak_res['method'] = 'poly'
+
+            if self.chkbox_edge.isChecked() and self.chkbox_edge.isEnabled():
                 if self.cb1.findText('XANES Edge Fit') < 0:
                     self.cb1.addItem('XANES Edge Fit')
                 self.cb1.setCurrentText('XANES Edge Fit')
@@ -3500,20 +3628,20 @@ class App(QWidget):
                 if self.cb1.findText('XANES Peak Fit Height') < 0:
                     self.cb1.addItem('XANES Peak Fit Height')
                 self.cb1.setCurrentText('XANES Edge Fit Height')
-            self.msg = 'Fit image finished'
-        except:
-            self.msg = 'Fails in fitting image'
+            self.msg = 'Image fitting finished'
+        except Exception as err:
+            self.msg = f'Fails in fitting image. Error: {str(err)}'
+            print(err)
         finally:
             self.pb_find_edge_img.setEnabled(True)
             QApplication.processEvents()
             self.update_msg()
 
     def extract_roi_spectrum_data(self, use_current_image = 0):
+        x = self.xanes_eng
+        y = []
         try:
             canvas = self.canvas1
-            x, y_data = [], []
-            x = self.xanes_eng
-
             if use_current_image:
                 img = canvas.img_stack
             else:
@@ -3537,11 +3665,11 @@ class App(QWidget):
             x2 = max(a, c)
             y1 = min(b, d)
             y2 = max(b, d)
-        except:
+        except Exception as err:
             x1, x2 = 0, img.shape[2]
             y1, y2 = 0, img.shape[1]
             roi_selected = 'image average'
-            x = []
+            print(f'err in "extract_roi_spectrum_data":\n{str(err)}')
         if len(self.mask) == 1:
             y_data = np.mean(np.mean(img[:, y1:y2, x1:x2], axis=1), axis=1)
         else:
@@ -3765,6 +3893,7 @@ class App(QWidget):
                         pass
                 for i in range(self.num_ref):
                     hf.create_dataset(f'ref{i}', data=self.spectrum_ref[f'ref{i}'])
+
             '''
             with h5py.File(self.fn_raw_image, 'a') as hf:
                 #hf.create_dataset('X_eng', data=self.xanes_eng)
@@ -4575,6 +4704,85 @@ class App(QWidget):
         fn, _ = QFileDialog.getOpenFileName(xanes, "QFileDialog.getOpenFileName()", "", file_type, options=options)
         if fn:
             load_successful = self.load_fitted_file_sub(fn)
+        '''
+        if fn:
+            self.dataset_used_for_fitting = -1
+            self.xanes_2d_fit_offset = 0
+            self.num_ref = len(self.spectrum_ref)
+            thickness_flag = 0
+            concentration_flag = 0
+            f = h5py.File(fn, 'r')
+            keys = list(f.keys())
+            # edge
+            post_edge = np.array(f['post_edge'])
+            pre_edge = np.array(f['pre_edge'])
+            self.tx_fit_pre_s.setText(str(pre_edge[0]))
+            self.tx_fit_pre_e.setText(str(pre_edge[1]))
+            self.tx_fit_post_s.setText(str(post_edge[0]))
+            self.tx_fit_post_e.setText(str(post_edge[1]))
+
+            self.msg = f"reading: {', '.join(t for t in keys)}"
+            for k in keys:
+                if k.lower() == 'mask':
+                    self.mask = np.squeeze(np.array(f[k]))
+                    self.canvas1.mask = self.mask
+                    self.mask1 = self.mask
+                    self.pb_mask1.setStyleSheet('color: rgb(200, 50, 50);')
+                    self.cb1.addItem('Mask')
+                    continue
+                if 'smart' in k.lower():
+                    self.smart_mask = np.array(f[k])
+                    self.cb1.addItem('Smart Mask')
+                    continue
+                if 'eng' in k.lower():
+                    self.xanes_eng = np.array(f[k])
+                    st = '{0:2.4f}, {1:2.4f}, ..., {2:2.4f} keV   totally, {3} energies'.format(self.xanes_eng[0],
+                            self.xanes_eng[1], self.xanes_eng[-1], len(self.xanes_eng))
+                    self.lb_eng1.setText(st)
+                if 'ratio' in k.lower() and 'sum' in k.lower():
+                    self.xanes_2d_fit = np.array(f[k])
+                    self.cb1.addItem('XANES Fit (ratio, summed to 1)')
+                    continue
+                if 'thickness' in k.lower():
+                    self.img_pre_edge_sub_mean = np.array(f[k])
+                    self.cb1.addItem('XANES Fit (thickness)')
+                    concentration_flag = 1
+                    thickness_flag = 1
+                    continue
+                if 'error' in k.lower():
+                    self.xanes_fit_cost = np.array(f[k])
+                    self.cb1.addItem('XANES Fit error')
+                    continue
+                if 'ref' in k.lower():
+                    self.num_ref += 1
+                    continue
+                if 'offset' in k.lower():
+                    self.xanes_2d_fit_offset = np.array(f[k])
+                    self.cb1.addItem('XANES Fit offset')
+                    continue
+
+
+            if thickness_flag == 0:
+                for k in keys:
+                    if 'concentration' in k.lower():
+                        self.img_pre_edge_sub_mean = self.xanes_2d_fit / np.array(f[k])
+                        concentration_flag = 1
+                        break
+
+            if concentration_flag:
+                self.cb1.addItem('XANES Fit (Elem. concentration)')
+
+            for i in range(self.num_ref):
+                try:
+                    ref_name = f'ref{i}'
+                    self.spectrum_ref[ref_name] = np.float32(np.array(f[ref_name]))
+                    self.lb_ref_info.setText(self.lb_ref_info.text() + '\n' + ref_name + '  loaded')
+                    self.lb_ref_info.setStyleSheet('color: rgb(200, 50, 50);')
+                    QApplication.processEvents()
+                except:
+                    self.num_ref -= 1
+        f.close()
+        '''
         self.lb_ip.setText('File loaded:   {}'.format(fn))
         self.pb_plot_roi.setEnabled(True)
         self.pb_export_roi_fit.setEnabled(True)
@@ -4851,6 +5059,7 @@ class App(QWidget):
             self.msg = 'image stack has only one image slice, aligning aborted... '
         finally:
             self.update_msg()
+            self.update_canvas_img()
             del prj, img_ali
 
     def xanes_align_img_roi(self):
@@ -4926,6 +5135,7 @@ class App(QWidget):
             finally:
                 self.pb_align_roi.setText('Align Img (ROI)')
                 self.pb_align_roi.setEnabled(True)
+                self.update_canvas_img()
                 self.update_msg()      
         else:
             self.pb_align_roi.setText('Align Img (ROI)')
@@ -5361,6 +5571,2152 @@ class App(QWidget):
         canvas.set_contrast(cmin, cmax)
 
 
+    '''
+    batch process/ 3D xanes
+    '''
+    def layout_3D(self):
+        gpbox_3D_param_file = self.layout_3D_param_open_filefolder()
+        gpbox_3D_msg = self.layout_3D_msg()
+        gpbox_3D_fit_param = self.layout_3D_param_fit()
+        grid_3D_find_peak = self.layout_3D_fit_peak_only()
+
+        grid = QGridLayout()
+        grid.addWidget(gpbox_3D_param_file, 0, 1)
+        grid.addLayout(gpbox_3D_msg, 1, 1)
+        grid.addLayout(gpbox_3D_fit_param, 2, 1)
+        grid.addWidget(grid_3D_find_peak, 3, 1, 1, 2)
+
+        tab2 = QWidget()
+        tab2.setLayout(grid)
+
+        tab1 = QWidget()
+        tab1.setLayout(self.layout_3D_prep())
+
+        tabs = QTabWidget()
+        tabs.addTab(tab1, 'Preparation')
+        tabs.addTab(tab2, 'Fitting')
+        layout3 = QVBoxLayout()
+        layout3.addWidget(tabs)
+        layout3.addStretch()
+
+
+        return layout3
+
+    def layout_3D_prep(self):
+        lb_empty = QLabel()
+        lb_empty.setFixedHeight(20)
+
+        lb_empty1 = QLabel()
+        lb_empty1.setFixedHeight(20)
+
+        lb_msg = QLabel()
+        lb_msg.setFont(self.font1)
+        lb_msg.setText('Message:')
+        lb_msg.setStyleSheet('color: rgb(200, 50, 50);')
+        lb_msg.setFixedWidth(80)
+
+        self.lb_3D_prep_msg = QLabel()
+        self.lb_3D_prep_msg.setStyleSheet('color: rgb(200, 50, 50);')
+        self.lb_3D_prep_msg.setFont(self.font2)
+        self.lb_3D_prep_msg.setFixedWidth(800)
+
+        hbox_msg = QHBoxLayout()
+        hbox_msg.addWidget(lb_msg)
+        hbox_msg.addWidget(self.lb_3D_prep_msg)
+        hbox_msg.addStretch()
+        hbox_msg.setAlignment(QtCore.Qt.AlignLeft)
+
+        vbox_ali = QVBoxLayout()
+        vbox_ali.addLayout(hbox_msg)
+        vbox_ali.addWidget(lb_empty)
+        vbox_ali.addLayout(self.vbox_3D_load_fxi_tomo())
+        vbox_ali.addLayout(self.vbox_3D_assemble_xanes())
+        vbox_ali.addLayout(self.vbox_3D_load_tomo_file())
+        vbox_ali.addStretch()
+
+        return vbox_ali
+
+
+    def vbox_3D_load_fxi_tomo(self):
+
+        self.pb_load_tomo_file = QPushButton('Load FXI tomo(s)')
+        self.pb_load_tomo_file.setFixedWidth(160)
+        self.pb_load_tomo_file.setFont(self.font2)
+        self.pb_load_tomo_file.clicked.connect(lambda: self.load_3D_tomo_file('raw'))
+
+        self.pb_align_tomo_file = QPushButton('Align tomo files')
+        self.pb_align_tomo_file.setFixedWidth(160)
+        self.pb_align_tomo_file.setFont(self.font2)
+        self.pb_align_tomo_file.clicked.connect(self.align_3D_tomo_file)
+
+        lb_prefix = QLabel()
+        lb_prefix.setText('file_prefix:')
+        lb_prefix.setFixedWidth(80)
+        lb_prefix.setFont(self.font2)
+        lb_prefix.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+
+        self.tx_3D_prefix = QLineEdit()
+        self.tx_3D_prefix.setText('recon')
+        self.tx_3D_prefix.setFont(self.font2)
+        self.tx_3D_prefix.setFixedWidth(80)
+
+        lb_ref_index = QLabel()
+        lb_ref_index.setText('Ref. file:')
+        lb_ref_index.setFixedWidth(80)
+        lb_ref_index.setFont(self.font2)
+        lb_ref_index.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+
+        self.tx_3D_ref_index = QLineEdit()
+        self.tx_3D_ref_index.setText('-1')
+        self.tx_3D_ref_index.setFont(self.font2)
+        self.tx_3D_ref_index.setFixedWidth(80)
+
+        lb_bin = QLabel()
+        lb_bin.setFixedWidth(80)
+        lb_bin.setFont(self.font2)
+        lb_bin.setText('binning:')
+        lb_bin.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+
+        self.tx_3D_bin = QLineEdit()
+        self.tx_3D_bin.setText('1')
+        self.tx_3D_bin.setFont(self.font2)
+        self.tx_3D_bin.setValidator(QIntValidator())
+        self.tx_3D_bin.setFixedWidth(80)
+
+        lb_mask = QLabel()
+        lb_mask.setText('circle mask ratio:')
+        lb_mask.setFixedWidth(140)
+        lb_mask.setFont(self.font2)
+        lb_mask.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+
+        self.tx_3D_mask = QLineEdit()
+        self.tx_3D_mask.setText('1')
+        self.tx_3D_mask.setFixedWidth(80)
+        self.tx_3D_mask.setValidator(QDoubleValidator())
+        self.tx_3D_mask.setFont(self.font2)
+
+        lb_method = QLabel()
+        lb_method.setFixedWidth(80)
+        lb_method.setFont(self.font2)
+        lb_method.setText('method:')
+        lb_method.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+
+        self.tx_3D_align_method = QLineEdit()
+        self.tx_3D_align_method.setText('2')
+        self.tx_3D_align_method.setFixedWidth(80)
+        self.tx_3D_align_method.setValidator(QIntValidator())
+        self.tx_3D_align_method.setFont(self.font2)
+
+        hbox_file = QHBoxLayout()
+        hbox_file.addWidget(self.pb_load_tomo_file)
+        hbox_file.addWidget(lb_prefix)
+        hbox_file.addWidget(self.tx_3D_prefix)
+        hbox_file.addStretch()
+        hbox_file.setAlignment(QtCore.Qt.AlignLeft)
+
+        hbox_ali = QHBoxLayout()
+        hbox_ali.addWidget(self.pb_align_tomo_file)
+        hbox_ali.addWidget(lb_ref_index)
+        hbox_ali.addWidget(self.tx_3D_ref_index)
+        hbox_ali.addWidget(lb_bin)
+        hbox_ali.addWidget(self.tx_3D_bin)
+        hbox_ali.addWidget(lb_mask)
+        hbox_ali.addWidget(self.tx_3D_mask)
+        hbox_ali.addWidget(lb_method)
+        hbox_ali.addWidget(self.tx_3D_align_method)
+        hbox_ali.addStretch()
+        hbox_ali.setAlignment(QtCore.Qt.AlignLeft)
+
+        vbox = QVBoxLayout()
+        vbox.addLayout(hbox_file)
+        vbox.addLayout(hbox_ali)
+        vbox.addStretch()
+
+        return vbox
+
+
+    def vbox_3D_load_tomo_file(self):
+        # loaded files -> listbox
+        lb_tomo_file = QLabel()
+        lb_tomo_file.setFont(self.font1)
+        lb_tomo_file.setFixedWidth(120)
+        lb_tomo_file.setText('Loaded files')
+
+        self.lst_3D_tomo = QListWidget()
+        self.lst_3D_tomo.setFont(self.font2)
+        self.lst_3D_tomo.itemClicked.connect(self.show_3D_h5_attr)
+        self.lst_3D_tomo.setFixedWidth(200)
+        self.lst_3D_tomo.setFixedHeight(360)
+
+
+        lb_3D_h5_attr = QLabel()
+        lb_3D_h5_attr.setFont(self.font2)
+        lb_3D_h5_attr.setFixedWidth(120)
+        lb_3D_h5_attr.setText('Insdie .h5 file: ')
+
+        self.lb_3D_h5_attr = QLabel()
+        self.lb_3D_h5_attr.setFont(self.font2)
+        self.lb_3D_h5_attr.setFixedWidth(400)
+
+        lb_h5_attr = QLabel()
+        lb_h5_attr.setFont(self.font2)
+        lb_h5_attr.setFixedWidth(120)
+        lb_h5_attr.setText('Dataset to plot:')
+
+        self.tx_3D_h5_attr = QLineEdit()
+        self.tx_3D_h5_attr.setFont(self.font2)
+        self.tx_3D_h5_attr.setText('img')
+        self.tx_3D_h5_attr.setFixedWidth(80)
+
+        self.pb_3D_plot_tomo = QPushButton('plot3D')
+        self.pb_3D_plot_tomo.setFixedWidth(80)
+        self.pb_3D_plot_tomo.setFont(self.font2)
+        self.pb_3D_plot_tomo.clicked.connect(self.plot_3D_tomo)
+
+        hbox_1 = QHBoxLayout()
+        hbox_1.addWidget(lb_3D_h5_attr)
+        hbox_1.addWidget(self.lb_3D_h5_attr)
+        hbox_1.addStretch()
+
+        hbox_2 = QHBoxLayout()
+        hbox_2.addWidget(lb_h5_attr)
+        hbox_2.addWidget(self.tx_3D_h5_attr)
+        hbox_2.addWidget(self.pb_3D_plot_tomo)
+        hbox_2.addStretch()
+
+        vbox_1 = QVBoxLayout()
+        vbox_1.addLayout(hbox_1)
+        vbox_1.addLayout(hbox_2)
+        vbox_1.addStretch()
+
+        hbox_2 = QHBoxLayout()
+        hbox_2.addWidget(self.lst_3D_tomo)
+        hbox_2.addLayout(vbox_1)
+        hbox_2.addStretch()
+
+        vbox_file = QVBoxLayout()
+        vbox_file.addWidget(lb_tomo_file)
+        vbox_file.addLayout(hbox_2)
+        vbox_file.addStretch()
+
+        return vbox_file
+
+    def vbox_3D_assemble_xanes(self):
+        lb_empty = QLabel()
+        lb_empty.setFixedWidth(160)
+
+        self.pb_3D_assemble = QPushButton('Assemble XANES')
+        self.pb_3D_assemble.setFixedWidth(160)
+        self.pb_3D_assemble.setFont(self.font2)
+        self.pb_3D_assemble.clicked.connect(self.assemble_3D_xanes)
+
+        lb_attr_img = QLabel()
+        lb_attr_img.setText('attr_img:')
+        lb_attr_img.setFixedWidth(80)
+        lb_attr_img.setFont(self.font2)
+        lb_attr_img.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+
+        self.tx_3D_attr_img = QLineEdit()
+        self.tx_3D_attr_img.setText('img')
+        self.tx_3D_attr_img.setFont(self.font2)
+        self.tx_3D_attr_img.setFixedWidth(80)
+
+        lb_sli = QLabel()
+        lb_sli.setFixedWidth(80)
+        lb_sli.setFont(self.font2)
+        lb_sli.setText('slice:')
+        lb_sli.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+
+        self.tx_3D_assemble_sli = QLineEdit()
+        self.tx_3D_assemble_sli.setText('[]')
+        self.tx_3D_assemble_sli.setFont(self.font2)
+        self.tx_3D_assemble_sli.setFixedWidth(80)
+
+        lb_cpu = QLabel()
+        lb_cpu.setFixedWidth(140)
+        lb_cpu.setFont(self.font2)
+        lb_cpu.setText('num of cpu:')
+        lb_cpu.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+
+        self.tx_3D_assemble_cpu = QLineEdit()
+        self.tx_3D_assemble_cpu.setText('1')
+        self.tx_3D_assemble_cpu.setFont(self.font2)
+        self.tx_3D_assemble_cpu.setValidator(QIntValidator())
+        self.tx_3D_assemble_cpu.setFixedWidth(80)
+
+        lb_ali_flag = QLabel()
+        lb_ali_flag.setText('Align?')
+        lb_ali_flag.setFixedWidth(80)
+        lb_ali_flag.setFont(self.font2)
+        lb_ali_flag.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+
+        self.tx_3D_assemble_ali_flag = QLineEdit()
+        self.tx_3D_assemble_ali_flag.setText('True')
+        self.tx_3D_assemble_ali_flag.setFixedWidth(80)
+        self.tx_3D_assemble_ali_flag.setFont(self.font2)
+
+        lb_ali_ref = QLabel()
+        lb_ali_ref.setText('Ref. file:')
+        lb_ali_ref.setFixedWidth(80)
+        lb_ali_ref.setFont(self.font2)
+        lb_ali_ref.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+
+        self.tx_3D_assemble_ali_ref = QLineEdit()
+        self.tx_3D_assemble_ali_ref.setText('-1')
+        self.tx_3D_assemble_ali_ref.setFixedWidth(80)
+        self.tx_3D_assemble_ali_ref.setFont(self.font2)
+
+        lb_mask = QLabel()
+        lb_mask.setText('circle mask ratio:')
+        lb_mask.setFixedWidth(140)
+        lb_mask.setFont(self.font2)
+        lb_mask.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+
+        self.tx_3D_assemble_mask = QLineEdit()
+        self.tx_3D_assemble_mask.setText('1')
+        self.tx_3D_assemble_mask.setFixedWidth(80)
+        self.tx_3D_assemble_mask.setFont(self.font2)
+
+        self.pb_load_aligned_tomo_file = QPushButton('Load aligned tomo')
+        self.pb_load_aligned_tomo_file.setFixedWidth(160)
+        self.pb_load_aligned_tomo_file.setFont(self.font2)
+        self.pb_load_aligned_tomo_file.clicked.connect(lambda :
+                                                       self.load_3D_tomo_file('align'))
+
+        lb_prefix = QLabel()
+        lb_prefix.setText('file_prefix:')
+        lb_prefix.setFixedWidth(80)
+        lb_prefix.setFont(self.font2)
+        lb_prefix.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+
+        self.tx_3D_assemble_prefix = QLineEdit()
+        self.tx_3D_assemble_prefix.setText('align')
+        self.tx_3D_assemble_prefix.setFont(self.font2)
+        self.tx_3D_assemble_prefix.setFixedWidth(80)
+
+        hbox_0 = QHBoxLayout()
+        hbox_0.addWidget(self.pb_load_aligned_tomo_file)
+        hbox_0.addWidget(lb_prefix)
+        hbox_0.addWidget(self.tx_3D_assemble_prefix)
+        hbox_0.addStretch()
+
+        hbox_1 = QHBoxLayout()
+        hbox_1.addWidget(self.pb_3D_assemble)
+        hbox_1.addWidget(lb_attr_img)
+        hbox_1.addWidget(self.tx_3D_attr_img)
+        hbox_1.addWidget(lb_sli)
+        hbox_1.addWidget(self.tx_3D_assemble_sli)
+        hbox_1.addWidget(lb_cpu)
+        hbox_1.addWidget(self.tx_3D_assemble_cpu)
+        hbox_1.addStretch()
+
+        hbox_2 = QHBoxLayout()
+        hbox_2.addWidget(lb_empty)
+        hbox_2.addWidget(lb_ali_flag)
+        hbox_2.addWidget(self.tx_3D_assemble_ali_flag)
+        hbox_2.addWidget(lb_ali_ref)
+        hbox_2.addWidget(self.tx_3D_assemble_ali_ref)
+        hbox_2.addWidget(lb_mask)
+        hbox_2.addWidget(self.tx_3D_assemble_mask)
+        hbox_2.addStretch()
+
+        vbox_1 = QVBoxLayout()
+        vbox_1.addLayout(hbox_0)
+        vbox_1.addLayout(hbox_1)
+        vbox_1.addLayout(hbox_2)
+        vbox_1.addStretch()
+        vbox_1.setAlignment(QtCore.Qt.AlignTop)
+
+        return vbox_1
+
+    
+    def layout_3D_param_open_filefolder(self):
+        gpbox = QGroupBox('Files')
+        gpbox.setFont(self.font1)
+
+        # file directory
+        lb_param_filepath = QLabel()
+        lb_param_filepath.setFont(self.font2)
+        lb_param_filepath.setText('File path:')
+        lb_param_filepath.setFixedWidth(80)
+
+        self.tx_param_folder = QLineEdit()
+        self.tx_param_folder.setFixedWidth(250)
+        # self.tx_param_folder.setEnabled(False)
+        self.tx_param_folder.setFont(self.font2)
+
+        self.pb_file = QPushButton('Open')
+        self.pb_file.setFont(self.font2)
+        self.pb_file.clicked.connect(self.open_3D_folder)
+        self.pb_file.setFixedWidth(80)
+        self.pb_file.setFixedWidth(80)
+
+        hbox_param_open = QHBoxLayout()
+        hbox_param_open.addWidget(lb_param_filepath)
+        hbox_param_open.addWidget(self.tx_param_folder)
+        hbox_param_open.addWidget(self.pb_file)
+        hbox_param_open.setAlignment(QtCore.Qt.AlignLeft)
+
+        self.tx_param_pre_s = QLineEdit()
+        self.tx_param_pre_s.setFixedWidth(60)
+        self.tx_param_pre_s.setFont(self.font2)
+
+        # file name and type
+        lb_param_file_name = QLabel()
+        lb_param_file_name.setFont(self.font2)
+        lb_param_file_name.setText('File name start with:')
+        lb_param_file_name.setFixedWidth(140)
+
+        self.tx_param_file_prefix = QLineEdit()
+        self.tx_param_file_prefix.setFixedWidth(60)
+        self.tx_param_file_prefix.setText('xanes')
+        self.tx_param_file_prefix.setFont(self.font2)
+
+        lb_param_file_type = QLabel()
+        lb_param_file_type.setFont(self.font2)
+        lb_param_file_type.setText('  format:')
+        lb_param_file_type.setFixedWidth(60)
+
+        self.tx_param_file_type = QLineEdit()
+        self.tx_param_file_type.setFixedWidth(60)
+        self.tx_param_file_type.setText('.tiff')
+        self.tx_param_file_type.setFont(self.font2)
+
+        self.pb_load_file = QPushButton('Load')
+        self.pb_load_file.setFont(self.font2)
+        self.pb_load_file.clicked.connect(self.load_3D_xanes_image_file)
+        self.pb_load_file.setFixedWidth(80)
+
+        # file type: .h5 or .tiff
+        lb_param_true_file_type = QLabel()
+        lb_param_true_file_type.setText('  File type:')
+        lb_param_true_file_type.setFont(self.font2)
+        lb_param_true_file_type.setFixedWidth(80)
+
+        self.file_group_3D = QButtonGroup()
+        self.file_group_3D.setExclusive(True)
+        self.rd_3D_hdf = QRadioButton('hdf')
+        self.rd_3D_hdf.setFixedWidth(60)
+        self.rd_3D_hdf.setChecked(True)
+
+        self.rd_3D_tif = QRadioButton('tiff')
+        self.rd_3D_tif.setFixedWidth(60)
+
+        self.file_group_3D.addButton(self.rd_3D_hdf)
+        self.file_group_3D.addButton(self.rd_3D_tif)
+
+        lb_param_fit_hdf = QLabel()
+        lb_param_fit_hdf.setText('Dataset:')
+        lb_param_fit_hdf.setFixedWidth(80)
+        lb_param_fit_hdf.setFont(self.font2)
+
+        self.tx_param_hdf = QLineEdit()
+        self.tx_param_hdf.setFixedWidth(80)
+        self.tx_param_hdf.setText('img_xanes')
+        self.tx_param_hdf.setFont(self.font2)
+
+        hbox_param_file = QHBoxLayout()
+        hbox_param_file.addWidget(lb_param_file_name)
+        hbox_param_file.addWidget(self.tx_param_file_prefix)
+        hbox_param_file.addWidget(lb_param_file_type)
+        hbox_param_file.addWidget(self.tx_param_file_type)
+        hbox_param_file.addWidget(self.pb_load_file)
+        hbox_param_file.addWidget(lb_param_true_file_type)
+        hbox_param_file.addWidget(self.rd_3D_tif)
+        hbox_param_file.addWidget(self.rd_3D_hdf)
+        hbox_param_file.addWidget(self.tx_param_hdf)
+        hbox_param_file.setAlignment(QtCore.Qt.AlignLeft)
+
+        vbox_param_file = QVBoxLayout()
+        vbox_param_file.addLayout(hbox_param_open)
+        vbox_param_file.addLayout(hbox_param_file)
+        vbox_param_file.setAlignment(QtCore.Qt.AlignTop)
+
+        gpbox.setLayout(vbox_param_file)
+
+        return gpbox
+
+    def layout_3D_param_default(self):
+        pass
+
+    def layout_3D_msg(self):
+        self.lb_3D_ip = QLabel()
+        self.lb_3D_ip.setFont(self.font2)
+        self.lb_3D_ip.setStyleSheet('color: rgb(200, 50, 50);')
+        self.lb_3D_ip.setText('File loaded:')
+
+        self.lb_3D_msg = QLabel()
+        self.lb_3D_msg.setFont(self.font1)
+        self.lb_3D_msg.setStyleSheet('color: rgb(200, 50, 50);')
+        self.lb_3D_msg.setText('Message: Load File first before batch fitting')
+
+        vbox_msg = QVBoxLayout()
+        # vbox_msg.addWidget(self.lb_3D_ip)
+        vbox_msg.addWidget(self.lb_3D_msg)
+        vbox_msg.setAlignment(QtCore.Qt.AlignLeft)
+        return vbox_msg
+
+    def layout_3D_param_fit(self):
+
+        param_cpu = self.layout_3D_param_cpu()
+        param_txm_norm = self.layout_3D_param_txm_norm()
+        param_edge_fit = self.layout_3D_param_edge_norm()
+        param_peak_reg = self.layout_3D_param_edge_regulation()
+        param_image_align = self.layout_3D_param_align()
+        param_xanes_fit = self.layout_3D_param_fitting()
+        param_mask = self.layout_3D_param_mask()
+        param_ref = self.layout_3D_param_ref()
+        param_execute = self.layout_3D_param_execute()
+        param_colormix = self.layout_3D_param_colormix()
+        param_comb_color_ref = QVBoxLayout()
+        param_comb_color_ref.addLayout(param_colormix)
+        param_comb_color_ref.addLayout(param_ref)
+
+        grid = QGridLayout()
+        grid.addLayout(param_cpu, 0, 1)
+        grid.addLayout(param_txm_norm, 0, 2)
+        grid.addLayout(param_edge_fit, 1, 1)
+        grid.addLayout(param_peak_reg, 1, 2)
+        grid.addLayout(param_image_align, 2, 1)
+        grid.addLayout(param_mask, 2, 2)
+        grid.addLayout(param_xanes_fit, 3, 1)
+        grid.addLayout(param_comb_color_ref, 3, 2)
+        # grid.addLayout(param_ref, 4, 2)
+        grid.addLayout(param_execute, 4, 1, 1, 2)
+        '''
+        hbox1 = QHBoxLayout()
+        hbox1.addLayout(param_cpu)
+        hbox1.addLayout(param_txm_norm)
+        hbox1.addWidget(lb_empty)
+        hbox1.setAlignment(QtCore.Qt.AlignLeft)
+
+        hbox2 = QHBoxLayout()
+        hbox2.addLayout(param_edge_fit)
+        hbox2.addLayout(param_peak_reg)
+        hbox2.addWidget(lb_empty)
+        hbox2.setAlignment(QtCore.Qt.AlignLeft)
+
+        hbox3 = QHBoxLayout()
+        hbox3.addLayout(param_image_align)
+        hbox3.addLayout(param_xanes_fit)
+        hbox3.addWidget(lb_empty)
+        hbox3.setAlignment(QtCore.Qt.AlignLeft)
+
+        vbox = QVBoxLayout()
+        #vbox.addLayout(param_cpu)
+        vbox.addWidget(lb_empty)
+        #vbox.addLayout(param_txm_norm)
+        #vbox.addWidget(lb_empty)
+        vbox.addLayout(hbox1)
+        vbox.addLayout(hbox2)
+        #vbox.addLayout(hbox3)
+
+        return vbox
+        '''
+        return grid
+
+    def layout_3D_param_cpu(self):
+        lb_param_parellel = QLabel()
+        lb_param_parellel.setFont(self.font1)
+        lb_param_parellel.setText('Parallel computing')
+
+        lb_param_cpu = QLabel()
+        lb_param_cpu.setFont(self.font2)
+        lb_param_cpu.setText('Number of CPU:')
+        lb_param_cpu.setFixedWidth(140)
+
+        self.tx_param_cpu = QLineEdit()
+        self.tx_param_cpu.setFixedWidth(60)
+        self.tx_param_cpu.setText('1')
+        self.tx_param_cpu.setFont(self.font2)
+
+        hbox_param_cpu = QHBoxLayout()
+        hbox_param_cpu.addWidget(lb_param_cpu)
+        hbox_param_cpu.addWidget(self.tx_param_cpu)
+        hbox_param_cpu.setAlignment(QtCore.Qt.AlignLeft)
+
+        vbox_param_cpu = QVBoxLayout()
+        vbox_param_cpu.addWidget(lb_param_parellel)
+        vbox_param_cpu.addLayout(hbox_param_cpu)
+        vbox_param_cpu.addWidget(self.lb_empty)
+        vbox_param_cpu.setAlignment(QtCore.Qt.AlignTop)
+        return vbox_param_cpu
+
+    def layout_3D_param_txm_norm(self):
+        lb_param_txm_norm0 = QLabel()
+        lb_param_txm_norm0.setFont(self.font1)
+        lb_param_txm_norm0.setText('TXM normalization')
+        lb_param_txm_norm0.setFixedWidth(140)
+
+        lb_param_txm_norm = QLabel()
+        lb_param_txm_norm.setFont(self.font2)
+        lb_param_txm_norm.setText('Take -log()')
+        lb_param_txm_norm.setFixedWidth(80)
+
+        self.param_txm_norm_group = QButtonGroup()
+        self.param_txm_norm_group.setExclusive(True)
+        self.rd_param_txm_norm_yes = QRadioButton('Yes')
+        self.rd_param_txm_norm_yes.setFixedWidth(80)
+
+        self.rd_param_txm_norm_no = QRadioButton('No')
+        self.rd_param_txm_norm_no.setFixedWidth(80)
+
+        self.param_txm_norm_group.addButton(self.rd_param_txm_norm_yes)
+        self.param_txm_norm_group.addButton(self.rd_param_txm_norm_no)
+        self.param_txm_norm_group.setExclusive(True)
+        self.rd_param_txm_norm_yes.setChecked(True)
+
+        hbox_param_txm_norm = QHBoxLayout()
+        hbox_param_txm_norm.addWidget(lb_param_txm_norm)
+        hbox_param_txm_norm.addWidget(self.rd_param_txm_norm_yes)
+        hbox_param_txm_norm.addWidget(self.rd_param_txm_norm_no)
+        hbox_param_txm_norm.addWidget(self.lb_empty)
+        hbox_param_txm_norm.setAlignment(QtCore.Qt.AlignLeft)
+
+        vbox_param_txm_norm = QVBoxLayout()
+        vbox_param_txm_norm.addWidget(lb_param_txm_norm0)
+        vbox_param_txm_norm.addLayout(hbox_param_txm_norm)
+        vbox_param_txm_norm.addWidget(self.lb_empty)
+        vbox_param_txm_norm.setAlignment(QtCore.Qt.AlignTop)
+        return vbox_param_txm_norm
+
+    def layout_3D_param_edge_norm(self):
+        # gpbox = QGroupBox('Edge normalization')
+        # gpbox.setFont(self.font1)
+
+        # self.chkbox_param_edge_norm = QCheckBox('Edge normalization')
+        # self.chkbox_param_edge_norm.setFixedWidth(190)
+        # self.chkbox_param_edge_norm.setFont(self.font2)
+
+        lb_space = QLabel()
+        lb_space.setFixedWidth(40)
+
+        lb_param_fit_edge0 = QLabel()
+        lb_param_fit_edge0.setFont(self.font1)
+        lb_param_fit_edge0.setText('Edge normalization')
+        lb_param_fit_edge0.setFixedWidth(140)
+
+        # normalization method
+        lb_param_fit_edge_method = QLabel()
+        lb_param_fit_edge_method.setFont(self.font2)
+        lb_param_fit_edge_method.setText('Method:')
+        lb_param_fit_edge_method.setFixedWidth(80)
+
+        self.chkbox_param_fit_edge_method = QCheckBox('Global slope')
+        self.chkbox_param_fit_edge_method.setFixedWidth(140)
+        self.chkbox_param_fit_edge_method.setLayoutDirection(QtCore.Qt.RightToLeft)
+        self.chkbox_param_fit_edge_method.setFont(self.font2)
+
+        hbox_param_fit_edge_method = QHBoxLayout()
+        hbox_param_fit_edge_method.addWidget(lb_param_fit_edge0)
+        # hbox_param_fit_edge_method.addWidget(lb_space)
+        hbox_param_fit_edge_method.addWidget(self.chkbox_param_fit_edge_method)
+        hbox_param_fit_edge_method.setAlignment(QtCore.Qt.AlignLeft)
+
+        # normalize or not
+        lb_param_fit_edge = QLabel()
+        lb_param_fit_edge.setFont(self.font2)
+        lb_param_fit_edge.setText('Norm absorp. edge')
+        lb_param_fit_edge.setFixedWidth(140)
+
+        self.fit_edge_group = QButtonGroup()
+        self.fit_edge_group.setExclusive(True)
+        self.rd_param_fit_edge_yes = QRadioButton('Yes')
+        self.rd_param_fit_edge_yes.setFixedWidth(80)
+
+        self.rd_param_fit_edge_no = QRadioButton('No')
+        self.rd_param_fit_edge_no.setFixedWidth(80)
+
+        self.fit_edge_group.addButton(self.rd_param_fit_edge_yes)
+        self.fit_edge_group.addButton(self.rd_param_fit_edge_no)
+        self.fit_edge_group.setExclusive(True)
+        self.rd_param_fit_edge_yes.setChecked(True)
+
+        hbox_param_fit_edge_flag = QHBoxLayout()
+        hbox_param_fit_edge_flag.addWidget(lb_param_fit_edge)
+        hbox_param_fit_edge_flag.addWidget(self.rd_param_fit_edge_yes)
+        hbox_param_fit_edge_flag.addWidget(self.rd_param_fit_edge_no)
+        hbox_param_fit_edge_flag.setAlignment(QtCore.Qt.AlignLeft)
+
+        # pre-edge
+        lb_param_pre = QLabel()
+        lb_param_pre.setFont(self.font2)
+        lb_param_pre.setText('Pre-edge')
+        lb_param_pre.setFixedWidth(80)
+
+        lb_param_pre_start = QLabel()
+        lb_param_pre_start.setFont(self.font2)
+        lb_param_pre_start.setText('start:')
+        lb_param_pre_start.setFixedWidth(60)
+
+        lb_param_pre_end = QLabel()
+        lb_param_pre_end.setFont(self.font2)
+        lb_param_pre_end.setText('  end:')
+        lb_param_pre_end.setFixedWidth(60)
+
+        self.tx_param_pre_s = QLineEdit()
+        self.tx_param_pre_s.setFixedWidth(60)
+        self.tx_param_pre_s.setFont(self.font2)
+
+        self.tx_param_pre_e = QLineEdit()
+        self.tx_param_pre_e.setFixedWidth(60)
+        self.tx_param_pre_e.setFont(self.font2)
+
+        hbox_param_pre = QHBoxLayout()
+        hbox_param_pre.addWidget(lb_param_pre)
+        hbox_param_pre.addWidget(lb_param_pre_start)
+        hbox_param_pre.addWidget(self.tx_param_pre_s)
+        hbox_param_pre.addWidget(lb_param_pre_end)
+        hbox_param_pre.addWidget(self.tx_param_pre_e)
+        hbox_param_pre.setAlignment(QtCore.Qt.AlignLeft)
+
+        # post edge
+        lb_param_post = QLabel()
+        lb_param_post.setFont(self.font2)
+        lb_param_post.setText('Post-edge')
+        lb_param_post.setFixedWidth(80)
+
+        lb_param_post_start = QLabel()
+        lb_param_post_start.setFont(self.font2)
+        lb_param_post_start.setText('start:')
+        lb_param_post_start.setFixedWidth(60)
+
+        lb_param_post_end = QLabel()
+        lb_param_post_end.setFont(self.font2)
+        lb_param_post_end.setText('  end:')
+        lb_param_post_end.setFixedWidth(60)
+
+        self.tx_param_post_s = QLineEdit()
+        self.tx_param_post_s.setFixedWidth(60)
+        self.tx_param_post_s.setFont(self.font2)
+
+        self.tx_param_post_e = QLineEdit()
+        self.tx_param_post_e.setFixedWidth(60)
+        self.tx_param_post_e.setFont(self.font2)
+
+        hbox_param_post = QHBoxLayout()
+        hbox_param_post.addWidget(lb_param_post)
+        hbox_param_post.addWidget(lb_param_post_start)
+        hbox_param_post.addWidget(self.tx_param_post_s)
+        hbox_param_post.addWidget(lb_param_post_end)
+        hbox_param_post.addWidget(self.tx_param_post_e)
+        hbox_param_post.setAlignment(QtCore.Qt.AlignLeft)
+
+        vbox_param_edge = QVBoxLayout()
+        vbox_param_edge.addLayout(hbox_param_fit_edge_method)
+        vbox_param_edge.addLayout(hbox_param_fit_edge_flag)
+        vbox_param_edge.addLayout(hbox_param_fit_edge_method)
+        vbox_param_edge.addLayout(hbox_param_pre)
+        vbox_param_edge.addLayout(hbox_param_post)
+        vbox_param_edge.addWidget(self.lb_empty)
+        vbox_param_edge.setAlignment(QtCore.Qt.AlignTop)
+
+        return vbox_param_edge
+
+    def layout_3D_param_edge_regulation(self):
+        # gpbox = QGroupBox('Peak regulation')
+        # gpbox.setFont(self.font1)
+
+        lb_param_reg_edge0 = QLabel()
+        lb_param_reg_edge0.setFont(self.font1)
+        lb_param_reg_edge0.setText('Peak regulation')
+        lb_param_reg_edge0.setFixedWidth(140)
+        # normalize or not
+        lb_param_reg_edge = QLabel()
+        lb_param_reg_edge.setFont(self.font2)
+        lb_param_reg_edge.setText('Peak regulation')
+        lb_param_reg_edge.setFixedWidth(140)
+
+        self.reg_edge_group = QButtonGroup()
+        self.reg_edge_group.setExclusive(True)
+        self.rd_param_reg_edge_yes = QRadioButton('Yes')
+        self.rd_param_reg_edge_yes.setFixedWidth(80)
+
+        self.rd_param_reg_edge_no = QRadioButton('No')
+        self.rd_param_reg_edge_no.setFixedWidth(80)
+        self.rd_param_reg_edge_no.setChecked(True)
+
+        self.reg_edge_group.addButton(self.rd_param_reg_edge_yes)
+        self.reg_edge_group.addButton(self.rd_param_reg_edge_no)
+        self.reg_edge_group.setExclusive(True)
+
+        hbox_param_reg_edge_flag = QHBoxLayout()
+        hbox_param_reg_edge_flag.addWidget(lb_param_reg_edge)
+        hbox_param_reg_edge_flag.addWidget(self.rd_param_reg_edge_yes)
+        hbox_param_reg_edge_flag.addWidget(self.rd_param_reg_edge_no)
+        hbox_param_reg_edge_flag.setAlignment(QtCore.Qt.AlignLeft)
+
+        # regulation peak max
+        lb_param_reg_peak = QLabel()
+        lb_param_reg_peak.setFont(self.font2)
+        lb_param_reg_peak.setText('Peak maximum:')
+        lb_param_reg_peak.setFixedWidth(140)
+
+        self.tx_param_reg_peak = QLineEdit()
+        self.tx_param_reg_peak.setFixedWidth(60)
+        self.tx_param_reg_peak.setFont(self.font2)
+
+        # regulation gamma
+        lb_param_reg_gamma = QLabel()
+        lb_param_reg_gamma.setFont(self.font2)
+        lb_param_reg_gamma.setText('  Width:')
+        lb_param_reg_gamma.setFixedWidth(60)
+
+        self.tx_param_reg_gamma = QLineEdit()
+        self.tx_param_reg_gamma.setText('0.05')
+        self.tx_param_reg_gamma.setFixedWidth(60)
+        self.tx_param_reg_gamma.setFont(self.font2)
+
+        hbox_param_reg_peak = QHBoxLayout()
+        hbox_param_reg_peak.addWidget(lb_param_reg_peak)
+        hbox_param_reg_peak.addWidget(self.tx_param_reg_peak)
+        hbox_param_reg_peak.addWidget(lb_param_reg_gamma)
+        hbox_param_reg_peak.addWidget(self.tx_param_reg_gamma)
+        hbox_param_reg_peak.setAlignment(QtCore.Qt.AlignLeft)
+
+        vbox_param_reg = QVBoxLayout()
+        vbox_param_reg.addWidget(lb_param_reg_edge0)
+        vbox_param_reg.addLayout(hbox_param_reg_edge_flag)
+        vbox_param_reg.addLayout(hbox_param_reg_peak)
+        vbox_param_reg.addWidget(self.lb_empty)
+        vbox_param_reg.setAlignment(QtCore.Qt.AlignTop)
+
+        # gpbox.setLayout(vbox_param_reg)
+        return vbox_param_reg
+
+    def layout_3D_param_align(self):
+        # gpbox = QGroupBox('Image alignment')
+        # gpbox.setFont(self.font1)
+
+        lb_param_align0 = QLabel()
+        lb_param_align0.setFont(self.font1)
+        lb_param_align0.setText('Image alignment')
+        lb_param_align0.setFixedWidth(140)
+        # Alignment
+        lb_param_align = QLabel()
+        lb_param_align.setFont(self.font2)
+        lb_param_align.setText('Image alignment')
+        lb_param_align.setFixedWidth(140)
+
+        self.align_group = QButtonGroup()
+        self.align_group.setExclusive(True)
+        self.rd_param_align_yes = QRadioButton('Yes')
+        self.rd_param_align_yes.setFixedWidth(80)
+
+        self.rd_param_align_no = QRadioButton('No')
+        self.rd_param_align_no.setFixedWidth(80)
+
+        self.align_group.addButton(self.rd_param_align_yes)
+        self.align_group.addButton(self.rd_param_align_no)
+        self.align_group.setExclusive(True)
+        self.rd_param_align_no.setChecked(True)
+
+        hbox_param_align_flag = QHBoxLayout()
+        hbox_param_align_flag.addWidget(lb_param_align)
+        hbox_param_align_flag.addWidget(self.rd_param_align_yes)
+        hbox_param_align_flag.addWidget(self.rd_param_align_no)
+        hbox_param_align_flag.setAlignment(QtCore.Qt.AlignLeft)
+
+        # ROI ratio
+        lb_param_align_roi = QLabel()
+        lb_param_align_roi.setFont(self.font2)
+        lb_param_align_roi.setText('  Ratio:')
+        lb_param_align_roi.setFixedWidth(60)
+
+        self.tx_param_align_roi = QLineEdit()
+        self.tx_param_align_roi.setFixedWidth(60)
+        self.tx_param_align_roi.setText('0.9')
+        self.tx_param_align_roi.setFont(self.font2)
+
+        # reference index
+        lb_param_align_ref = QLabel()
+        lb_param_align_ref.setFont(self.font2)
+        lb_param_align_ref.setText('Reference index:')
+        lb_param_align_ref.setFixedWidth(140)
+
+        self.tx_param_align_ref = QLineEdit()
+        self.tx_param_align_ref.setFixedWidth(60)
+        self.tx_param_align_ref.setText('-1')
+        self.tx_param_align_ref.setFont(self.font2)
+
+        hbox_param_align_ref = QHBoxLayout()
+        hbox_param_align_ref.addWidget(lb_param_align_ref)
+        hbox_param_align_ref.addWidget(self.tx_param_align_ref)
+        hbox_param_align_ref.addWidget(lb_param_align_roi)
+        hbox_param_align_ref.addWidget(self.tx_param_align_roi)
+        hbox_param_align_ref.setAlignment(QtCore.Qt.AlignLeft)
+
+        vbox_param_align = QVBoxLayout()
+        vbox_param_align.addWidget(lb_param_align0)
+        vbox_param_align.addLayout(hbox_param_align_flag)
+        vbox_param_align.addLayout(hbox_param_align_ref)
+        vbox_param_align.addWidget(self.lb_empty)
+        vbox_param_align.setAlignment(QtCore.Qt.AlignTop)
+
+        # gpbox.setLayout(vbox_param_align)
+        return vbox_param_align
+
+    def layout_3D_param_fitting(self):
+        # gpbox = QGroupBox('Fitting')
+        # gpbox.setFont(self.font1)
+        lb_param_fit_iter0 = QLabel()
+        lb_param_fit_iter0.setFont(self.font1)
+        lb_param_fit_iter0.setText('Fitting')
+        lb_param_fit_iter0.setFixedWidth(140)
+
+        # Fit edge
+        self.chkbox_fit_pre_edge = QCheckBox('Fit pre-edge')
+        # self.chkbox_fit_pre_edge.setLayoutDirection(QtCore.Qt.RightToLeft)
+        self.chkbox_fit_pre_edge.setFont(self.font2)
+        self.chkbox_fit_pre_edge.setChecked(True)
+        self.chkbox_fit_pre_edge.setFixedWidth(140)
+
+        self.chkbox_fit_post_edge = QCheckBox('Fit post-edge')
+        # self.chkbox_fit_post_edge.setLayoutDirection(QtCore.Qt.RightToLeft)
+        self.chkbox_fit_post_edge.setFont(self.font2)
+        self.chkbox_fit_post_edge.setChecked(True)
+        self.chkbox_fit_post_edge.setFixedWidth(140)
+
+        hbox_param_fit_edge = QHBoxLayout()
+        hbox_param_fit_edge.addWidget(self.chkbox_fit_pre_edge)
+        hbox_param_fit_edge.addWidget(self.chkbox_fit_post_edge)
+        hbox_param_fit_edge.setAlignment(QtCore.Qt.AlignLeft)
+
+        # Fit energy range
+        lb_param_fit_range = QLabel()
+        lb_param_fit_range.setFont(self.font2)
+        lb_param_fit_range.setText('Eng. range')
+        lb_param_fit_range.setFixedWidth(80)
+
+        lb_param_fit_range_start = QLabel()
+        lb_param_fit_range_start.setFont(self.font2)
+        lb_param_fit_range_start.setText('start:')
+        lb_param_fit_range_start.setFixedWidth(55)
+
+        lb_param_fit_range_end = QLabel()
+        lb_param_fit_range_end.setFont(self.font2)
+        lb_param_fit_range_end.setText('  end:')
+        lb_param_fit_range_end.setFixedWidth(60)
+
+        self.tx_param_fit_range_s = QLineEdit()
+        self.tx_param_fit_range_s.setFixedWidth(60)
+        self.tx_param_fit_range_s.setFont(self.font2)
+
+        self.tx_param_fit_range_e = QLineEdit()
+        self.tx_param_fit_range_e.setFixedWidth(60)
+        self.tx_param_fit_range_e.setFont(self.font2)
+
+        hbox_param_fit_range = QHBoxLayout()
+        hbox_param_fit_range.addWidget(lb_param_fit_range)
+        hbox_param_fit_range.addWidget(lb_param_fit_range_start)
+        hbox_param_fit_range.addWidget(self.tx_param_fit_range_s)
+        hbox_param_fit_range.addWidget(lb_param_fit_range_end)
+        hbox_param_fit_range.addWidget(self.tx_param_fit_range_e)
+        hbox_param_fit_range.setAlignment(QtCore.Qt.AlignLeft)
+
+        # XANES fitting
+        lb_param_fit_iter = QLabel()
+        lb_param_fit_iter.setFont(self.font2)
+        lb_param_fit_iter.setText('Fitting')
+        lb_param_fit_iter.setFixedWidth(140)
+
+        self.rd_param_fit_iter_yes = QRadioButton('Yes')
+        self.rd_param_fit_iter_yes.setFixedWidth(80)
+        self.rd_param_fit_iter_yes.setChecked(True)
+
+        self.rd_param_fit_iter_no = QRadioButton('No')
+        self.rd_param_fit_iter_no.setFixedWidth(80)
+
+        self.fit_iter_group = QButtonGroup()
+        self.fit_iter_group.setExclusive(True)
+        self.fit_iter_group.addButton(self.rd_param_fit_iter_yes)
+        self.fit_iter_group.addButton(self.rd_param_fit_iter_no)
+        self.fit_iter_group.setExclusive(True)
+
+        hbox_param_fit_iter_flag = QHBoxLayout()
+        hbox_param_fit_iter_flag.addWidget(lb_param_fit_iter)
+        hbox_param_fit_iter_flag.addWidget(self.rd_param_fit_iter_yes)
+        hbox_param_fit_iter_flag.addWidget(self.rd_param_fit_iter_no)
+        hbox_param_fit_iter_flag.setAlignment(QtCore.Qt.AlignLeft)
+
+        # leaning rate
+        self.chkbox_fit_iter = QCheckBox('Fit iter')
+        # self.chkbox_fit_post_edge.setLayoutDirection(QtCore.Qt.RightToLeft)
+        self.chkbox_fit_iter.setFont(self.font2)
+        self.chkbox_fit_iter.setChecked(True)
+        self.chkbox_fit_iter.setFixedWidth(140)
+
+        lb_param_iter_rate = QLabel()
+        lb_param_iter_rate.setFont(self.font2)
+        lb_param_iter_rate.setText('Updating rate:')
+        lb_param_iter_rate.setFixedWidth(140)
+
+        self.tx_param_iter_rate = QLineEdit()
+        self.tx_param_iter_rate.setFixedWidth(60)
+        self.tx_param_iter_rate.setText('0.005')
+        self.tx_param_iter_rate.setFont(self.font2)
+
+        # Iters
+        lb_param_iter_num = QLabel()
+        lb_param_iter_num.setFont(self.font2)
+        lb_param_iter_num.setText(' # Iter:')
+        lb_param_iter_num.setFixedWidth(60)
+
+        self.tx_param_iter_num = QLineEdit()
+        self.tx_param_iter_num.setFixedWidth(60)
+        self.tx_param_iter_num.setText('5')
+        self.tx_param_iter_num.setFont(self.font2)
+
+        hbox_param_fit_iter_p = QHBoxLayout()
+        hbox_param_fit_iter_p.addWidget(lb_param_iter_rate)
+        hbox_param_fit_iter_p.addWidget(self.tx_param_iter_rate)
+        hbox_param_fit_iter_p.addWidget(lb_param_iter_num)
+        hbox_param_fit_iter_p.addWidget(self.tx_param_iter_num)
+        hbox_param_fit_iter_p.setAlignment(QtCore.Qt.AlignLeft)
+
+        # Bounds
+        lb_param_iter_bounds = QLabel()
+        lb_param_iter_bounds.setFont(self.font2)
+        lb_param_iter_bounds.setText('Bounds to:')
+        lb_param_iter_bounds.setFixedWidth(80)
+
+        lb_param_iter_bounds_low = QLabel()
+        lb_param_iter_bounds_low.setFont(self.font2)
+        lb_param_iter_bounds_low.setText('low:')
+        lb_param_iter_bounds_low.setFixedWidth(55)
+
+        self.tx_param_iter_bounds_low = QLineEdit()
+        self.tx_param_iter_bounds_low.setFixedWidth(60)
+        self.tx_param_iter_bounds_low.setText('0')
+        self.tx_param_iter_bounds_low.setFont(self.font2)
+
+        lb_param_iter_bounds_high = QLabel()
+        lb_param_iter_bounds_high.setFont(self.font2)
+        lb_param_iter_bounds_high.setText('  high:')
+        lb_param_iter_bounds_high.setFixedWidth(60)
+
+        self.tx_param_iter_bounds_high = QLineEdit()
+        self.tx_param_iter_bounds_high.setFixedWidth(60)
+        self.tx_param_iter_bounds_high.setText('1')
+        self.tx_param_iter_bounds_high.setFont(self.font2)
+
+        hbox_param_fit_iter_bounds = QHBoxLayout()
+        hbox_param_fit_iter_bounds.addWidget(lb_param_iter_bounds)
+        hbox_param_fit_iter_bounds.addWidget(lb_param_iter_bounds_low)
+        hbox_param_fit_iter_bounds.addWidget(self.tx_param_iter_bounds_low)
+        hbox_param_fit_iter_bounds.addWidget(lb_param_iter_bounds_high)
+        hbox_param_fit_iter_bounds.addWidget(self.tx_param_iter_bounds_high)
+        hbox_param_fit_iter_bounds.setAlignment(QtCore.Qt.AlignLeft)
+
+        lb_param_iter_lambda = QLabel()
+        lb_param_iter_lambda.setFont(self.font2)
+        lb_param_iter_lambda.setText('lambda:')
+        lb_param_iter_lambda.setFixedWidth(140)
+
+        self.tx_param_iter_lambda = QLineEdit()
+        self.tx_param_iter_lambda.setFixedWidth(60)
+        self.tx_param_iter_lambda.setText('0.01')
+        self.tx_param_iter_lambda.setFont(self.font2)
+
+        hbox_param_fit_iter_lambda = QHBoxLayout()
+        hbox_param_fit_iter_lambda.addWidget(lb_param_iter_lambda)
+        hbox_param_fit_iter_lambda.addWidget(self.tx_param_iter_lambda)
+        hbox_param_fit_iter_lambda.setAlignment(QtCore.Qt.AlignLeft)
+
+        vbox_param_fit = QVBoxLayout()
+        vbox_param_fit.addWidget(lb_param_fit_iter0)
+        vbox_param_fit.addLayout(hbox_param_fit_edge)
+        vbox_param_fit.addLayout(hbox_param_fit_range)
+        vbox_param_fit.addWidget(self.chkbox_fit_iter)
+        vbox_param_fit.addLayout(hbox_param_fit_iter_p)
+        vbox_param_fit.addLayout(hbox_param_fit_iter_bounds)
+        vbox_param_fit.addLayout(hbox_param_fit_iter_lambda)
+        vbox_param_fit.addWidget(self.lb_empty)
+        vbox_param_fit.setAlignment(QtCore.Qt.AlignTop)
+
+        # gpbox.setLayout(vbox_param_fit)
+        return vbox_param_fit
+
+    def layout_3D_param_mask(self):
+        # gpbox = QGroupBox('Mask')
+        # gpbox.setFont(self.font1)
+        lb_param_smart_mask0 = QLabel()
+        lb_param_smart_mask0.setFont(self.font1)
+        lb_param_smart_mask0.setText('Cluster Mask comp.')
+        lb_param_smart_mask0.setFixedWidth(140)
+        # smart mask
+        lb_param_smart_mask = QLabel()
+        lb_param_smart_mask.setFont(self.font2)
+        lb_param_smart_mask.setText('Cluster Mask comp.')
+        lb_param_smart_mask.setFixedWidth(140)
+
+        self.tx_param_smart_mask_comp = QLineEdit()
+        self.tx_param_smart_mask_comp.setFixedWidth(60)
+        self.tx_param_smart_mask_comp.setText('0')
+        self.tx_param_smart_mask_comp.setFont(self.font2)
+
+        hbox_param_smart_mask_comp = QHBoxLayout()
+        hbox_param_smart_mask_comp.addWidget(lb_param_smart_mask)
+        hbox_param_smart_mask_comp.addWidget(self.tx_param_smart_mask_comp)
+        hbox_param_smart_mask_comp.setAlignment(QtCore.Qt.AlignLeft)
+
+        # XANES fitting mask
+        lb_param_threshold = QLabel()
+        lb_param_threshold.setFont(self.font2)
+        lb_param_threshold.setText('Threshold: thickness:')
+        lb_param_threshold.setFixedWidth(140)
+
+        self.tx_param_threshold_thick = QLineEdit()
+        self.tx_param_threshold_thick.setFixedWidth(60)
+        self.tx_param_threshold_thick.setText('0')
+        self.tx_param_threshold_thick.setFont(self.font2)
+
+        lb_param_threshold_error = QLabel()
+        lb_param_threshold_error.setFont(self.font2)
+        lb_param_threshold_error.setText('  error:')
+        lb_param_threshold_error.setFixedWidth(60)
+
+        self.tx_param_threshold_error = QLineEdit()
+        self.tx_param_threshold_error.setFixedWidth(60)
+        self.tx_param_threshold_error.setText('100')
+        self.tx_param_threshold_error.setFont(self.font2)
+
+        hbox_param_fit_threshold_mask = QHBoxLayout()
+        hbox_param_fit_threshold_mask.addWidget(lb_param_threshold)
+        hbox_param_fit_threshold_mask.addWidget(self.tx_param_threshold_thick)
+        hbox_param_fit_threshold_mask.addWidget(lb_param_threshold_error)
+        hbox_param_fit_threshold_mask.addWidget(self.tx_param_threshold_error)
+        hbox_param_fit_threshold_mask.setAlignment(QtCore.Qt.AlignLeft)
+
+        vbox_param_mask = QVBoxLayout()
+        vbox_param_mask.addWidget(lb_param_smart_mask0)
+        vbox_param_mask.addLayout(hbox_param_smart_mask_comp)
+        vbox_param_mask.addLayout(hbox_param_fit_threshold_mask)
+        vbox_param_mask.addWidget(self.lb_empty)
+        vbox_param_mask.setAlignment(QtCore.Qt.AlignTop)
+
+        # gpbox.setLayout(vbox_param_mask)
+        return vbox_param_mask
+
+    def layout_3D_param_ref(self):
+        lb_param_ref = QLabel()
+        lb_param_ref.setFont(self.font1)
+        lb_param_ref.setText('Reference spec. & X-ray energy')
+        lb_param_ref.setFixedWidth(240)
+
+        # ref
+        self.pb_param_load_ref = QPushButton('Load Ref.')
+        self.pb_param_load_ref.setFont(self.font2)
+        self.pb_param_load_ref.clicked.connect(self.load_3D_reference)
+        self.pb_param_load_ref.setFixedWidth(80)
+
+        self.pb_param_plot_ref = QPushButton('Plot Ref.')
+        self.pb_param_plot_ref.setFont(self.font2)
+        self.pb_param_plot_ref.clicked.connect(self.plot_3D_reference)
+        self.pb_param_plot_ref.setFixedWidth(80)
+
+        self.pb_param_reset_ref = QPushButton('Reset Ref.')
+        self.pb_param_reset_ref.setFont(self.font2)
+        self.pb_param_reset_ref.clicked.connect(self.reset_3D_reference)
+        self.pb_param_reset_ref.setFixedWidth(80)
+
+        self.pb_param_eng = QPushButton('Load XEng')
+        self.pb_param_eng.setFont(self.font2)
+        self.pb_param_eng.clicked.connect(self.load_3D_energy)
+        self.pb_param_eng.setFixedWidth(80)
+
+        self.lb_param_ref_info = QLabel()
+        self.lb_param_ref_info.setFont(self.font2)
+        self.lb_param_ref_info.setStyleSheet('color: rgb(200, 50, 50);')
+        self.lb_param_ref_info.setText('Reference spectrum: ')
+        self.lb_param_ref_info.setFixedWidth(450)
+
+        self.lb_param_eng_info = QLabel()
+        self.lb_param_eng_info.setFont(self.font2)
+        self.lb_param_eng_info.setStyleSheet('color: rgb(200, 50, 50);')
+        self.lb_param_eng_info.setText('Energy: ')
+        self.lb_param_eng_info.setFixedWidth(450)
+
+        hbox_param_load_ref = QHBoxLayout()
+        hbox_param_load_ref.addWidget(self.pb_param_load_ref)
+        hbox_param_load_ref.addWidget(self.pb_param_plot_ref)
+        hbox_param_load_ref.addWidget(self.pb_param_reset_ref)
+        hbox_param_load_ref.addWidget(self.pb_param_eng)
+        hbox_param_load_ref.setAlignment(QtCore.Qt.AlignLeft)
+
+        vbox_param_load_ref = QVBoxLayout()
+        vbox_param_load_ref.addWidget(lb_param_ref)
+        vbox_param_load_ref.addLayout(hbox_param_load_ref)
+        vbox_param_load_ref.addWidget(self.lb_param_ref_info)
+        vbox_param_load_ref.addWidget(self.lb_param_eng_info)
+        vbox_param_load_ref.setAlignment(QtCore.Qt.AlignLeft)
+
+        return vbox_param_load_ref
+
+    def layout_3D_param_colormix(self):
+        lb_param_colormix = QLabel()
+        lb_param_colormix.setFont(self.font1)
+        lb_param_colormix.setText('Color Mix')
+        lb_param_colormix.setFixedWidth(240)
+
+        lb_param_color = QLabel()
+        lb_param_color.setFont(self.font2)
+        lb_param_color.setText('Color Mix')
+        lb_param_color.setFixedWidth(80)
+
+        self.tx_param_color = QLineEdit()
+        self.tx_param_color.setFixedWidth(60)
+        self.tx_param_color.setText('r, g, b')
+        self.tx_param_color.setFont(self.font2)
+
+        lb_param_color_hint = QLabel()
+        lb_param_color_hint.setFont(self.font2)
+        lb_param_color_hint.setText("   choose from 'r, g, b, c, p, y'")
+
+        hbox_param_colormix = QHBoxLayout()
+        hbox_param_colormix.addWidget(lb_param_color)
+        hbox_param_colormix.addWidget(self.tx_param_color)
+        hbox_param_colormix.addWidget(lb_param_color_hint)
+        hbox_param_colormix.setAlignment(QtCore.Qt.AlignLeft)
+
+        vbox_param_colormix = QVBoxLayout()
+        vbox_param_colormix.addWidget(lb_param_colormix)
+        vbox_param_colormix.addLayout(hbox_param_colormix)
+        vbox_param_colormix.addWidget(self.lb_empty)
+        vbox_param_colormix.setAlignment(QtCore.Qt.AlignLeft)
+
+        return vbox_param_colormix
+
+    def layout_3D_param_execute(self):
+        self.pb_param_save_param = QPushButton('Save parameter')
+        self.pb_param_save_param.setFont(self.font2)
+        self.pb_param_save_param.clicked.connect(self.save_3D_fit_param)
+        self.pb_param_save_param.setFixedWidth(120)
+
+        self.pb_param_load_param = QPushButton('Load parameter')
+        self.pb_param_load_param.setFont(self.font2)
+        self.pb_param_load_param.clicked.connect(self.load_3D_fit_param)
+        self.pb_param_load_param.setFixedWidth(120)
+
+        self.pb_param_batch_fit = QPushButton('Batch fitting')
+        self.pb_param_batch_fit.setFont(self.font2)
+        self.pb_param_batch_fit.clicked.connect(self.batch_fitting)
+        # self.pb_param_batch_fit.clicked.connect(self.run_command)
+        self.pb_param_batch_fit.setFixedWidth(120)
+
+        self.tx_param_output = QPlainTextEdit()
+        self.tx_param_output.resize(6, 200)
+
+        self.lb_execute_output = QLabel()
+        self.lb_execute_output.setFixedWidth(800)
+        self.lb_execute_output.setStyleSheet('color: rgb(200, 50, 50);')
+
+        hbox_param_execute = QHBoxLayout()
+        hbox_param_execute.addWidget(self.pb_param_save_param)
+        hbox_param_execute.addWidget(self.pb_param_load_param)
+        hbox_param_execute.addWidget(self.pb_param_batch_fit)
+        hbox_param_execute.setAlignment(QtCore.Qt.AlignLeft)
+
+        vbox_param_execute = QVBoxLayout()
+        vbox_param_execute.addLayout(hbox_param_execute)
+        vbox_param_execute.addWidget(self.lb_execute_output)
+        # vbox_param_execute.addWidget(self.tx_param_output)
+        vbox_param_execute.setAlignment(QtCore.Qt.AlignTop)
+
+        return vbox_param_execute
+
+    def layout_3D_fit_peak_only(self):
+        gpbox = QGroupBox('Fit peak only')
+        gpbox.setFont(self.font1)
+
+        lb_edge_range = QLabel()
+        lb_edge_range.setFont(self.font1)
+        lb_edge_range.setText('Energy range:')
+        lb_edge_range.setFixedWidth(100)
+
+        lb_edge_range_s = QLabel()
+        lb_edge_range_s.setFont(self.font2)
+        lb_edge_range_s.setText('start:')
+        lb_edge_range_s.setFixedWidth(50)
+
+        lb_edge_range_e = QLabel()
+        lb_edge_range_e.setFont(self.font2)
+        lb_edge_range_e.setText('end:')
+        lb_edge_range_e.setFixedWidth(50)
+
+        self.tx_3D_edge_s = QLineEdit()
+        self.tx_3D_edge_s.setFont(self.font2)
+        self.tx_3D_edge_s.setFixedWidth(60)
+        self.tx_3D_edge_s.setValidator(QDoubleValidator())
+
+        self.tx_3D_edge_e = QLineEdit()
+        self.tx_3D_edge_e.setFont(self.font2)
+        self.tx_3D_edge_e.setFixedWidth(60)
+        self.tx_3D_edge_e.setValidator(QDoubleValidator())
+
+        lb_empty1 = QLabel()
+        lb_empty1.setFixedWidth(20)
+        lb_empty2 = QLabel()
+        lb_empty2.setFixedWidth(30)
+        lb_empty3 = QLabel()
+        lb_empty3.setFixedWidth(20)
+        lb_empty4 = QLabel()
+        lb_empty4.setFixedWidth(20)
+
+        lb_edge_param = QLabel()
+        lb_edge_param.setText('Fit param:')
+        lb_edge_param.setFont(self.font1)
+        lb_edge_param.setFixedWidth(80)
+
+        lb_edge_smooth = QLabel()
+        lb_edge_smooth.setText('smooth:')
+        lb_edge_smooth.setFixedWidth(60)
+        lb_edge_smooth.setFont(self.font2)
+
+        self.tx_3D_edge_smooth = QLineEdit()
+        self.tx_3D_edge_smooth.setText('0.002')
+        self.tx_3D_edge_smooth.setFont(self.font2)
+        self.tx_3D_edge_smooth.setValidator(QDoubleValidator())
+        self.tx_3D_edge_smooth.setFixedWidth(60)
+
+        lb_edge_order = QLabel()
+        lb_edge_order.setText('order:')
+        lb_edge_order.setFixedWidth(50)
+        lb_edge_order.setFont(self.font2)
+
+        self.tx_3D_edge_order = QLineEdit()
+        self.tx_3D_edge_order.setText('3')
+        self.tx_3D_edge_order.setFont(self.font2)
+        self.tx_3D_edge_order.setValidator(QIntValidator())
+        self.tx_3D_edge_order.setFixedWidth(60)
+
+        lb_empty2 = QLabel()
+        lb_empty2.setFixedWidth(20)
+
+        lb_empty3 = QLabel()
+        lb_empty3.setFixedWidth(20)
+
+        lb_scale_img = QLabel()
+        lb_scale_img.setText('scale  x')
+        lb_scale_img.setFixedWidth(50)
+        lb_scale_img.setFont(self.font2)
+
+        self.tx_3D_scale_img = QLineEdit()
+        self.tx_3D_scale_img.setText('1.0')
+        self.tx_3D_scale_img.setFont(self.font2)
+        self.tx_3D_scale_img.setValidator(QDoubleValidator())
+        self.tx_3D_scale_img.setFixedWidth(60)
+
+        hbox_peak_param = QHBoxLayout()
+        hbox_peak_param.addWidget(lb_edge_range)
+        hbox_peak_param.addWidget(lb_edge_range_s)
+        hbox_peak_param.addWidget(self.tx_3D_edge_s)
+        hbox_peak_param.addWidget(lb_empty1)
+        hbox_peak_param.addWidget(lb_edge_range_e)
+        hbox_peak_param.addWidget(self.tx_3D_edge_e)
+        hbox_peak_param.addWidget(lb_empty2)
+        hbox_peak_param.addWidget(lb_edge_param)
+        #hbox_peak_param.addWidget(lb_edge_smooth)
+        #hbox_peak_param.addWidget(self.tx_3D_edge_smooth)
+        #hbox_peak_param.addWidget(lb_empty3)
+        hbox_peak_param.addWidget(lb_edge_order)
+        hbox_peak_param.addWidget(self.tx_3D_edge_order)
+        hbox_peak_param.addWidget(lb_empty4)
+        hbox_peak_param.addWidget(lb_scale_img)
+        hbox_peak_param.addWidget(self.tx_3D_scale_img)
+        hbox_peak_param.setAlignment(QtCore.Qt.AlignLeft)
+
+        lb_peak_maxmin = QLabel()
+        lb_peak_maxmin.setText('Fit peak:')
+        lb_peak_maxmin.setFixedWidth(80)
+        lb_peak_maxmin.setFont(self.font1)
+
+        self.peak_group_3D = QButtonGroup()
+        self.peak_group_3D.setExclusive(True)
+        self.rd_3D_peak_max = QRadioButton('find max')
+        self.rd_3D_peak_max.setFixedWidth(100)
+        self.rd_3D_peak_max.setChecked(True)
+        self.rd_3D_peak_max.setFont(self.font2)
+        self.rd_3D_peak_max.setChecked(True)
+
+        self.rd_3D_peak_min = QRadioButton('find min')
+        self.rd_3D_peak_min.setFixedWidth(100)
+        self.rd_3D_peak_min.setFont(self.font2)
+
+        self.peak_group_3D.addButton(self.rd_3D_peak_max)
+        self.peak_group_3D.addButton(self.rd_3D_peak_min)
+
+        self.chkbox_3D_gen_th_mask = QCheckBox('threshold mask')
+        self.chkbox_3D_gen_th_mask.setFont(self.font2)
+        self.chkbox_3D_gen_th_mask.setFixedWidth(150)
+        self.chkbox_3D_gen_th_mask.setChecked(False)
+
+        self.pb_3D_gen_cl_mask = QPushButton()
+        self.pb_3D_gen_cl_mask.setText('Gen. cluster mask')
+        self.pb_3D_gen_cl_mask.setFont(self.font2)
+        self.pb_3D_gen_cl_mask.setFixedWidth(180)
+        self.pb_3D_gen_cl_mask.clicked.connect(self.gen_3D_smart_mask)
+
+        self.pb_3D_find_peak_img = QPushButton()
+        self.pb_3D_find_peak_img.setText('Find peak')
+        self.pb_3D_find_peak_img.setFont(self.font2)
+        self.pb_3D_find_peak_img.setFixedWidth(180)
+        self.pb_3D_find_peak_img.clicked.connect(self.find_3D_peak_image_poly)
+
+        lb_param_cpu = QLabel()
+        lb_param_cpu.setFont(self.font1)
+        lb_param_cpu.setText('Number of CPU:')
+        lb_param_cpu.setFixedWidth(120)
+
+        self.tx_3D_peak_cpu = QLineEdit()
+        self.tx_3D_peak_cpu.setFixedWidth(60)
+        self.tx_3D_peak_cpu.setText('1')
+        self.tx_3D_peak_cpu.setValidator(QIntValidator())
+        self.tx_3D_peak_cpu.setFont(self.font2)
+
+        hbox_peak_maxmin = QHBoxLayout()
+        hbox_peak_maxmin.addWidget(lb_peak_maxmin)
+        hbox_peak_maxmin.addWidget(self.rd_3D_peak_max)
+        hbox_peak_maxmin.addWidget(self.rd_3D_peak_min)
+        hbox_peak_maxmin.addWidget(self.chkbox_3D_gen_th_mask)
+
+        #hbox_peak_maxmin.addWidget(lb_param_cpu)
+        #hbox_peak_maxmin.addWidget(self.tx_3D_peak_cpu)
+        hbox_peak_maxmin.addWidget(self.pb_3D_find_peak_img)
+        hbox_peak_maxmin.addWidget(self.pb_3D_gen_cl_mask)
+        hbox_peak_maxmin.setAlignment(QtCore.Qt.AlignLeft)
+
+        vbox_3D_find_peak = QVBoxLayout()
+        vbox_3D_find_peak.addLayout(hbox_peak_param)
+        vbox_3D_find_peak.addLayout(hbox_peak_maxmin)
+        vbox_3D_find_peak.setAlignment(QtCore.Qt.AlignTop)
+
+        gpbox.setLayout(vbox_3D_find_peak)
+
+        return gpbox
+
+
+
+    def open_3D_folder(self):
+        options = QFileDialog.Option()
+        options |= QFileDialog.DontUseNativeDialog
+        file_type = '*.*'
+        fn, _ = QFileDialog.getOpenFileName(xanes, "QFileDialog.getOpenFileName()", "", '*', options=options)
+        fn_tmp = fn.split('/')
+        self.file_path = '/'.join(t for t in fn_tmp[:-1])
+        # self.file_path = QFileDialog.getExistingDirectory(None, 'Select a folder:', self.fpath, QFileDialog.ShowDirsOnly)
+        self.tx_param_folder.setText(self.file_path)
+        self.tx_param_file_prefix.setText(fn_tmp[-1][:3])
+        self.tx_param_file_type.setText('.' + fn_tmp[-1].split('.')[-1])
+        self.lb_execute_output.setText('')
+        self.lb_3D_msg.setText(f'Message: ')
+
+    def load_3D_xanes_image_file(self):
+        self.load_file_successful = 0
+        try:
+            self.file_path = self.tx_param_folder.text()
+            self.file_prefix = self.tx_param_file_prefix.text()
+            self.file_type = self.tx_param_file_type.text()
+            self.xanes_files = pyxas.retrieve_file_type(self.file_path, self.file_prefix, self.file_type)
+            print('file load in sequence:')
+            for fn in self.xanes_files:
+                print(fn.split("/")[-1])
+            msg = f'{self.xanes_files[0].split("/")[-1]}  ...  {self.xanes_files[-1].split("/")[-1]}'
+            self.lb_3D_msg.setText(f'Message: {len(self.xanes_files)} files loaded:   [{msg}]')
+            self.load_file_successful = 1
+        except:
+            self.load_file_successful = 0
+
+    def load_3D_reference(self):
+        self.lb_param_ref_info.setStyleSheet('color: rgb(200, 50, 50);')
+        self.load_reference_successful = 0
+        options = QFileDialog.Option()
+        options |= QFileDialog.DontUseNativeDialog
+        file_type = 'txt files (*.txt)'
+        fn, _ = QFileDialog.getOpenFileName(xanes, "QFileDialog.getOpenFileName()", "", file_type, options=options)
+        if fn:
+            try:
+                print(fn)
+                fn_tmp = fn.split('/')
+                fn_ref = '/'.join(t for t in fn_tmp[-6:])
+                fn_ref = f'.../{fn_ref}'
+                print(f'selected reference: {fn_ref}')
+                self.lb_param_ref_info.setText(self.lb_param_ref_info.text() + '\n' + f'ref #{self.num_ref}: ' + fn_ref)
+                QApplication.processEvents()
+                self.spectrum_ref[f'ref{self.num_ref}'] = np.loadtxt(fn)
+                self.num_ref += 1
+                self.load_reference_successful = 1
+            except:
+                print('un-supported xanes reference format')
+                self.load_reference_successful = 0
+
+    def load_3D_energy(self):
+        self.load_eng_successful = 0
+        options = QFileDialog.Option()
+        options |= QFileDialog.DontUseNativeDialog
+        file_type = '*.*'
+        fn, _ = QFileDialog.getOpenFileName(xanes, "QFileDialog.getOpenFileName()", "", ' txt files (*.txt)',
+                                            options=options)
+        try:
+            self.eng = np.loadtxt(fn)
+            n_eng = len(self.eng)
+            self.lb_param_eng_info.setText(
+                f'Energy: {n_eng} energies: {self.eng[0]}, {self.eng[1]},   ...   {self.eng[-1]} keV')
+            self.load_eng_successful = 1
+        except:
+            self.lb_param_eng_info = 'Energy load fails'
+            self.load_eng_successful = 0
+
+    def plot_3D_reference(self):
+        plt.figure()
+        legend = []
+        try:
+            for i in range(self.num_ref):
+                plot_label = f'ref_{i}'
+                spec = self.spectrum_ref[f'ref{i}']
+                line, = plt.plot(spec[:, 0], spec[:, 1], label=plot_label)
+                legend.append(line)
+            print(legend)
+            plt.legend(handles=legend)
+            plt.show()
+        except:
+            self.lb_param_ref_info = 'un-recognized reference spectrum format'
+
+    def reset_3D_reference(self):
+        self.num_ref = 0
+        self.lb_param_ref_info.setText('Reference spectrum:')
+        self.spectrum_ref = {}
+        self.elem_label = []
+
+    def save_3D_fit_param(self):
+        self.save_fit_param_successful = 0
+        save_successful = 1
+        self.fit_param = {}
+        try:
+            self.fit_param['align_flag'] = 1 if self.rd_param_align_yes.isChecked() else 0
+            self.fit_param['align_ref_index'] = int(self.tx_param_align_ref.text())
+
+            roi_ratio = self.tx_param_align_roi.text()
+            roi_ratio = float(roi_ratio) if roi_ratio else 1
+            self.fit_param['roi_ratio'] = roi_ratio
+            self.tx_param_align_roi.setText(str(roi_ratio))
+
+            # fit_eng
+            try:
+                fit_eng_s = self.tx_param_fit_range_s.text()
+                fit_eng_e = self.tx_param_fit_range_e.text()
+                fit_eng_s = float(fit_eng_s) if fit_eng_s else self.eng[0]
+                fit_eng_e = float(fit_eng_e) if fit_eng_e else self.eng[-1]
+                self.fit_param['fit_eng'] = [fit_eng_s, fit_eng_e]
+                self.tx_param_fit_range_s.setText(f'{fit_eng_s:2.4f}')
+                self.tx_param_fit_range_e.setText(f'{fit_eng_e:2.4f}')
+            except:
+                print('errors in saving "fitting energy range"')
+                save_successful = 0
+
+            # fit_iter_bound
+            fit_bound_s = self.tx_param_iter_bounds_low.text()
+            fit_bound_e = self.tx_param_iter_bounds_high.text()
+            fit_bound_s = float(fit_bound_s) if fit_bound_s else 0
+            fit_bound_e = float(fit_bound_e) if fit_bound_s else 100
+            self.fit_param['fit_iter_bound'] = [fit_bound_s, fit_bound_e]
+            self.tx_param_iter_bounds_low.setText(str(fit_bound_s))
+            self.tx_param_iter_bounds_high.setText(str(fit_bound_e))
+
+            self.fit_param['fit_iter_flag'] = 1 if self.chkbox_fit_iter.isChecked() else 0
+            self.fit_param['fit_iter_learning_rate'] = float(self.tx_param_iter_rate.text())
+            self.fit_param['fit_iter_num'] = int(self.tx_param_iter_num.text())
+            self.fit_param['fit_iter_lambda'] = float(self.tx_param_iter_lambda.text())
+            self.fit_param['fit_pre_edge_flag'] = 1 if self.chkbox_fit_pre_edge.isChecked() else 0
+            self.fit_param['fit_post_edge_flag'] = 1 if self.chkbox_fit_post_edge.isChecked() else 0
+            self.fit_param['fit_mask_thickness_threshold'] = float(self.tx_param_threshold_thick.text())
+            self.fit_param['fit_mask_cost_threshold'] = float(self.tx_param_threshold_error.text())
+
+            cluster_comp = int(self.tx_param_smart_mask_comp.text())
+            self.fit_param['mask_xanes_flag'] = 1 if cluster_comp else 0
+            self.fit_param['n_comp'] = cluster_comp
+
+            self.fit_param['norm_edge_method'] = 'new' if self.chkbox_param_fit_edge_method.isChecked() else 'old'
+            self.fit_param['norm_txm_flag'] = 1 if self.rd_param_txm_norm_yes.isChecked() else 0
+
+            if self.rd_param_fit_edge_yes.isChecked():
+                try:
+                    pre_edge_s = self.tx_param_pre_s.text()
+                    pre_edge_s = float(pre_edge_s) if pre_edge_s else self.eng[0]
+                    pre_edge_e = self.tx_param_pre_e.text()
+                    pre_edge_e = float(pre_edge_e) if pre_edge_e else pre_edge_s + 0.02
+                    self.fit_param['pre_edge'] = [pre_edge_s, pre_edge_e]
+                    self.tx_param_pre_s.setText(f'{pre_edge_s:2.4f}')
+                    self.tx_param_pre_e.setText(f'{pre_edge_e:2.4f}')
+                except:
+                    print('fails in save pre-edge energy')
+                    save_successful = 0
+                try:
+                    post_edge_e = self.tx_param_post_e.text()
+                    post_edge_e = float(post_edge_e) if post_edge_e else self.eng[-1]
+                    post_edge_s = self.tx_param_post_s.text()
+                    post_edge_s = float(post_edge_s) if post_edge_s else post_edge_e - 0.2
+                    self.fit_param['post_edge'] = [post_edge_s, post_edge_e]
+                    self.tx_param_post_s.setText(f'{post_edge_s:2.4f}')
+                    self.tx_param_post_e.setText(f'{post_edge_e:2.4f}')
+                except:
+                    print('fails in save post-edge energy')
+                    save_successful = 0
+
+            self.fit_param['regulation_flag'] = 1 if self.rd_param_reg_edge_yes.isChecked() else 0
+            peak_max = self.tx_param_reg_peak.text()
+            peak_max = float(peak_max) if peak_max else 1.6
+            self.fit_param['regulation_designed_max'] = peak_max
+            self.tx_param_reg_peak.setText(f'{peak_max:2.4f}')
+
+            peak_width = self.tx_param_reg_gamma.text()
+            peak_width = float(peak_width) if peak_width else 0.05
+            self.fit_param['regulation_gamma'] = peak_width
+            self.tx_param_reg_gamma.setText(f'{peak_width:2.4f}')
+
+            self.num_cpu = min(int(self.tx_param_cpu.text()), round(cpu_count() * 0.8))
+            self.tx_param_cpu.setText(str(self.num_cpu))
+
+            if self.rd_3D_tif.isChecked():
+                self.fit_param['file_type'] = 'tiff'
+            else:
+                self.fit_param['file_type'] = 'h5'
+            self.fit_param['hdf_attr'] = self.tx_param_hdf.text()
+            self.fit_param['num_cpu'] = self.num_cpu
+
+            self.fit_param['color'] = self.tx_param_color.text()
+
+        except:
+            save_successful = 0
+        # save to .csv
+        if save_successful:
+            options = QFileDialog.Option()
+            options |= QFileDialog.DontUseNativeDialog
+            file_type = 'csv (*.csv)'
+            fn, _ = QFileDialog.getSaveFileName(self, 'Save File', "", file_type, options=options)
+            if fn.split('.')[-1] != 'csv':
+                fn += '.csv'
+            pyxas.save_xanes_fit_param_file(self.fit_param, fn)
+            self.lb_execute_output.setText(f'{fn} saved')
+            self.tx_param_output.appendPlainText(f'{fn} saved')
+            self.save_fit_param_successful = 1
+        else:
+            print('fails to save fitting parameter')
+            self.lb_execute_output.setText('fails to save fitting parameter')
+            self.save_fit_param_successful = 0
+
+    def load_3D_fit_param(self):
+        self.load_fit_param_successful = 0
+        try:
+            options = QFileDialog.Option()
+            options |= QFileDialog.DontUseNativeDialog
+            file_type = ' csv files (*.csv)'
+            fn, _ = QFileDialog.getOpenFileName(xanes, "QFileDialog.getOpenFileName()", "", file_type, options=options)
+            if fn:
+                self.fit_param = pyxas.load_xanes_fit_param_file(fn, num_items=0)
+                txt = self.lb_execute_output.text() + f'\nfit_param loaded: {fn}'
+                self.lb_execute_output.setText(txt)
+                self.load_fit_param_successful = 1
+
+                if self.fit_param['align_flag']:
+                    self.rd_param_align_yes.setChecked(1)
+                    align_index = int(self.fit_param['align_ref_index'])
+                    self.tx_param_align_ref.setText(str(align_index))
+                    roi_ratio = self.fit_param['roi_ratio']
+                    self.tx_param_align_roi.setText(str(roi_ratio))
+                else:
+                    self.rd_param_align_no.setChecked(1)
+
+                fit_pre_edge_flag = self.fit_param['fit_pre_edge_flag']
+                if fit_pre_edge_flag:
+                    self.chkbox_fit_pre_edge.setChecked(1)
+                else:
+                    self.chkbox_fit_pre_edge.setChecked(0)
+                fit_post_edge_flag = self.fit_param['fit_pre_edge_flag']
+                if fit_post_edge_flag:
+                    self.chkbox_fit_post_edge.setChecked(1)
+                else:
+                    self.chkbox_fit_post_edge.setChecked(0)
+
+                # fit_eng
+                try:
+                    fit_eng_s = self.fit_param['fit_eng'][0]
+                    self.tx_param_fit_range_s.setText(f'{fit_eng_s:2.4f}')
+                    fit_eng_e = self.fit_param['fit_eng'][1]
+                    self.tx_param_fit_range_e.setText(f'{fit_eng_e:2.4f}')
+                except:
+                    pass
+
+                # fit_iter_bound
+                fit_iter_flag = self.fit_param['fit_iter_flag']
+                if fit_iter_flag:
+                    self.chkbox_fit_iter.setChecked(1)
+                    fit_bound_s, fit_bound_e = self.fit_param['fit_iter_bound']
+                    self.tx_param_iter_bounds_low.setText(str(fit_bound_s))
+                    self.tx_param_iter_bounds_high.setText(str(fit_bound_e))
+                    learn_rate = float(self.fit_param['fit_iter_learning_rate'])
+                    self.tx_param_iter_rate.setText(f'{learn_rate:1.4f}')
+                    fit_iter_num = int(self.fit_param['fit_iter_num'])
+                    self.tx_param_iter_num.setText(str(fit_iter_num))
+                    try:
+                        fit_iter_lambda = float(self.fit_param['fit_iter_lambda'])
+                    except:
+                        fit_iter_lambda = 0.5
+                    self.tx_param_iter_lambda.setText(str(fit_iter_lambda))
+                else:
+                    self.chkbox_fit_iter.setChecked(0)
+
+                self.tx_param_threshold_thick.setText(str(self.fit_param['fit_mask_thickness_threshold']))
+                self.tx_param_threshold_error.setText(str(self.fit_param['fit_mask_cost_threshold']))
+
+                mask_xanes_flag = self.fit_param['mask_xanes_flag']
+                if mask_xanes_flag:
+                    n_comp = self.fit_param['n_comp']
+                else:
+                    n_comp = 0
+                self.tx_param_smart_mask_comp.setText(str(n_comp))
+
+                if self.fit_param['norm_edge_method'] == 'new':
+                    self.chkbox_param_fit_edge_method.setChecked(1)
+                else:
+                    self.chkbox_param_fit_edge_method.setChecked(0)
+
+                if self.fit_param['norm_txm_flag']:
+                    self.rd_param_txm_norm_yes.setChecked(1)
+                else:
+                    self.rd_param_txm_norm_no.setChecked(1)
+
+                try:
+                    pre_edge_s, pre_edge_e = self.fit_param['pre_edge']
+                    self.tx_param_pre_s.setText(f'{pre_edge_s:2.4f}')
+                    self.tx_param_pre_e.setText(f'{pre_edge_e:2.4f}')
+                    self.rd_param_fit_edge_yes.setChecked(1)
+                    self.chkbox_fit_pre_edge.setChecked(0)
+                except:
+                    self.rd_param_fit_edge_no.setChecked(1)
+                    self.fit_param['fit_pre_edge_flag'] = 0
+
+                try:
+                    post_edge_s, post_edge_e = self.fit_param['post_edge']
+                    self.tx_param_post_s.setText(f'{post_edge_s:2.4f}')
+                    self.tx_param_post_e.setText(f'{post_edge_e:2.4f}')
+                    self.rd_param_fit_edge_yes.setChecked(1)
+                    self.chkbox_fit_post_edge.setChecked(0)
+                except:
+                    self.rd_param_fit_edge_no.setChecked(1)
+                    self.fit_param['fit_post_edge_flag'] = 0
+
+                regulation_flag = self.fit_param['regulation_flag']
+                if regulation_flag:
+                    self.rd_param_reg_edge_yes.setChecked(1)
+                    peak_max = self.fit_param['regulation_designed_max']
+                    self.tx_param_reg_peak.setText(f'{peak_max:2.4f}')
+
+                    peak_width = self.fit_param['regulation_gamma']
+                    self.tx_param_reg_gamma.text()
+                    self.tx_param_reg_gamma.setText(f'{peak_width:2.4f}')
+                else:
+                    self.rd_param_reg_edge_no.setChecked(1)
+
+                num_cpu = int(self.fit_param['num_cpu'])
+                self.tx_param_cpu.setText(str(num_cpu))
+
+                if self.fit_param['file_type'] == 'tiff':
+                    self.rd_3D_tif.setChecked(1)
+                elif self.fit_param['file_type'] == 'h5':
+                    self.rd_3D_hdf.setChecked(1)
+                    self.tx_param_hdf.setText(str(self.fit_param['hdf_attr']))
+                else:
+                    print('un-recongnized file type')
+
+                self.tx_param_color.setText(self.fit_param['color'])
+        except:
+            self.load_fit_param_successful = 0
+
+    def run_3D_command(self):
+        stdouterr = os.popen4(self.batch_fitting())[1].read()
+        self.self.lb_execute_output.setText(stdouterr)
+
+    def batch_fitting(self):
+        self.lb_execute_output.setText('Fitting in progress ... ')
+        if self.load_eng_successful and self.load_file_successful and self.load_reference_successful:
+            if self.save_fit_param_successful or self.load_fit_param_successful:
+                fit_param = self.fit_param
+                xanes_eng = self.eng
+                file_path = self.file_path
+                file_type = self.file_type
+                file_prefix = self.file_prefix
+                spectrum_ref = self.spectrum_ref
+                try:
+                    num_cpu = int(self.tx_param_cpu.text())
+                except:
+                    num_cpu = self.fit_param['num_cpu']
+                try:
+                    if num_cpu == 1:
+                        pyxas.fit_2D_xanes_file(file_path, file_prefix,
+                                                file_type, fit_param,
+                                                xanes_eng, spectrum_ref,
+                                                file_range=[], save_hdf=0)
+                    else:
+                        pyxas.fit_2D_xanes_file_mpi(file_path, file_prefix,
+                                                    file_type, fit_param,
+                                                    xanes_eng, spectrum_ref,
+                                                    file_range=[], save_hdf=0, num_cpu=num_cpu)
+                except:
+                    txt = 'something wrong in fitting'
+                    self.lb_execute_output.setText(txt)
+                    print(txt)
+                    return 0
+            self.lb_execute_output.setText('Fitting finished !')
+            return 1
+        else:
+            txt = 'something wrong in fitting'
+            self.lb_execute_output.setText(txt)
+            print(txt)
+            return 0
+
+    '''
+    Align 3D and 
+    '''
+
+    def show_3D_h5_attr(self):
+        item = self.lst_3D_tomo.selectedItems()
+        if len(item):
+            fn_sub = item[0].text()
+            fn = self.tomo_file['file_path'] + '/' + fn_sub
+            file_type = self.tomo_file['file_type']
+            if 'h5' in file_type:
+                f = h5py.File(fn, 'r')
+                k = list(f.keys())
+                txt = ', '.join(t for t in k)
+                self.lb_3D_h5_attr.setText(txt)
+
+
+    def plot_3D_tomo(self):
+        try:
+            item = self.lst_3D_tomo.selectedItems()
+            if len(item):
+                fn_sub = item[0].text()
+                fn = self.tomo_file['file_path'] + '/' + fn_sub
+                file_type = self.tomo_file['file_type']
+                if 'h5' in file_type:
+                    hdf_att = self.tx_3D_h5_attr.text()
+                    f = h5py.File(fn, 'r')
+                    self.lb_3D_prep_msg.setText('loading image data ...')
+                    img = np.array(f[hdf_att])
+                    self.lb_3D_prep_msg.setText('loading finished')
+                    f.close()
+                elif 'tif' in file_type:
+                    img = io.imread(fn)
+                s = img.shape
+                try:
+                    import napari
+                    napari.view_image(img)
+                except:
+                    plt.figure()
+                    plt.imshow(img[s[0]//2])
+        except Exception as err:
+            print(err)
+
+
+    def load_3D_tomo_file(self, type='raw'):
+        if type == 'raw':
+            file_prefix = self.tx_3D_prefix.text()
+        elif type == 'align':
+            file_prefix = self.tx_3D_assemble_prefix.text()
+        else:
+            file_prefix = ''
+        self.tomo_file = {}
+
+        self.lst_3D_tomo.clear()
+        options = QFileDialog.Option()
+        options |= QFileDialog.DontUseNativeDialog
+        file_type = '*.*'
+        fn, _ = QFileDialog.getOpenFileName(xanes, "QFileDialog.getOpenFileName()", "", file_type, options=options)
+        if fn:
+            fn_tmp = fn.split('/')
+            self.tomo_file['file_path'] = '/'.join(t for t in fn_tmp[:-1])
+            tmp_prefix = fn_tmp[-1][0]
+            if not (tmp_prefix in file_prefix):
+                self.tomo_file['file_prefix'] = fn_tmp[-1][0]
+            else:
+                self.tomo_file['file_prefix'] = file_prefix
+            self.tomo_file['file_type'] = '.' + fn_tmp[-1].split('.')[-1]
+            self.tomo_file['files'] = pyxas.retrieve_file_type(self.tomo_file['file_path'],
+                                                               self.tomo_file['file_prefix'],
+                                                               self.tomo_file['file_type'])
+            num = len(self.tomo_file['files'])
+            self.lb_3D_prep_msg.setText(f'Totally {num} files loaded')
+            for i in range(num):
+                tmp = self.tomo_file['files'][i].split('/')[-1]
+                self.lst_3D_tomo.addItem(tmp)
+
+
+    def align_3D_tomo_file(self):
+        try:
+            self.pb_align_tomo_file.setText('Aligning ...')
+            self.lb_3D_prep_msg.setText('aligning ...    Check terminal output for progress')
+            QApplication.processEvents()
+            ref_index = int(self.tx_3D_ref_index.text())
+            binning = int(self.tx_3D_bin.text())
+            circle_mask_ratio = float(self.tx_3D_mask.text())
+            align_method = int(self.tx_3D_align_method.text())
+            pyxas.align_3D_tomo_file(file_path = self.tomo_file['file_path'],
+                                     ref_index = ref_index,
+                                     binning = binning,
+                                     circle_mask_ratio = circle_mask_ratio,
+                                     file_prefix = self.tomo_file['file_prefix'],
+                                     file_type = self.tomo_file['file_type'],
+                                     align_coarse = 1,
+                                     align_method = align_method
+                                     )
+        except Exception as err:
+            print(err)
+            self.lb_3D_prep_msg.setText(f'{str(err)}')
+        finally:
+            self.pb_align_tomo_file.setText('Align tomo files')
+            QApplication.processEvents()
+
+    def assemble_3D_xanes(self):
+        attr_img = self.tx_3D_attr_img.text()
+        try:
+            sli = eval(self.tx_3D_assemble_sli.text())
+        except:
+            sli = []
+        align_flag = eval(self.tx_3D_assemble_ali_flag.text())
+        align_ref_index = int(self.tx_3D_assemble_ali_ref.text())
+        align_roi_ratio = float(self.tx_3D_assemble_mask.text())
+        num_cpu = int(self.tx_3D_assemble_cpu.text())
+        try:
+            file_path = self.tomo_file['file_path'],
+            file_prefix = self.tomo_file['file_prefix'],
+            file_type = self.tomo_file['file_type']
+            fn_tmp = pyxas.retrieve_file_type(file_path, file_prefix, file_type)[0]
+            if 'tif' in file_type:
+                img_tmp = io.imread(fn_tmp)
+                s1, s2, s3 = img_tmp.shape
+            elif 'h5' in file_type:
+                attr_img = attr_img
+                f = h5py.File(fn_tmp, 'r')
+                tmp = f[attr_img]
+                s1 = len(tmp)
+                s2, s3 = tmp[0].shape
+                f.close()
+            else:
+                s1, s2, s3 = 0, 0, 0
+
+            self.pb_3D_assemble.setText('Assembling ...')
+            self.lb_3D_prep_msg.setText(f'assembling totally {s1} slices ...   Check terminal output for progress')
+            QApplication.processEvents()
+            pyxas.assemble_xanes_slice_from_tomo_mpi(file_path = file_path,
+                                                     file_prefix = file_prefix,
+                                                     file_type = file_type,
+                                                     attr_img = attr_img,
+                                                     sli = sli,
+                                                     align_flag = align_flag,
+                                                     align_ref_index = align_ref_index,
+                                                     align_roi_ratio = align_roi_ratio,
+                                                     ali_sli = [],
+                                                     align_algorithm = 'stackreg',
+                                                     flag_save_2d_xanes = 1,
+                                                     flag_mask = 0,
+                                                     num_cpu = num_cpu)
+        except Exception as err:
+            print(err)
+            msg = str(err)
+            self.lb_3D_prep_msg.setText(msg)
+        finally:
+            self.pb_3D_assemble.setText('Assemble XANES')
+            QApplication.processEvents()
+
+    def find_3D_peak_image(self):
+        if self.load_file_successful:
+            try:
+                num_cpu = int(self.tx_3D_peak_cpu.text())
+            except:
+                num_cpu = 1
+                self.tx_3D_peak_cpu.setText('1')
+            fit_max = 1
+            try:
+                xanes_eng = self.eng
+            except:
+                xanes_eng = []
+            file_path = self.file_path
+            file_type = self.file_type
+            file_prefix = self.file_prefix
+            hdf_attr = self.tx_param_hdf.text()
+            file_save_peak_fit_pos = f'{file_path}/peak_fit_pos'
+            file_save_peak_fit_err = f'{file_path}/peak_fit_error'
+            pyxas.create_directory(file_save_peak_fit_pos)
+            pyxas.create_directory(file_save_peak_fit_err)
+            if self.rd_3D_peak_max.isChecked():
+                fit_max = 1
+            if self.rd_3D_peak_min.isChecked():
+                fit_max = -1
+            try:
+                xs = float(self.tx_3D_edge_s.text())
+                xe = float(self.tx_3D_edge_e.text())
+            except:
+                xs, xe = 0, -1
+            fs = pyxas.retrieve_file_type(file_path,
+                                          file_prefix=file_prefix,
+                                          file_type=file_type)
+            file_suffix = fs[0].split('.')[-1]
+
+            eng_range = [xs, xe]
+            smooth = float(self.tx_3D_edge_smooth.text())
+            fit_order = int(self.tx_3D_edge_order.text())
+            scale = float(self.tx_3D_scale_img.text())
+            for i in range(len(fs)):
+                fn = fs[i]
+                fn_save = fn.split('/')[-1].split('.')[0]
+                print(f'processing {fn}')
+                self.pb_3D_find_peak_img.setText(f'processing {i+1}/{len(fs)} ... ')
+                QApplication.processEvents()
+                if 'tif' in file_suffix: # tiff file
+                    img_xanes = pyxas.get_img_from_tif_file(fn)
+                else: # h5 file
+                    img_xanes = pyxas.get_img_from_hdf_file(fn, hdf_attr)[hdf_attr]
+                img_xanes *= scale * fit_max
+                time_s = time.time()
+                peak_pos, fit_error = fit_peak_xanes_mpi(img_xanes, xanes_eng,
+                                                         eng_range, fit_order,
+                                                         smooth, num_cpu)
+                time_e = time.time()
+                print(f'fitting using {time_e - time_s:5.1f} sec\n')
+                fn_save_pos = f'{file_save_peak_fit_pos}/{fn_save}_pos.tiff'
+                fn_save_err = f'{file_save_peak_fit_err}/{fn_save}_error.tiff'
+
+                io.imsave(fn_save_pos, peak_pos.astype(np.float32))
+                io.imsave(fn_save_err, fit_error.astype(np.float32))
+        self.pb_3D_find_peak_img.setText('Find peak')
+
+
+    def find_3D_peak_image_poly(self):
+        if self.load_file_successful:
+            fit_max = 1
+            try:
+                xanes_eng = self.eng
+            except:
+                xanes_eng = []
+            file_path = self.file_path
+            file_type = self.file_type
+            file_prefix = self.file_prefix
+            hdf_attr = self.tx_param_hdf.text()
+            file_save_peak_fit_pos = f'{file_path}/peak_fit_pos'
+            file_save_peak_fit_err = f'{file_path}/peak_fit_error'
+            file_save_peak_fit_val = f'{file_path}/peak_fit_height'
+            file_save_peak_fit_th_mask = f'{file_path}/threshold_mask'
+
+            pyxas.create_directory(file_save_peak_fit_pos)
+            pyxas.create_directory(file_save_peak_fit_err)
+            pyxas.create_directory(file_save_peak_fit_val)
+
+            if self.rd_3D_peak_max.isChecked():
+                fit_max = 1
+            if self.rd_3D_peak_min.isChecked():
+                fit_max = -1
+            try:
+                xs = float(self.tx_3D_edge_s.text())
+                xe = float(self.tx_3D_edge_e.text())
+            except:
+                xs, xe = 0, -1
+            fs = pyxas.retrieve_file_type(file_path,
+                                          file_prefix=file_prefix,
+                                          file_type=file_type)
+            file_suffix = fs[0].split('.')[-1]
+            eng_range = [xs, xe]
+            fit_order = int(self.tx_3D_edge_order.text())
+            scale = float(self.tx_3D_scale_img.text())
+            for i in range(len(fs)):
+                fn = fs[i]
+                fn_save = fn.split('/')[-1].split('.')[0]
+                print(f'processing {fn}')
+                self.pb_3D_find_peak_img.setText(f'processing {i + 1}/{len(fs)} ... ')
+                QApplication.processEvents()
+                if 'tif' in file_suffix:  # tiff file
+                    img_xanes = pyxas.get_img_from_tif_file(fn)
+                else:  # h5 file
+                    img_xanes = pyxas.get_img_from_hdf_file(fn, hdf_attr)[hdf_attr]
+                img_xanes *= scale * fit_max
+
+                time_s = time.time()
+                peak_pos, peak_val, fit_error = fit_peak_2D_xanes_poly(img_xanes, xanes_eng,
+                                                             eng_range, fit_order, fit_max)
+
+                time_e = time.time()
+                print(f'fitting using {time_e - time_s:5.1f} sec\n')
+                fn_save_pos = f'{file_save_peak_fit_pos}/{fn_save}_peak_pos.tiff'
+                fn_save_err = f'{file_save_peak_fit_err}/{fn_save}_fit_error.tiff'
+                fn_save_val = f'{file_save_peak_fit_val}/{fn_save}_peak_val.tiff'
+
+                io.imsave(fn_save_pos, peak_pos.astype(np.float32))
+                io.imsave(fn_save_err, fit_error.astype(np.float32))
+                io.imsave(fn_save_val, peak_val.astype(np.float32))
+
+                if self.chkbox_3D_gen_th_mask.isChecked():
+                    pyxas.create_directory(file_save_peak_fit_th_mask)
+                    fn_save_th_mask = f'{file_save_peak_fit_th_mask}/{fn_save}_threshold_mask.tiff'
+                    thresh_thick = float(self.tx_param_threshold_thick.text())
+                    thresh_cost = float(self.tx_param_threshold_error.text())
+                    mask = fit_xanes2D_generate_mask(peak_val, fit_error,
+                                                     thresh_cost=thresh_cost,
+                                                     thresh_thick=thresh_thick)
+                    io.imsave(fn_save_th_mask, mask.astype(np.float32))
+
+    def gen_3D_smart_mask(self):
+        mask_comp = int(self.tx_param_smart_mask_comp.text())
+        if self.load_file_successful and mask_comp:
+            # generate saving folder
+            fs = {}
+            for i in range(mask_comp):
+                fs[str(i)] = f'{file_path}/cluster_mask/mask_{i}'
+                pyxas.create_directory(fs[str(i)])
+
+            fit_max = 1
+            try:
+                xanes_eng = self.eng
+            except:
+                xanes_eng = []
+            file_path = self.file_path
+            file_type = self.file_type
+            file_prefix = self.file_prefix
+            hdf_attr = self.tx_param_hdf.text()
+
+            if self.rd_3D_peak_max.isChecked():
+                fit_max = 1
+            if self.rd_3D_peak_min.isChecked():
+                fit_max = -1
+            try:
+                xs = float(self.tx_3D_edge_s.text())
+                xe = float(self.tx_3D_edge_e.text())
+                xs_id = pyxas.find_nearest(xanes_eng, xs)
+                xe_id = pyxas.find_nearest(xanes_eng, xe)
+            except:
+                xs_id, xe_id = 0, -1
+            fs = pyxas.retrieve_file_type(file_path,
+                                          file_prefix=file_prefix,
+                                          file_type=file_type)
+            file_suffix = fs[0].split('.')[-1]
+            scale = float(self.tx_3D_scale_img.text())
+            for i in range(len(fs)):
+                fn = fs[i]
+                fn_save = fn.split('/')[-1].split('.')[0]
+                print(f'processing {fn}')
+                self.pb_3D_find_peak_img.setText(f'processing {i + 1}/{len(fs)} ... ')
+                QApplication.processEvents()
+                if 'tif' in file_suffix:  # tiff file
+                    img_xanes = pyxas.get_img_from_tif_file(fn)
+                else:  # h5 file
+                    img_xanes = pyxas.get_img_from_hdf_file(fn, hdf_attr)[hdf_attr]
+                img_xanes *= scale * fit_max
+                img_xanes = img_xanes[xs_id:xe_id]
+                smart_mask, img_labels = kmean_mask(img_xanes * scale, mask_comp)
+                for j in range(mask_comp):
+                    fn_save = f'{fs[j]}/{fn_save}_cmask_{j}.tiff'
+                    io.imsave(fn_save, smart_mask[j])
+
+
 class MyCanvas(FigureCanvas):
     def __init__(self, parent=None, width=5, height=3, dpi=120, obj=[]):
         self.obj = obj
@@ -5505,7 +7861,7 @@ class MyCanvas(FigureCanvas):
         self.draw_line = False
         roi_name = f'#{roi_index}'
         s = self.current_img.shape
-        self.axes.annotate(roi_name, xy=(x1, y1 - s[0]//40),
+        self.axes.annotate(roi_name, xy=(x1, y1 - s[0] // 40),
                            bbox={'facecolor': self.current_color, 'alpha': 0.5, 'pad': 2},
                            fontsize=10)
         self.draw()
@@ -5567,6 +7923,153 @@ class MyCanvas(FigureCanvas):
             self.cb = self.fig.colorbar(self.im, cax=self.cax, orientation='vertical')
             self.cb.ax.tick_params(labelsize=10)
             self.draw()
+
+'''
+def fit_peak_xanes_splie_mpi(img_xanes, xanes_eng, eng_range=[],
+                       fit_order=3, smooth=0.002, num_cpu=1):
+    from multiprocessing import Pool
+    from functools import partial
+
+    try:
+        xs_id = pyxas.find_nearest(xanes_eng, eng_range[0])
+        xe_id = pyxas.find_nearest(xanes_eng, eng_range[1])
+    except:
+        xs_id = 0
+        xe_id = -1
+    img = img_xanes[xs_id:xe_id]
+    if len(xanes_eng):
+        x = xanes_eng[xs_id:xe_id]
+    else:
+        x = np.arange(len(img))
+    s0 = img.shape
+    img_f = img.reshape([s0[0], -1])
+    y = img_f.T
+
+    time_s = time.time()
+    pool = Pool(num_cpu)
+    res = pool.map(partial(fit_peak_curve_spline, x=x, fit_order=fit_order,
+                           smooth=smooth), y)
+    s1 = len(y)
+    peak_pos = np.zeros(s1)
+    fit_error = np.zeros(s1)
+    for i in range(s1):
+        peak_pos[i] = res[i]['peak_pos']
+        fit_error[i] = res[i]['fit_error']
+    peak_pos = peak_pos.reshape([s0[1], s0[2]])
+    fit_error = fit_error.reshape([s0[1], s0[2]])
+    return peak_pos, fit_error
+
+'''
+"""
+# following have been moved to lsq_fit.py
+def fit_peak_curve_spline(x, y, fit_order=3, smooth=0.002, weight=1):
+    spl = UnivariateSpline(x, y, k=fit_order, s=smooth, w=weight)
+    xx = np.linspace(x[0], x[-1], 1001)
+    yy = spl(xx)
+    peak_pos = xx[np.argmax(yy)]
+    fit_error = np.sum((y - spl(x)**2))
+    res = {}
+    res['peak_pos'] = peak_pos
+    res['fit_error'] = fit_error
+    res['peak_val'] = spl(peak_pos)
+    res['spl'] = spl
+    res['xx'] = xx
+    return res
+
+
+def fit_peak_curve_poly(x, y, fit_order=3):
+    '''
+    # x, y can be matrix
+    '''
+    try:
+        import cupy as cp
+        nnp = cp
+        ntype = 'cp'
+        y = cp.asarray(y)
+        x = cp.asarray(x)
+    except:
+        nnp = np
+        ntype = 'np'
+    time_s = time.time()
+    x_min, x_max = nnp.min(x), nnp.max(x)
+    s1 = len(y)
+    if len(y.shape) == 1:
+        Y = y.reshape([s1, 1])
+    else:
+        Y = y
+    if len(x.shape) == 1:
+        x0 = x.reshape([s1, 1])
+    else:
+        x0 = x
+    x0 = (x0 - x_min) / (x_max - x_min)
+    X = nnp.ones([s1, 1])
+    for i in nnp.arange(1, fit_order + 1):
+        X = nnp.concatenate([X, x0 ** i], 1)
+    A = nnp.linalg.inv(X.T @ X) @ (X.T @ Y)
+    xx = nnp.linspace(x0[0], x0[-1], 101).reshape([101, 1])
+    XX = nnp.ones([101, 1])
+    for i in nnp.arange(1, fit_order + 1):
+        XX = nnp.concatenate([XX, xx ** i], 1)
+    YY = XX @ A
+    peak_pos = xx[nnp.argmax(YY, 0)] * (x_max - x_min) + x_min
+    y_hat = X @ A
+    fit_error = nnp.sum((y_hat - Y)**2, 0)
+    res = {}
+    if ntype == 'np':
+        res['peak_pos'] = peak_pos
+        res['peak_val'] = np.max(YY, 0)
+        res['fit_error'] = fit_error
+        res['matrix_X'] = XX
+        res['matrix_A'] = A
+        res['matrix_Y'] = YY
+    else:
+        res['peak_pos'] = peak_pos.get()
+        res['fit_error'] = fit_error.get()
+        res['matrix_X'] = XX.get()
+        res['matrix_A'] = A.get()
+        res['peak_val'] = cp.max(YY, 0).get()
+        res['matrix_Y'] = YY.get()
+
+    time_e = time.time()
+    print(f'take {time_e-time_s:3.1f} sec')
+    return res
+"""
+
+def fit_peak_2D_xanes_poly(img_xanes, xanes_eng, eng_range=[],fit_order=3, fit_max=1):
+    # from multiprocessing import Pool
+    # from functools import partial
+    try:
+        xs_id = pyxas.find_nearest(xanes_eng, eng_range[0])
+        xe_id = pyxas.find_nearest(xanes_eng, eng_range[1])
+    except:
+        xs_id = 0
+        xe_id = -1
+    img = img_xanes[xs_id:xe_id]
+    if len(xanes_eng):
+        x = xanes_eng[xs_id:xe_id]
+    else:
+        x = np.arange(len(img))
+    s0 = img.shape
+    img_f = img.reshape([s0[0], -1])
+    if fit_max:
+        y = img_f
+    else:
+        y = 1 - img_f
+    res = fit_peak_curve_poly(x, y, fit_order)
+    peak_pos = res['peak_pos'].reshape([1, s0[1], s0[2]])
+    fit_error = res['fit_error'].reshape([1, s0[1], s0[2]])
+    peak_val = res['peak_val'].reshape([1, s0[1], s0[2]])
+    return peak_pos, peak_val, fit_error
+
+
+def longest_commonPrefix(strs):
+    if not strs:
+        return ''
+    for i, lett in enumerate(zip(*strs)):
+        if len(set(lett)) > 1:
+            return strs[0][:i]
+        else:
+            return min(strs)
 
 
 if __name__ == '__main__':

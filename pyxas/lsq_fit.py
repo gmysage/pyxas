@@ -1,6 +1,80 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from copy import deepcopy
+from scipy.interpolate import UnivariateSpline
+
+
+def fit_peak_curve_spline(x, y, fit_order=3, smooth=0.002, weight=1):
+    spl = UnivariateSpline(x, y, k=fit_order, s=smooth, w=weight)
+    xx = np.linspace(x[0], x[-1], 1001)
+    yy = spl(xx)
+    peak_pos = xx[np.argmax(yy)]
+    fit_error = np.sum((y - spl(x)**2))
+    edge_pos = xx[np.argmax(np.abs(np.diff(spl(xx))))]
+    res = {}
+    res['peak_pos'] = peak_pos
+    res['peak_val'] = spl(peak_pos)
+    res['edge_pos'] = edge_pos
+    res['edge_val'] = spl(edge_pos)
+    res['fit_error'] = fit_error
+    res['spl'] = spl
+    res['xx'] = xx
+    return res
+
+
+def fit_peak_curve_poly(x, y, fit_order=3):
+    '''
+    x, y can be matrix
+    '''
+    try:
+        import cupy as cp
+        nnp = cp
+        ntype = 'cp'
+        y = cp.asarray(y)
+        x = cp.asarray(x)
+    except:
+        nnp = np
+        ntype = 'np'
+    x_min, x_max = nnp.min(x), nnp.max(x)
+    s1 = len(y)
+    if len(y.shape) == 1:
+        Y = y.reshape([s1, 1])
+    else:
+        Y = y
+    if len(x.shape) == 1:
+        x0 = x.reshape([s1, 1])
+    else:
+        x0 = x
+    x0 = (x0 - x_min) / (x_max - x_min)
+    X = nnp.ones([s1, 1])
+    for i in nnp.arange(1, fit_order + 1):
+        X = nnp.concatenate([X, x0 ** i], 1)
+    A = nnp.linalg.inv(X.T @ X) @ (X.T @ Y)
+    xx = nnp.linspace(x0[0], x0[-1], 101).reshape([101, 1])
+    XX = nnp.ones([101, 1])
+    for i in nnp.arange(1, fit_order + 1):
+        XX = nnp.concatenate([XX, xx ** i], 1)
+    YY = XX @ A
+    peak_pos = xx[nnp.argmax(YY, 0)] * (x_max - x_min) + x_min
+    y_hat = X @ A
+    fit_error = nnp.sum((y_hat - Y)**2, 0)
+    res = {}
+    if ntype == 'np':
+        res['peak_pos'] = peak_pos
+        res['peak_val'] = np.max(YY, 0)
+        res['fit_error'] = fit_error
+        res['matrix_X'] = XX
+        res['matrix_A'] = A
+        res['matrix_Y'] = YY
+    else:
+        res['peak_pos'] = peak_pos.get()
+        res['fit_error'] = fit_error.get()
+        res['matrix_X'] = XX.get()
+        res['matrix_A'] = A.get()
+        res['peak_val'] = cp.max(YY, 0).get()
+        res['matrix_Y'] = YY.get()
+    return res
+
 
 def forward_propgation(W, X_prev):
     return np.dot(W, X_prev)
@@ -247,8 +321,37 @@ def admm_iter(A, y, rho=0.2, num_iters=10, X_guess=[], wgt=[], lasso_lamda=0.01,
     return x
 
 ########################################
+class f_gaussian():
+    '''
+    y = coef * exp(-(x-mu)^2/(2 * sigma^2))
+    '''
+    def __init__(self, x, coef, mu, sigma):
+        self.data = x
+        self.coef = coef
+        self.mu = mu
+        self.sigma = sigma
+    def eval(self):
+        return self.coef * np.exp(-(self.data - self.mu)**2/(2 * self.sigma**2))
+
+    def d_coef(self):
+        return np.exp(-(self.data - self.mu)**2/(2 * self.sigma**2))
+
+    def d_mu(self):
+        t1 = self.eval()
+        t2 = 1./self.sigma**2 * (self.data - self.mu)
+        return t1 * t2
+
+    def d_sigma(self):
+        t1 = self.eval()
+        t2 = (self.data - self.mu) ** 2 / (self.sigma ** 3)
+        return t1 * t2
 
 
+
+
+
+
+###########################################
 def test():
     np.random.seed(1)
     t = np.arange(-4,4,0.1)

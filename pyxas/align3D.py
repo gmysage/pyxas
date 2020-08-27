@@ -303,7 +303,7 @@ def align_3D_coarse(img_ref, img1, circle_mask_ratio=1, method='other'):
     return img_ali, shift_matrix
 
 
-def align_3D_tomo_file(file_path='.', ref_index=-1, binning=1, circle_mask_ratio=0.9, file_prefix='recon', file_type='.h5', align_coarse=1, align_method=1):    
+def align_3D_tomo_file(file_path='.', ref_index=-1, binning=1, circle_mask_ratio=0.9, file_prefix='recon', file_type='.h5', align_coarse=1, align_method=1, hdf_attr='img'):    
     '''
     align_method: 
         1:  old method
@@ -315,7 +315,7 @@ def align_3D_tomo_file(file_path='.', ref_index=-1, binning=1, circle_mask_ratio
     files_recon = pyxas.retrieve_file_type(file_path, file_prefix=file_prefix, file_type=file_type)
 
     num_file = len(files_recon)
-    res = pyxas.get_img_from_hdf_file(files_recon[ref_index], 'img', 'scan_id', 'X_eng')
+    res = pyxas.get_img_from_hdf_file(files_recon[ref_index], hdf_attr, 'scan_id', 'X_eng')
     img_ref = res['img']
     scan_id = int(res['scan_id'])
     X_eng = float(res['X_eng'])
