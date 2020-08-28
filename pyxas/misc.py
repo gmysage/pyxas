@@ -6,13 +6,10 @@ import numpy as np
 import h5py
 import time
 import tomopy
-from pyxas.xanes_util import *
 from pyxas.image_util import *
-from skimage import io
 from scipy import ndimage
 from pystackreg import StackReg
 from skimage import io
-#from pyxas.fit_cos import fit_cos
 
 
 def create_directory(fn):
@@ -223,6 +220,9 @@ def get_img_from_tif_file(fn):
     from skimage import io
     if fn[-4:] == 'tiff' or fn[-3:] == 'tif':
         img = io.imread(fn)
+        s = img.shape
+        if s[2] == 3 or s[2] == 4:
+            img = np.transpose(img, (2, 0, 1))
     return img
 
 

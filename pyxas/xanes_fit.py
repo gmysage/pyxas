@@ -546,7 +546,10 @@ def assemble_xanes_slice_from_tomo_mpi_sub(sli, file_path, files_recon, attr_img
     for j in range(num_file):
         f = h5py.File(files_recon[j], 'r')
         tmp = np.array(f[attr_img][sli])
-        tmp_eng = np.array(f[attr_eng])
+        try:
+            tmp_eng = np.array(f[attr_eng])
+        except:
+            tmp_eng = 0
         f.close()
         img_xanes[j] = tmp
         xanes_eng[j] = tmp_eng
@@ -650,7 +653,10 @@ def assemble_xanes_slice_from_tomo(file_path='.', file_prefix='ali_recon', file_
         for j in range(num_file):
             f = h5py.File(files_recon[j], 'r')
             tmp = np.array(f[attr_img][i])
-            tmp_eng = np.array(f[attr_eng])
+            try:
+                tmp_eng = np.array(f[attr_eng])
+            except:
+                tmp_eng = 0
             f.close()
             img_xanes[j] = tmp
             xanes_eng[j] = tmp_eng
