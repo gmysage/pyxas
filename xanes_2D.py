@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+# !/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 Created on Thu Jan 11 09:07:42 2018
@@ -35,29 +35,17 @@ from matplotlib.figure import Figure
 from copy import deepcopy
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from pyxas.image_util import img_smooth, rm_abnormal, bin_ndarray, rm_noise, kmean_mask
-<<<<<<< HEAD
 from pyxas.align3D import align_img, align_img_stackreg, align_3D_tomo_file
 from pyxas.tomo_recon import find_nearest
 from pyxas.misc import (get_img_from_tif_file, get_img_from_hdf_file, retrieve_file_type, save_xanes_fit_param_file,
                         load_xanes_fit_param_file, retrieve_file_type,create_directory)
 from pyxas.xanes_fit import fit_xanes2D_generate_mask, fit_2D_xanes_file, fit_2D_xanes_file_mpi, assemble_xanes_slice_from_tomo_mpi
-=======
-from pyxas.align3D import align_img, align_img_stackreg
-from scipy.ndimage.interpolation import shift
-from scipy.signal import medfilt2d, medfilt
-from scipy.interpolate import interp1d, UnivariateSpline
-from scipy import ndimage
->>>>>>> d348ef18406729912d76a4a16cab74ef0f448d6f
 from pyxas.xanes_util import (fit_2D_xanes_non_iter, fit_2D_xanes_iter,
                               fit_2D_xanes_iter2, normalize_2D_xanes2,
                               normalize_2D_xanes_old, normalize_1D_xanes,
                               find_nearest, normalize_2D_xanes_regulation)
 from pyxas.lsq_fit import fit_peak_curve_spline, fit_peak_curve_poly
-<<<<<<< HEAD
 #import pyxas
-=======
-import pyxas
->>>>>>> d348ef18406729912d76a4a16cab74ef0f448d6f
 
 global xanes
 
@@ -130,21 +118,12 @@ class App(QWidget):
         gpbox_3D_param_file = self.layout_3D_param_open_filefolder()
         gpbox_3D_msg = self.layout_3D_msg()
         gpbox_3D_fit_param = self.layout_3D_param_fit()
-<<<<<<< HEAD
 
         grid2 = QGridLayout()
         grid2.addWidget(gpbox_3D_param_file, 0, 1)
         grid2.addLayout(gpbox_3D_msg, 1, 1)
         grid2.addLayout(gpbox_3D_fit_param, 2, 1)
 
-=======
-
-        grid2 = QGridLayout()
-        grid2.addWidget(gpbox_3D_param_file, 0, 1)
-        grid2.addLayout(gpbox_3D_msg, 1, 1)
-        grid2.addLayout(gpbox_3D_fit_param, 2, 1)
-
->>>>>>> d348ef18406729912d76a4a16cab74ef0f448d6f
         layout2 = QVBoxLayout()
         layout2.addLayout(grid2)
         layout2.addWidget(QLabel())
@@ -3525,7 +3504,6 @@ class App(QWidget):
         try:
             k = int(self.tx_edge_order.text())
             x, y, _, roi_selected = self.extract_roi_spectrum_data(use_current_image=1)
-<<<<<<< HEAD
             try:
                 xs = float(self.tx_edge_s.text())
             except:
@@ -3534,11 +3512,6 @@ class App(QWidget):
                 xe = float(self.tx_edge_e.text())
             except:
                 xe = len(y)
-=======
-            xs = float(self.tx_edge_s.text())
-            xe = float(self.tx_edge_e.text())
-            k = int(self.tx_edge_order.text())
->>>>>>> d348ef18406729912d76a4a16cab74ef0f448d6f
             try:
                 x0 = float(self.tx_edge_pos.text())
             except:
@@ -3565,10 +3538,6 @@ class App(QWidget):
                 factor = 1
             else:
                 factor = -1
-<<<<<<< HEAD
-=======
-
->>>>>>> d348ef18406729912d76a4a16cab74ef0f448d6f
             if self.fit_peak_method == 1:             # spline
                 res = fit_peak_curve_spline(x, y*factor, fit_order=k, smooth=edge_smooth, weight=wt)
                 spl = res['spl']
@@ -3640,17 +3609,8 @@ class App(QWidget):
             except:
                 x0_id = 0
             eng = self.xanes_eng
-<<<<<<< HEAD
 
             img = img[xs_id:xe_id]
-=======
-            x = eng[xs_id:xe_id]
-
-            img = self.canvas1.img_stack.copy()
-            img = self.smooth(img * self.mask)
-            img = img[xs_id:xe_id]
-
->>>>>>> d348ef18406729912d76a4a16cab74ef0f448d6f
             s = img.shape
             if len(eng):
                 x = eng[xs_id:xe_id]
@@ -3670,15 +3630,11 @@ class App(QWidget):
                 wt = np.ones(len(x))
                 w = float(self.tx_pre_edge_wt.text())
                 wt[:x0_id - xs_id] = w
-<<<<<<< HEAD
                 try:
                     edge_smooth = float(self.tx_edge_smooth.text())
                 except:
                     edge_smooth = 0.001
                     self.tx_edge_smooth.setText('0.001')
-=======
-                edge_smooth = float(self.tx_edge_smooth.text())
->>>>>>> d348ef18406729912d76a4a16cab74ef0f448d6f
                 for i in range(s[1]):
                     if not i % 10:
                         print(f'row # {i:4d}: {time.time() - time_s:3.2f} sec')
@@ -5979,11 +5935,7 @@ class App(QWidget):
         lb_prefix.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
 
         self.tx_3D_assemble_prefix = QLineEdit()
-<<<<<<< HEAD
         self.tx_3D_assemble_prefix.setText('ali')
-=======
-        self.tx_3D_assemble_prefix.setText('align')
->>>>>>> d348ef18406729912d76a4a16cab74ef0f448d6f
         self.tx_3D_assemble_prefix.setFont(self.font2)
         self.tx_3D_assemble_prefix.setFixedWidth(80)
 
@@ -6090,17 +6042,10 @@ class App(QWidget):
         self.file_group_3D.setExclusive(True)
         self.rd_3D_hdf = QRadioButton('hdf')
         self.rd_3D_hdf.setFixedWidth(60)
-<<<<<<< HEAD
 
         self.rd_3D_tif = QRadioButton('tiff')
         self.rd_3D_tif.setFixedWidth(60)
         self.rd_3D_tif.setChecked(True)
-=======
-        self.rd_3D_hdf.setChecked(True)
-
-        self.rd_3D_tif = QRadioButton('tiff')
-        self.rd_3D_tif.setFixedWidth(60)
->>>>>>> d348ef18406729912d76a4a16cab74ef0f448d6f
 
         self.file_group_3D.addButton(self.rd_3D_hdf)
         self.file_group_3D.addButton(self.rd_3D_tif)
@@ -7117,11 +7062,7 @@ class App(QWidget):
             self.file_path = self.tx_param_folder.text()
             self.file_prefix = self.tx_param_file_prefix.text()
             self.file_type = self.tx_param_file_type.text()
-<<<<<<< HEAD
             self.xanes_files = retrieve_file_type(self.file_path, self.file_prefix, self.file_type)
-=======
-            self.xanes_files = pyxas.retrieve_file_type(self.file_path, self.file_prefix, self.file_type)
->>>>>>> d348ef18406729912d76a4a16cab74ef0f448d6f
             print('file load in sequence:')
             for fn in self.xanes_files:
                 print(fn.split("/")[-1])
@@ -7158,10 +7099,6 @@ class App(QWidget):
         self.load_eng_successful = 0
         options = QFileDialog.Option()
         options |= QFileDialog.DontUseNativeDialog
-<<<<<<< HEAD
-=======
-        file_type = '*.*'
->>>>>>> d348ef18406729912d76a4a16cab74ef0f448d6f
         fn, _ = QFileDialog.getOpenFileName(xanes, "QFileDialog.getOpenFileName()", "", ' txt files (*.txt)',
                                             options=options)
         try:
@@ -7170,7 +7107,6 @@ class App(QWidget):
             self.lb_param_eng_info.setText(
                 f'Energy: {n_eng} energies: {self.eng[0]}, {self.eng[1]},   ...   {self.eng[-1]} keV')
             self.load_eng_successful = 1
-<<<<<<< HEAD
             self.tx_param_fit_range_s.setText(str(self.eng[0]))
             self.tx_param_fit_range_e.setText(str(self.eng[1]))
             self.tx_3D_edge_s.setText(str(self.eng[0]))
@@ -7181,11 +7117,6 @@ class App(QWidget):
             self.load_eng_successful = 0
             print(err)
             self.lb_3D_msg.setText(str(err))
-=======
-        except:
-            self.lb_param_eng_info = 'Energy load fails'
-            self.load_eng_successful = 0
->>>>>>> d348ef18406729912d76a4a16cab74ef0f448d6f
 
     def plot_3D_reference(self):
         plt.figure()
@@ -7230,14 +7161,9 @@ class App(QWidget):
                 self.fit_param['fit_eng'] = [fit_eng_s, fit_eng_e]
                 self.tx_param_fit_range_s.setText(f'{fit_eng_s:2.4f}')
                 self.tx_param_fit_range_e.setText(f'{fit_eng_e:2.4f}')
-<<<<<<< HEAD
             except Exception as err:
                 print(f'errors in saving "fitting energy range". Error: {str(err)}')
                 print(err)
-=======
-            except:
-                print('errors in saving "fitting energy range"')
->>>>>>> d348ef18406729912d76a4a16cab74ef0f448d6f
                 save_successful = 0
 
             # fit_iter_bound
@@ -7322,11 +7248,7 @@ class App(QWidget):
             fn, _ = QFileDialog.getSaveFileName(self, 'Save File', "", file_type, options=options)
             if fn.split('.')[-1] != 'csv':
                 fn += '.csv'
-<<<<<<< HEAD
             save_xanes_fit_param_file(self.fit_param, fn)
-=======
-            pyxas.save_xanes_fit_param_file(self.fit_param, fn)
->>>>>>> d348ef18406729912d76a4a16cab74ef0f448d6f
             self.lb_execute_output.setText(f'{fn} saved')
             self.tx_param_output.appendPlainText(f'{fn} saved')
             self.save_fit_param_successful = 1
@@ -7343,11 +7265,7 @@ class App(QWidget):
             file_type = ' csv files (*.csv)'
             fn, _ = QFileDialog.getOpenFileName(xanes, "QFileDialog.getOpenFileName()", "", file_type, options=options)
             if fn:
-<<<<<<< HEAD
                 self.fit_param = load_xanes_fit_param_file(fn, num_items=0)
-=======
-                self.fit_param = pyxas.load_xanes_fit_param_file(fn, num_items=0)
->>>>>>> d348ef18406729912d76a4a16cab74ef0f448d6f
                 txt = self.lb_execute_output.text() + f'\nfit_param loaded: {fn}'
                 self.lb_execute_output.setText(txt)
                 self.load_fit_param_successful = 1
@@ -7359,11 +7277,7 @@ class App(QWidget):
                     roi_ratio = self.fit_param['roi_ratio']
                     self.tx_param_align_roi.setText(str(roi_ratio))
                 else:
-<<<<<<< HEAD
                     self.rd_param_align_no.setChecked(True)
-=======
-                    self.rd_param_align_no.setChecked(1)
->>>>>>> d348ef18406729912d76a4a16cab74ef0f448d6f
 
                 fit_pre_edge_flag = self.fit_param['fit_pre_edge_flag']
                 if fit_pre_edge_flag:
@@ -7372,11 +7286,7 @@ class App(QWidget):
                     self.chkbox_fit_pre_edge.setChecked(0)
                 fit_post_edge_flag = self.fit_param['fit_pre_edge_flag']
                 if fit_post_edge_flag:
-<<<<<<< HEAD
                     self.chkbox_fit_post_edge.setChecked(True)
-=======
-                    self.chkbox_fit_post_edge.setChecked(1)
->>>>>>> d348ef18406729912d76a4a16cab74ef0f448d6f
                 else:
                     self.chkbox_fit_post_edge.setChecked(0)
 
@@ -7495,20 +7405,12 @@ class App(QWidget):
                     num_cpu = self.fit_param['num_cpu']
                 try:
                     if num_cpu == 1:
-<<<<<<< HEAD
                         fit_2D_xanes_file(file_path, file_prefix,
-=======
-                        pyxas.fit_2D_xanes_file(file_path, file_prefix,
->>>>>>> d348ef18406729912d76a4a16cab74ef0f448d6f
                                                 file_type, fit_param,
                                                 xanes_eng, spectrum_ref,
                                                 file_range=[], save_hdf=0)
                     else:
-<<<<<<< HEAD
                         fit_2D_xanes_file_mpi(file_path, file_prefix,
-=======
-                        pyxas.fit_2D_xanes_file_mpi(file_path, file_prefix,
->>>>>>> d348ef18406729912d76a4a16cab74ef0f448d6f
                                                     file_type, fit_param,
                                                     xanes_eng, spectrum_ref,
                                                     file_range=[], save_hdf=0, num_cpu=num_cpu)
@@ -7557,11 +7459,7 @@ class App(QWidget):
                     self.lb_3D_prep_msg.setText('loading finished')
                     f.close()
                 elif 'tif' in file_type:
-<<<<<<< HEAD
                     img = get_img_from_tif_file(fn)
-=======
-                    img = io.imread(fn)
->>>>>>> d348ef18406729912d76a4a16cab74ef0f448d6f
                 s = img.shape
                 try:
                     import napari
@@ -7596,11 +7494,7 @@ class App(QWidget):
             else:
                 self.tomo_file['file_prefix'] = file_prefix
             self.tomo_file['file_type'] = '.' + fn_tmp[-1].split('.')[-1]
-<<<<<<< HEAD
             self.tomo_file['files'] = retrieve_file_type(self.tomo_file['file_path'],
-=======
-            self.tomo_file['files'] = pyxas.retrieve_file_type(self.tomo_file['file_path'],
->>>>>>> d348ef18406729912d76a4a16cab74ef0f448d6f
                                                                self.tomo_file['file_prefix'],
                                                                self.tomo_file['file_type'])
             num = len(self.tomo_file['files'])
@@ -7619,11 +7513,7 @@ class App(QWidget):
             binning = int(self.tx_3D_bin.text())
             circle_mask_ratio = float(self.tx_3D_mask.text())
             align_method = int(self.tx_3D_align_method.text())
-<<<<<<< HEAD
             align_3D_tomo_file(file_path = self.tomo_file['file_path'],
-=======
-            pyxas.align_3D_tomo_file(file_path = self.tomo_file['file_path'],
->>>>>>> d348ef18406729912d76a4a16cab74ef0f448d6f
                                      ref_index = ref_index,
                                      binning = binning,
                                      circle_mask_ratio = circle_mask_ratio,
@@ -7650,21 +7540,12 @@ class App(QWidget):
         align_roi_ratio = float(self.tx_3D_assemble_mask.text())
         num_cpu = int(self.tx_3D_assemble_cpu.text())
         try:
-<<<<<<< HEAD
             file_path = self.tomo_file['file_path']
             file_prefix = self.tomo_file['file_prefix']
             file_type = self.tomo_file['file_type']
             fn_tmp = retrieve_file_type(file_path, file_prefix, file_type)[0]
             if 'tif' in file_type:
                 img_tmp = get_img_from_tif_file(fn_tmp)
-=======
-            file_path = self.tomo_file['file_path'],
-            file_prefix = self.tomo_file['file_prefix'],
-            file_type = self.tomo_file['file_type']
-            fn_tmp = pyxas.retrieve_file_type(file_path, file_prefix, file_type)[0]
-            if 'tif' in file_type:
-                img_tmp = io.imread(fn_tmp)
->>>>>>> d348ef18406729912d76a4a16cab74ef0f448d6f
                 s1, s2, s3 = img_tmp.shape
             elif 'h5' in file_type:
                 attr_img = attr_img
@@ -7675,7 +7556,6 @@ class App(QWidget):
                 f.close()
             else:
                 s1, s2, s3 = 0, 0, 0
-<<<<<<< HEAD
             if not len(sli):
                 sli = [0, s1]
 
@@ -7683,13 +7563,6 @@ class App(QWidget):
             self.lb_3D_prep_msg.setText(f'assembling slice from {sli[0]} to {sli[1]} ...   Check terminal output for progress')
             QApplication.processEvents()
             assemble_xanes_slice_from_tomo_mpi(file_path = file_path,
-=======
-
-            self.pb_3D_assemble.setText('Assembling ...')
-            self.lb_3D_prep_msg.setText(f'assembling totally {s1} slices ...   Check terminal output for progress')
-            QApplication.processEvents()
-            pyxas.assemble_xanes_slice_from_tomo_mpi(file_path = file_path,
->>>>>>> d348ef18406729912d76a4a16cab74ef0f448d6f
                                                      file_prefix = file_prefix,
                                                      file_type = file_type,
                                                      attr_img = attr_img,
@@ -7708,14 +7581,9 @@ class App(QWidget):
             self.lb_3D_prep_msg.setText(msg)
         finally:
             self.pb_3D_assemble.setText('Assemble XANES')
-<<<<<<< HEAD
             self.lb_3D_prep_msg.setText(f'Assembling finished. Files are saved to {file_path}/xanes_assemble')
             QApplication.processEvents()
     '''
-=======
-            QApplication.processEvents()
-
->>>>>>> d348ef18406729912d76a4a16cab74ef0f448d6f
     def find_3D_peak_image(self):
         if self.load_file_successful:
             try:
@@ -7777,11 +7645,7 @@ class App(QWidget):
                 io.imsave(fn_save_pos, peak_pos.astype(np.float32))
                 io.imsave(fn_save_err, fit_error.astype(np.float32))
         self.pb_3D_find_peak_img.setText('Find peak')
-<<<<<<< HEAD
     '''
-=======
-
->>>>>>> d348ef18406729912d76a4a16cab74ef0f448d6f
 
     def find_3D_peak_image_poly(self):
         if self.load_file_successful:
@@ -7799,15 +7663,9 @@ class App(QWidget):
             file_save_peak_fit_val = f'{file_path}/peak_fit_height'
             file_save_peak_fit_th_mask = f'{file_path}/threshold_mask'
 
-<<<<<<< HEAD
             create_directory(file_save_peak_fit_pos)
             create_directory(file_save_peak_fit_err)
             create_directory(file_save_peak_fit_val)
-=======
-            pyxas.create_directory(file_save_peak_fit_pos)
-            pyxas.create_directory(file_save_peak_fit_err)
-            pyxas.create_directory(file_save_peak_fit_val)
->>>>>>> d348ef18406729912d76a4a16cab74ef0f448d6f
 
             if self.rd_3D_peak_max.isChecked():
                 fit_max = 1
@@ -7816,7 +7674,6 @@ class App(QWidget):
             try:
                 xs = float(self.tx_3D_edge_s.text())
                 xe = float(self.tx_3D_edge_e.text())
-<<<<<<< HEAD
                 eng_range = [xs, xe]
             except:
                 eng_range = []
@@ -7824,15 +7681,6 @@ class App(QWidget):
                                           file_prefix=file_prefix,
                                           file_type=file_type)
             file_suffix = fs[0].split('.')[-1]
-=======
-            except:
-                xs, xe = 0, -1
-            fs = pyxas.retrieve_file_type(file_path,
-                                          file_prefix=file_prefix,
-                                          file_type=file_type)
-            file_suffix = fs[0].split('.')[-1]
-            eng_range = [xs, xe]
->>>>>>> d348ef18406729912d76a4a16cab74ef0f448d6f
             fit_order = int(self.tx_3D_edge_order.text())
             scale = float(self.tx_3D_scale_img.text())
             for i in range(len(fs)):
@@ -7842,15 +7690,9 @@ class App(QWidget):
                 self.pb_3D_find_peak_img.setText(f'processing {i + 1}/{len(fs)} ... ')
                 QApplication.processEvents()
                 if 'tif' in file_suffix:  # tiff file
-<<<<<<< HEAD
                     img_xanes = get_img_from_tif_file(fn)
                 else:  # h5 file
                     img_xanes = get_img_from_hdf_file(fn, hdf_attr)[hdf_attr]
-=======
-                    img_xanes = pyxas.get_img_from_tif_file(fn)
-                else:  # h5 file
-                    img_xanes = pyxas.get_img_from_hdf_file(fn, hdf_attr)[hdf_attr]
->>>>>>> d348ef18406729912d76a4a16cab74ef0f448d6f
                 img_xanes *= scale * fit_max
 
                 time_s = time.time()
@@ -7868,11 +7710,7 @@ class App(QWidget):
                 io.imsave(fn_save_val, peak_val.astype(np.float32))
 
                 if self.chkbox_3D_gen_th_mask.isChecked():
-<<<<<<< HEAD
                     create_directory(file_save_peak_fit_th_mask)
-=======
-                    pyxas.create_directory(file_save_peak_fit_th_mask)
->>>>>>> d348ef18406729912d76a4a16cab74ef0f448d6f
                     fn_save_th_mask = f'{file_save_peak_fit_th_mask}/{fn_save}_threshold_mask.tiff'
                     thresh_thick = float(self.tx_param_threshold_thick.text())
                     thresh_cost = float(self.tx_param_threshold_error.text())
@@ -7880,7 +7718,6 @@ class App(QWidget):
                                                      thresh_cost=thresh_cost,
                                                      thresh_thick=thresh_thick)
                     io.imsave(fn_save_th_mask, mask.astype(np.float32))
-<<<<<<< HEAD
             self.pb_3D_find_peak_img.setText('Find peak')
             msg = 'Find peak finished'
             print(msg)
@@ -7890,24 +7727,16 @@ class App(QWidget):
             print(msg)
             self.lb_3D_msg.setText(msg)
 
-=======
->>>>>>> d348ef18406729912d76a4a16cab74ef0f448d6f
 
     def gen_3D_smart_mask(self):
         mask_comp = int(self.tx_param_smart_mask_comp.text())
         if self.load_file_successful and mask_comp:
             # generate saving folder
             fs = {}
-<<<<<<< HEAD
             file_path = self.file_path
             for i in range(mask_comp):
                 fs[str(i)] = f'{file_path}/cluster_mask/mask_{i}'
                 create_directory(fs[str(i)])
-=======
-            for i in range(mask_comp):
-                fs[str(i)] = f'{file_path}/cluster_mask/mask_{i}'
-                pyxas.create_directory(fs[str(i)])
->>>>>>> d348ef18406729912d76a4a16cab74ef0f448d6f
 
             fit_max = 1
             try:
@@ -7926,7 +7755,6 @@ class App(QWidget):
             try:
                 xs = float(self.tx_3D_edge_s.text())
                 xe = float(self.tx_3D_edge_e.text())
-<<<<<<< HEAD
                 xs_id = find_nearest(xanes_eng, xs)
                 xe_id = find_nearest(xanes_eng, xe)
             except:
@@ -7975,34 +7803,6 @@ class App(QWidget):
             self.lb_3D_msg.setText(msg)
             print(msg)
         self.pb_3D_gen_cl_mask.setText('Gen. cluster mask')
-=======
-                xs_id = pyxas.find_nearest(xanes_eng, xs)
-                xe_id = pyxas.find_nearest(xanes_eng, xe)
-            except:
-                xs_id, xe_id = 0, -1
-            fs = pyxas.retrieve_file_type(file_path,
-                                          file_prefix=file_prefix,
-                                          file_type=file_type)
-            file_suffix = fs[0].split('.')[-1]
-            scale = float(self.tx_3D_scale_img.text())
-            for i in range(len(fs)):
-                fn = fs[i]
-                fn_save = fn.split('/')[-1].split('.')[0]
-                print(f'processing {fn}')
-                self.pb_3D_find_peak_img.setText(f'processing {i + 1}/{len(fs)} ... ')
-                QApplication.processEvents()
-                if 'tif' in file_suffix:  # tiff file
-                    img_xanes = pyxas.get_img_from_tif_file(fn)
-                else:  # h5 file
-                    img_xanes = pyxas.get_img_from_hdf_file(fn, hdf_attr)[hdf_attr]
-                img_xanes *= scale * fit_max
-                img_xanes = img_xanes[xs_id:xe_id]
-                smart_mask, img_labels = kmean_mask(img_xanes * scale, mask_comp)
-                for j in range(mask_comp):
-                    fn_save = f'{fs[j]}/{fn_save}_cmask_{j}.tiff'
-                    io.imsave(fn_save, smart_mask[j])
-
->>>>>>> d348ef18406729912d76a4a16cab74ef0f448d6f
 
 class MyCanvas(FigureCanvas):
     def __init__(self, parent=None, width=5, height=3, dpi=120, obj=[]):
@@ -8325,7 +8125,6 @@ def fit_peak_curve_poly(x, y, fit_order=3):
 def fit_peak_2D_xanes_poly(img_xanes, xanes_eng, eng_range=[],fit_order=3, fit_max=1):
     # from multiprocessing import Pool
     # from functools import partial
-<<<<<<< HEAD
     img = img_xanes.copy()
     try:
         xs_id = find_nearest(xanes_eng, eng_range[0])
@@ -8340,18 +8139,6 @@ def fit_peak_2D_xanes_poly(img_xanes, xanes_eng, eng_range=[],fit_order=3, fit_m
     try:
         x = xanes_eng[xs_id:xe_id]
     except:
-=======
-    try:
-        xs_id = pyxas.find_nearest(xanes_eng, eng_range[0])
-        xe_id = pyxas.find_nearest(xanes_eng, eng_range[1])
-    except:
-        xs_id = 0
-        xe_id = -1
-    img = img_xanes[xs_id:xe_id]
-    if len(xanes_eng):
-        x = xanes_eng[xs_id:xe_id]
-    else:
->>>>>>> d348ef18406729912d76a4a16cab74ef0f448d6f
         x = np.arange(len(img))
     s0 = img.shape
     img_f = img.reshape([s0[0], -1])

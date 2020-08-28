@@ -689,50 +689,52 @@ def plot_box(ax=None):
 
 
 def test3D():
-    from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 unused import
-    import matplotlib.pyplot as plt
-    z, y, x = (np.mgrid[:200, :200, :200])
-    x_mean, y_mean, z_mean = np.mean(x), np.mean(y), np.mean(z)
-    a, b, c = 10, 4, 1
-    img3D_new = np.zeros([200, 200, 200])
-    img3D_new[(((x-x_mean)/a)**2 + ((y-y_mean)/b)**2 + ((z-z_mean)/c)**2) <= 10**2] = 1
-    img3D_new[:100] = 0; img3D_new[:,:100] = 0; img3D_new[:,:,:100]=0
+    try:
+        from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 unused import
+        import matplotlib.pyplot as plt
+        z, y, x = (np.mgrid[:200, :200, :200])
+        x_mean, y_mean, z_mean = np.mean(x), np.mean(y), np.mean(z)
+        a, b, c = 10, 4, 1
+        img3D_new = np.zeros([200, 200, 200])
+        img3D_new[(((x-x_mean)/a)**2 + ((y-y_mean)/b)**2 + ((z-z_mean)/c)**2) <= 10**2] = 1
+        img3D_new[:100] = 0; img3D_new[:,:100] = 0; img3D_new[:,:,:100]=0
 
 
 
-    img3D_old = tomopy.shepp3d(200)
+        img3D_old = tomopy.shepp3d(200)
 
-    sort_flag = True
-    img3D = img3D_new.copy()
-    img2D = img3D[100]
-    theta_x, theta_y, theta_z = 20, 60, 30
-    img3D_r = rotate_3D_new(img3D, theta_x, theta_y, theta_z)
-    img3D_r = scipy.ndimage.shift(img3D_r, [20,40, 0], order=1)
+        sort_flag = True
+        img3D = img3D_new.copy()
+        img2D = img3D[100]
+        theta_x, theta_y, theta_z = 20, 60, 30
+        img3D_r = rotate_3D_new(img3D, theta_x, theta_y, theta_z)
+        img3D_r = scipy.ndimage.shift(img3D_r, [20,40, 0], order=1)
 
-    img3D = move_3D_to_center(img3D, 1)
-    img3D_r = move_3D_to_center(img3D_r, 1)
+        img3D = move_3D_to_center(img3D, 1)
+        img3D_r = move_3D_to_center(img3D_r, 1)
 
-    img3D = noisy('poisson', img3D)
-    img3D_r = noisy('poisson', img3D_r)
+        img3D = noisy('poisson', img3D)
+        img3D_r = noisy('poisson', img3D_r)
 
-    m1 = get_rotation_matrix(theta_x, 0, 0)
-    m2 = get_rotation_matrix(0, theta_y, 0)
-    m3 = get_rotation_matrix(0, 0, theta_z)
-    m = m3 @ m2 @ m1
+        m1 = get_rotation_matrix(theta_x, 0, 0)
+        m2 = get_rotation_matrix(0, theta_y, 0)
+        m3 = get_rotation_matrix(0, 0, theta_z)
+        m = m3 @ m2 @ m1
 
-    m_rot = get_rotation_matrix1(theta_x, theta_y, theta_z)
+        m_rot = get_rotation_matrix1(theta_x, theta_y, theta_z)
 
-    vec_rot = m_rot @ vec
-    '''
-        for i in range(3):
-        x = [0, vec_rot[0, i]]
-        y = [0, vec_rot[1, i]]
-        z = [0, vec_rot[2, i]]
-        ax.scatter(x, y, z, c='c', marker='>')
-        ax.plot(x, y, z,'c') 
-        ax.text(x[1]+0.1, y[1]+0.1, z[1]+0.1, 'rot_'+str(chr(97+i))) 
-    '''
-
+        vec_rot = m_rot @ vec
+        '''
+            for i in range(3):
+            x = [0, vec_rot[0, i]]
+            y = [0, vec_rot[1, i]]
+            z = [0, vec_rot[2, i]]
+            ax.scatter(x, y, z, c='c', marker='>')
+            ax.plot(x, y, z,'c') 
+            ax.text(x[1]+0.1, y[1]+0.1, z[1]+0.1, 'rot_'+str(chr(97+i))) 
+        '''
+    except:
+        pass
 
 def align_3D_rotation_not_good(img_ref, img2, plot_flag=0):
 

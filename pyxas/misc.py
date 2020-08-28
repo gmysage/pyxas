@@ -505,7 +505,7 @@ def align_proj_sub(fn_ref, angle_ref, fn, angle1, binning=2, ratio=0.6, block_li
     rshft = []
     cshft = []
     img1_all, eng1, _ = pyxas.retrieve_norm_tomo_image(fn, index=-1, binning=binning, sli=sli)
-    img1_all = tomopy.prep.stripe.remove_stripe_fw(img1_all, level=5, wname='db5', sigma=1, pad=True)
+    # img1_all = tomopy.prep.stripe.remove_stripe_fw(img1_all, level=5, wname='db5', sigma=1, pad=True)
     for j in range(num_angle):
         #sr = StackReg(StackReg.RIGID_BODY)
         sr = StackReg(StackReg.TRANSLATION)
