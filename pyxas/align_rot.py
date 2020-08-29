@@ -687,7 +687,7 @@ def plot_box(ax=None):
     ax.set_ylabel('Y axis')
     ax.set_zlabel('Z axis')
 
-
+"""
 def test3D():
     try:
         from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 unused import
@@ -735,6 +735,8 @@ def test3D():
         '''
     except:
         pass
+"""
+
 
 def align_3D_rotation_not_good(img_ref, img2, plot_flag=0):
 

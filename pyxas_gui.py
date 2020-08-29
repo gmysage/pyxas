@@ -1,4 +1,4 @@
-# !/usr/bin/env python3
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 Created on Thu Jan 11 09:07:42 2018
@@ -34,18 +34,7 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from copy import deepcopy
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-from pyxas.image_util import img_smooth, rm_abnormal, bin_ndarray, rm_noise, kmean_mask
-from pyxas.align3D import align_img, align_img_stackreg, align_3D_tomo_file
-from pyxas.tomo_recon import find_nearest
-from pyxas.misc import (get_img_from_tif_file, get_img_from_hdf_file, retrieve_file_type, save_xanes_fit_param_file,
-                        load_xanes_fit_param_file, retrieve_file_type,create_directory)
-from pyxas.xanes_fit import fit_xanes2D_generate_mask, fit_2D_xanes_file, fit_2D_xanes_file_mpi, assemble_xanes_slice_from_tomo_mpi
-from pyxas.xanes_util import (fit_2D_xanes_non_iter, fit_2D_xanes_iter,
-                              fit_2D_xanes_iter2, normalize_2D_xanes2,
-                              normalize_2D_xanes_old, normalize_1D_xanes,
-                              find_nearest, normalize_2D_xanes_regulation)
-from pyxas.lsq_fit import fit_peak_curve_spline, fit_peak_curve_poly
-#import pyxas
+import pyxas
 
 global xanes
 
@@ -2597,10 +2586,10 @@ class App(QWidget):
             try:
                 eng_s = float(self.tx_fit2d_s.text())
                 eng_e = float(self.tx_fit2d_e.text())
-                fit_eng_s, fit_eng_e = find_nearest(self.xanes_eng, eng_s), find_nearest(self.xanes_eng, eng_e)
+                fit_eng_s, fit_eng_e = pyxas.find_neares(self.xanes_eng, eng_s), pyxas.find_neares(self.xanes_eng, eng_e)
                 tmp = np.array(self.xanes_eng[fit_eng_s: fit_eng_e] >= self.spectrum_ref['ref0'][0,0]) * np.array(self.xanes_eng[fit_eng_s: fit_eng_e] <= self.spectrum_ref['ref0'][-1,0])
                 fit_region = np.arange(fit_eng_s, fit_eng_e)[tmp]
-                self.xanes_2d_fit, self.xanes_2d_fit_offset, self.xanes_fit_cost = fit_2D_xanes_non_iter(img_stack[fit_region], self.xanes_eng[fit_region], self.spectrum_ref)
+                self.xanes_2d_fit, self.xanes_2d_fit_offset, self.xanes_fit_cost = pyxas.fit_2D_xanes_non_iter(img_stack[fit_region], self.xanes_eng[fit_region], self.spectrum_ref)
                 if self.cb1.findText('XANES Fit (ratio, summed to 1)') < 0:
                     self.cb1.addItem('XANES Fit (ratio, summed to 1)')
                 if self.cb1.findText('XANES Fit (Elem. concentration)') < 0:
@@ -2618,11 +2607,11 @@ class App(QWidget):
                 img_sum = np.sum(img, axis=0, keepdims=True)
                 img_sum[np.abs(img_sum) < 1e-6] = 1e6
                 img = img / img_sum
-                img = rm_abnormal(img)
+                img = pyxas.rm_abnormal(img)
                 self.data_summary['XANES Fit (ratio, summed to 1)'] = self.smooth(img) * self.mask
                 # 2: xanes_fit concentration:
                 img = img * self.img_pre_edge_sub_mean
-                img = rm_abnormal(img)
+                img = pyxas.rm_abnormal(img)
                 self.data_summary['XANES Fit (Elem. concentration)'] = self.smooth(img) * self.mask
                 # 3: xanes_fit error:
                 self.data_summary['XANES Fit error'] = self.xanes_fit_cost.copy()
@@ -2674,7 +2663,7 @@ class App(QWidget):
                 bounds = []
             eng_s = float(self.tx_fit2d_s.text())
             eng_e = float(self.tx_fit2d_e.text())
-            fit_eng_s, fit_eng_e = find_nearest(self.xanes_eng, eng_s), find_nearest(self.xanes_eng, eng_e)
+            fit_eng_s, fit_eng_e = pyxas.find_neares(self.xanes_eng, eng_s), pyxas.find_neares(self.xanes_eng, eng_e)
             tmp = np.array(self.xanes_eng[fit_eng_s: fit_eng_e] >= self.spectrum_ref['ref0'][0, 0]) * np.array(self.xanes_eng[fit_eng_s: fit_eng_e] <= self.spectrum_ref['ref0'][-1, 0])
             fit_region = np.arange(fit_eng_s, fit_eng_e)[tmp]
             try:
@@ -2698,13 +2687,13 @@ class App(QWidget):
                     learning_rate = float(self.tx_method1.text())
                     fit_iter_lambda = float(self.tx_method2.text())
                     self.xanes_2d_fit, self.xanes_2d_fit_offset, self.xanes_fit_cost = \
-                        fit_2D_xanes_iter(img_stack[fit_region], self.xanes_eng[fit_region], self.spectrum_ref,
+                        pyxas.fit_2D_xanes_iter(img_stack[fit_region], self.xanes_eng[fit_region], self.spectrum_ref,
                                           coef0, offset, learning_rate, num_iter, bounds=bounds, fit_iter_lambda=fit_iter_lambda)
                 elif self.fitting_method == 2 or self.fitting_method == 3:
                     fit_iter_lambda = float(self.tx_method2.text())
                     rho = float(self.tx_method3.text())
                     self.xanes_2d_fit, self.xanes_2d_fit_offset, self.xanes_fit_cost = \
-                        fit_2D_xanes_iter2(img_stack[fit_region], self.xanes_eng[fit_region], self.spectrum_ref,
+                        pyxas.fit_2D_xanes_iter2(img_stack[fit_region], self.xanes_eng[fit_region], self.spectrum_ref,
                                            coef0, offset, fit_iter_lambda, rho, num_iter, bounds=bounds, method=self.fitting_method-1)
                 self.pb_fit2d_iter.setEnabled(True)
                 QApplication.processEvents()
@@ -2775,7 +2764,7 @@ class App(QWidget):
             if s[1]%b or s[2]%b:
                 ss = [s[0], s[1]//b*b, s[2]//b*b]
                 img = img[:, :ss[1], :ss[2]]
-            self.img_xanes = bin_ndarray(img, (s[0], s[1]//b, s[2]//b), 'mean')
+            self.img_xanes = pyxas.bin_ndarray(img, (s[0], s[1]//b, s[2]//b), 'mean')
             self.msg = 'image shape: {0}'.format(self.img_xanes.shape)
             self.update_msg()
             self.update_canvas_img()
@@ -2905,10 +2894,10 @@ class App(QWidget):
                 en = int(self.tx_smart_mask_end.text())
                 img_stack = canvas.img_stack[st:en] * self.mask
 
-                self.smart_mask, self.img_labels = kmean_mask(img_stack, self.smart_mask_comp)
+                self.smart_mask, self.img_labels = pyxas.kmean_mask(img_stack, self.smart_mask_comp)
             else:
                 img_stack = np.squeeze(canvas.current_img * self.mask)
-                self.smart_mask, self.img_labels, self.img_compress = kmean_mask(img_stack, self.smart_mask_comp)
+                self.smart_mask, self.img_labels, self.img_compress = pyxas.kmean_mask(img_stack, self.smart_mask_comp)
                 if self.cb1.findText('Image compress') < 0:
                     self.cb1.addItem('Image compress')
             if self.cb1.findText('Smart Mask') < 0:
@@ -3119,7 +3108,7 @@ class App(QWidget):
         try:
             eng_s = self.xanes_eng[0]
             eng_e = self.xanes_eng[-1]
-            fit_eng_s, fit_eng_e = find_nearest(self.xanes_eng, eng_s), find_nearest(self.xanes_eng, eng_e)
+            fit_eng_s, fit_eng_e = pyxas.find_neares(self.xanes_eng, eng_s), pyxas.find_neares(self.xanes_eng, eng_e)
             tmp = np.array(self.xanes_eng[fit_eng_s: fit_eng_e] > self.spectrum_ref['ref0'][0, 0]) * \
                   np.array(self.xanes_eng[fit_eng_s: fit_eng_e] < self.spectrum_ref['ref0'][-1, 0])
             fit_region = np.arange(fit_eng_s, fit_eng_e)[tmp]
@@ -3199,7 +3188,7 @@ class App(QWidget):
                     prj = img * mask
                     prj_mean = np.zeros([prj.shape[0], 1, 1])
                     prj_mean[:, 0, 0] = np.sum(np.sum(prj, axis=1), axis=1) / np.sum(mask)
-                    fit_coef, fit_offset, fit_cost = fit_2D_xanes_non_iter(prj_mean, x_data, self.spectrum_ref)
+                    fit_coef, fit_offset, fit_cost = pyxas.fit_2D_xanes_non_iter(prj_mean, x_data, self.spectrum_ref)
                     fit_coef = np.squeeze(fit_coef)
                     fit_offset = np.squeeze(fit_offset)
                     y_data = np.sum(np.sum(prj, axis=1), axis=1) / np.sum(mask)
@@ -3234,7 +3223,7 @@ class App(QWidget):
     def _roi_fit_mean(self):
         eng_s = self.xanes_eng[0]
         eng_e = self.xanes_eng[-1]
-        fit_eng_s, fit_eng_e = find_nearest(self.xanes_eng, eng_s), find_nearest(self.xanes_eng, eng_e)
+        fit_eng_s, fit_eng_e = pyxas.find_neares(self.xanes_eng, eng_s), pyxas.find_neares(self.xanes_eng, eng_e)
         tmp = np.array(self.xanes_eng[fit_eng_s: fit_eng_e] > self.spectrum_ref['ref0'][0, 0]) * np.array(self.xanes_eng[fit_eng_s: fit_eng_e] < self.spectrum_ref['ref0'][-1, 0])
         fit_region = np.arange(fit_eng_s, fit_eng_e)[tmp]
         roi_selected = 1
@@ -3275,7 +3264,7 @@ class App(QWidget):
                     y_data = []
                 #prj_mean = np.zeros([prj.shape[0], 1, 1])
                 #prj_mean[:,0,0] = np.mean(np.mean(prj, axis=1), axis=1)
-                #fit_coef, fit_cost = fit_2D_xanes_non_iter(prj_mean, self.xanes_eng[fit_eng_s:fit_eng_e],self.spectrum_ref)
+                #fit_coef, fit_cost = pyxas.fit_2D_xanes_non_iter(prj_mean, self.xanes_eng[fit_eng_s:fit_eng_e],self.spectrum_ref)
                 #fit_coef = np.squeeze(fit_coef)
                 #fit_cost = np.squeeze(fit_cost)
                 
@@ -3421,7 +3410,7 @@ class App(QWidget):
             img = canvas.current_img.copy()
             noise_level = float(self.tx_rm_noise_level.text())
             filter_size = int(self.tx_rm_noise_size.text())
-            self.img_rm_noise = rm_noise(img, noise_level, filter_size)
+            self.img_rm_noise = pyxas.rm_noise(img, noise_level, filter_size)
             if self.cb1.findText('Noise removal') < 0:
                 self.cb1.addItem('Noise removal')
             self.cb1.setCurrentText('Noise removal')
@@ -3437,7 +3426,7 @@ class App(QWidget):
             p_min = float(self.tx_cvt_min.text())
             p_max = float(self.tx_cvt_max.text())
             img = self.xanes_peak_fit.copy()
-            self.peak_percentage = rm_abnormal((img - p_min) / (p_max - p_min))
+            self.peak_percentage = pyxas.rm_abnormal((img - p_min) / (p_max - p_min))
             if self.cb1.findText('Peak percentage') < 0:
                 self.cb1.addItem('Peak percentage')
             self.cb1.setCurrentText('Peak percentage')
@@ -3470,9 +3459,9 @@ class App(QWidget):
                 x0 = float(self.tx_edge_pos.text())
             except:
                 x0 = xs
-            xs_id = find_nearest(x, xs)
-            xe_id = find_nearest(x, xe)
-            x0_id = find_nearest(x, x0)
+            xs_id = pyxas.find_neares(x, xs)
+            xe_id = pyxas.find_neares(x, xe)
+            x0_id = pyxas.find_neares(x, x0)
             x = x[xs_id: xe_id]
             y = y[xs_id: xe_id]
             w = float(self.tx_pre_edge_wt.text())
@@ -3517,15 +3506,15 @@ class App(QWidget):
             except:
                 x0 = xs
             try:
-                xs_id = find_nearest(self.xanes_eng, xs)
+                xs_id = pyxas.find_neares(self.xanes_eng, xs)
             except:
                 xs_id = 0
             try:
-                xe_id = find_nearest(self.xanes_eng, xe)
+                xe_id = pyxas.find_neares(self.xanes_eng, xe)
             except:
                 xe_id = len(y)
             try:
-                x0_id = find_nearest(self.xanes_eng, x0)
+                x0_id = pyxas.find_neares(self.xanes_eng, x0)
             except:
                 x0_id = 0
             x = x[xs_id: xe_id]
@@ -3539,7 +3528,7 @@ class App(QWidget):
             else:
                 factor = -1
             if self.fit_peak_method == 1:             # spline
-                res = fit_peak_curve_spline(x, y*factor, fit_order=k, smooth=edge_smooth, weight=wt)
+                res = pyxas.fit_peak_curve_spline(x, y*factor, fit_order=k, smooth=edge_smooth, weight=wt)
                 spl = res['spl']
                 xx = res['xx']
                 y_eval = spl(xx) * factor
@@ -3548,7 +3537,7 @@ class App(QWidget):
                 edge_pos = res['edge_pos']
                 edge_val = res['edge_val'] * factor
             else:                                     # method 2: polynormial
-                res = fit_peak_curve_poly(x, y*factor, fit_order=k)
+                res = pyxas.fit_peak_curve_poly(x, y*factor, fit_order=k)
                 xx = np.linspace(x[0], x[-1], 101).reshape([101, 1])
                 y_eval = res['matrix_Y'].flatten() * factor
                 peak_pos = np.squeeze(res['peak_pos'])
@@ -3597,15 +3586,15 @@ class App(QWidget):
             except:
                 x0 = xs
             try:
-                xs_id = find_nearest(self.xanes_eng, xs)
+                xs_id = pyxas.find_neares(self.xanes_eng, xs)
             except:
                 xs_id = 0
             try:
-                xe_id = find_nearest(self.xanes_eng, xe)
+                xe_id = pyxas.find_neares(self.xanes_eng, xe)
             except:
                 xe_id = len(img)
             try:
-                x0_id = find_nearest(self.xanes_eng, x0)
+                x0_id = pyxas.find_neares(self.xanes_eng, x0)
             except:
                 x0_id = 0
             eng = self.xanes_eng
@@ -3640,7 +3629,7 @@ class App(QWidget):
                         print(f'row # {i:4d}: {time.time() - time_s:3.2f} sec')
                     for j in range(s[2]):
                         y = img[:, i, j]
-                        res = fit_peak_curve_spline(x, y * factor, fit_order=fit_order, smooth=edge_smooth, weight=wt)
+                        res = pyxas.fit_peak_curve_spline(x, y * factor, fit_order=fit_order, smooth=edge_smooth, weight=wt)
                         spl = res['spl']
                         xx = res['xx']
                         # y_eval = spl(xx) * factor
@@ -3657,7 +3646,7 @@ class App(QWidget):
             else:   # polynormial
                 s0 = img.shape
                 y = img.reshape([s0[0], -1])
-                res = fit_peak_curve_poly(x, y * factor, fit_order=fit_order)
+                res = pyxas.fit_peak_curve_poly(x, y * factor, fit_order=fit_order)
                 self.xanes_peak_fit[0] = res['peak_pos'].reshape([s0[1], s0[2]])
                 self.xanes_peak_fit_height[0] = res['peak_val'].reshape([s0[1], s0[2]]) * factor
                 self.fit_edge_peak_res = res.copy()
@@ -3734,8 +3723,8 @@ class App(QWidget):
             try:
                 xs = float(self.tx_edge_s.text())
                 xe = float(self.tx_edge_e.text())
-                xs_id = find_nearest(self.xanes_eng, xs)
-                xe_id = find_nearest(self.xanes_eng, xe)
+                xs_id = pyxas.find_neares(self.xanes_eng, xs)
+                xe_id = pyxas.find_neares(self.xanes_eng, xe)
                 x = np.linspace(self.xanes_eng[xs_id], self.xanes_eng[xe_id], 101)
             except:
                 x = np.linspace(-3, 3, 101)
@@ -3765,9 +3754,9 @@ class App(QWidget):
             xe = float(self.tx_edge_e.text())
             x0 = float(self.tx_edge_pos.text())
 
-            xs_id = find_nearest(self.xanes_eng, xs)
-            xe_id = find_nearest(self.xanes_eng, xe)
-            x0_id = find_nearest(self.xanes_eng, x0)
+            xs_id = pyxas.find_neares(self.xanes_eng, xs)
+            xe_id = pyxas.find_neares(self.xanes_eng, xe)
+            x0_id = pyxas.find_neares(self.xanes_eng, x0)
 
             w = float(self.tx_pre_edge_wt.text())
 
@@ -3915,7 +3904,7 @@ class App(QWidget):
         img_sum = np.sum(img, axis=0, keepdims=True)
         img_sum[np.abs(img_sum) < 1e-6] = 1e6
         img = img / img_sum
-        img = rm_abnormal(img)
+        img = pyxas.rm_abnormal(img)
         if not label:
             label = [f'ref{i}' for i in range(self.num_ref)]
         try:
@@ -4038,7 +4027,7 @@ class App(QWidget):
             try:
                 kernal_size = self.smooth_param['kernal_size']
                 if kernal_size > 1:
-                    img_stack = img_smooth(img_stack, kernal_size, axis=axis)
+                    img_stack = pyxas.img_smooth(img_stack, kernal_size, axis=axis)
             except:
                 self.msg = 'image smoothing fails...'
                 self. update_msg()
@@ -4331,7 +4320,7 @@ class App(QWidget):
             post_e = float(self.tx_fit_post_e.text())
             x_eng = self.external_spec[:,0]
             self.external_spec_fit = self.external_spec.copy()
-            self.external_spec_fit[:, 1], y_pre_fit, y_post_fit = normalize_1D_xanes(self.external_spec[:,1], x_eng, [pre_s, pre_e],
+            self.external_spec_fit[:, 1], y_pre_fit, y_post_fit = pyxas.normalize_1D_xanes(self.external_spec[:,1], x_eng, [pre_s, pre_e],
                                                                        [post_s, post_e])
             plt.figure()  # generate figure for each roi
             plt.subplot(211)
@@ -4392,7 +4381,7 @@ class App(QWidget):
                 y1 = min(b, d)
                 y2 = max(b, d)
                 roi_spec = np.mean(np.mean(img_stack[:, y1:y2, x1:x2, ], axis=1), axis=1)
-                roi_spec_fit[:,n], y_pre_fit, y_post_fit = normalize_1D_xanes(roi_spec, x_eng, [pre_s, pre_e], [post_s, post_e])
+                roi_spec_fit[:,n], y_pre_fit, y_post_fit = pyxas.normalize_1D_xanes(roi_spec, x_eng, [pre_s, pre_e], [post_s, post_e])
                 plt.subplots_adjust(hspace=0.5)
                 plt.plot(x_eng, roi_spec, '.', color='gray')
                 plt.plot(x_eng, y_pre_fit, 'b', linewidth=1)
@@ -4472,10 +4461,10 @@ class App(QWidget):
             x_eng = deepcopy(self.xanes_eng)
             pre_edge_only_flag = 1 if self.chkbox_norm_pre_edge_only.isChecked() else 0
             if self.rd_norm1.isChecked():
-                img_norm, self.img_pre_edge_sub_mean = normalize_2D_xanes2(img_norm, x_eng, [pre_s, pre_e], [post_s, post_e], pre_edge_only_flag)
+                img_norm, self.img_pre_edge_sub_mean = pyxas.normalize_2D_xanes2(img_norm, x_eng, [pre_s, pre_e], [post_s, post_e], pre_edge_only_flag)
                 self.msg = '2D Spectra image normalized (using method1)'
             elif self.rd_norm2.isChecked():
-                img_norm, tmp = normalize_2D_xanes_old(img_norm, x_eng, [pre_s, pre_e], [post_s, post_e], pre_edge_only_flag)
+                img_norm, tmp = pyxas.normalize_2D_xanes_old(img_norm, x_eng, [pre_s, pre_e], [post_s, post_e], pre_edge_only_flag)
                 # if len(self.img_pre_edge_sub_mean.shape) == 1:
                 #    self.img_pre_edge_sub_mean = tmp
                 self.img_pre_edge_sub_mean = tmp
@@ -4515,7 +4504,7 @@ class App(QWidget):
             self.pb_reg_img.setText('wait ...')
             self.pb_reg_img.setEnabled(False)
             QApplication.processEvents()
-            self.img_regulation = normalize_2D_xanes_regulation(img_norm, x_eng, pre_edge=[pre_s, pre_e], post_edge=[post_s, post_e], designed_max=regular_max, gamma=regular_width)
+            self.img_regulation = pyxas.normalize_2D_xanes_regulation(img_norm, x_eng, pre_edge=[pre_s, pre_e], post_edge=[post_s, post_e], designed_max=regular_max, gamma=regular_width)
             self.msg = 'Image regulation finished'
             if self.cb1.findText('Image regulation') < 0:
                 self.cb1.addItem('Image regulation')
@@ -4905,7 +4894,7 @@ class App(QWidget):
                         self.update_msg()
                     # read xanes-scan image
                     try:
-                        self.img_xanes = rm_abnormal(np.array(f[dataset_xanes]))
+                        self.img_xanes = pyxas.rm_abnormal(np.array(f[dataset_xanes]))
                         s = self.img_xanes.shape
                         if len(s) == 2:
                             self.img_xanes = np.expand_dims(self.img_xanes, axis=0)
@@ -4945,7 +4934,7 @@ class App(QWidget):
                     f.close()
                 else:  # read tiff file
                     try:
-                        self.img_xanes = rm_abnormal(get_img_from_tif_file(fn))
+                        self.img_xanes = pyxas.rm_abnormal(pyxas.get_img_from_tif_file(fn))
                         s = self.img_xanes.shape
                         if len(s) == 2:
                             self.img_xanes = np.expand_dims(self.img_xanes, axis=0)
@@ -5029,7 +5018,7 @@ class App(QWidget):
         QApplication.processEvents()
         canvas = self.canvas1
         tmp = canvas.img_stack
-        tmp = rm_abnormal(tmp)
+        tmp = pyxas.rm_abnormal(tmp)
         tmp = -np.log(tmp)
         tmp[np.isinf(tmp)] = 0
         tmp[np.isnan(tmp)] = 0
@@ -5066,9 +5055,9 @@ class App(QWidget):
 
                     if self.rd_ali1.isChecked():
                         method = self.cb_ali.currentText().strip()
-                        img_ali[i], rsft, csft, _ = align_img_stackreg(prj[i - 1], prj[i], method=method)
+                        img_ali[i], rsft, csft, _ = pyxas.align_img_stackreg(prj[i - 1], prj[i], method=method)
                     elif self.rd_ali2.isChecked():
-                        _, rsft, csft = align_img(prj[i - 1], prj[i])
+                        _, rsft, csft = pyxas.align_img(prj[i - 1], prj[i])
                         img_ali[i] = shift(canvas.img_stack[i], [rsft, csft], mode='constant', cval=0)
                     self.shift_list.append([rsft, csft])
                     self.msg = f'Aligned image slice {i}, row_shift: {rsft:3.2f}, col_shift: {csft:3.2f}'
@@ -5081,9 +5070,9 @@ class App(QWidget):
                     self.update_msg()
                     if self.rd_ali1.isChecked():
                         method = self.cb_ali.currentText().strip()
-                        img_ali[i], rsft, csft, _ = align_img_stackreg(prj[ref_index], prj[i], method=method)
+                        img_ali[i], rsft, csft, _ = pyxas.align_img_stackreg(prj[ref_index], prj[i], method=method)
                     elif self.rd_ali2.isChecked():
-                        _, rsft, csft = align_img(prj[ref_index], prj[i])
+                        _, rsft, csft = pyxas.align_img(prj[ref_index], prj[i])
                         img_ali[i] = shift(canvas.img_stack[i], [rsft, csft], mode='constant', cval=0)
                     self.msg = f'Aligned image slice {i}, row_shift: {rsft:3.2f}, col_shift: {csft:3.2f}'
                     self.update_msg()
@@ -5146,10 +5135,10 @@ class App(QWidget):
                         print('Aligning image slice ' + str(i))
                         if self.rd_ali1.isChecked():
                             method = self.cb_ali.currentText().strip()
-                            rsft, csft, sr = align_img_stackreg(prj[i - 1], prj[i], align_flag=0, method=method)
+                            rsft, csft, sr = pyxas.align_img_stackreg(prj[i - 1], prj[i], align_flag=0, method=method)
                             img_ali[i] = sr.transform(img_ali[i])
                         elif self.rd_ali2.isChecked():
-                            rsft, csft = align_img(prj[i - 1], prj[i], align_flag=0)
+                            rsft, csft = pyxas.align_img(prj[i - 1], prj[i], align_flag=0)
                             img_ali[i] = shift(img_ali[i], [rsft, csft], mode='constant', cval=0)
                         self.msg = f'Aligned image slice {i}, row_shift: {rsft:3.2f}, col_shift: {csft:3.2f}'
                         self.update_msg()
@@ -5160,10 +5149,10 @@ class App(QWidget):
                         print('Aligning image slice ' + str(i))
                         if self.rd_ali1.isChecked():
                             method = self.cb_ali.currentText().strip()
-                            rsft, csft, sr = align_img_stackreg(prj[ref_index], prj[i], align_flag=0, method=method)
+                            rsft, csft, sr = pyxas.align_img_stackreg(prj[ref_index], prj[i], align_flag=0, method=method)
                             img_ali[i] = sr.transform(img_ali[i])
                         elif self.rd_ali2.isChecked():
-                            rsft, csft = align_img(prj[ref_index], prj[i], align_flag=0)
+                            rsft, csft = pyxas.align_img(prj[ref_index], prj[i], align_flag=0)
                             img_ali[i] = shift(img_ali[i], [rsft, csft], mode='constant', cval=0)
                         self.shift_list.append([rsft, csft])
                         self.msg = f'Aligned image slice {i}, row_shift: {rsft:3.2f}, col_shift: {csft:3.2f}'
@@ -5320,7 +5309,7 @@ class App(QWidget):
                 img_sum = np.sum(img, axis=0, keepdims=True)
                 img_sum[np.abs(img_sum) < 1e-6] = 1e6
                 img = img / img_sum
-                img = rm_abnormal(img)
+                img = pyxas.rm_abnormal(img)
                 self.pb_roi_draw.setEnabled(True)
                 canvas.x, canvas.y = [], []
                 canvas.axes.clear()  # this is important, to clear the current image before another imshow()
@@ -5342,7 +5331,7 @@ class App(QWidget):
                 img_sum[np.abs(img_sum) < 1e-6] = 1e6
                 img = img / img_sum
                 img = img * self.img_pre_edge_sub_mean
-                img = rm_abnormal(img)
+                img = pyxas.rm_abnormal(img)
                 self.pb_roi_draw.setEnabled(True)
                 canvas.x, canvas.y = [], []
                 canvas.axes.clear()  # this is important, to clear the current image before another imshow()
@@ -7062,7 +7051,7 @@ class App(QWidget):
             self.file_path = self.tx_param_folder.text()
             self.file_prefix = self.tx_param_file_prefix.text()
             self.file_type = self.tx_param_file_type.text()
-            self.xanes_files = retrieve_file_type(self.file_path, self.file_prefix, self.file_type)
+            self.xanes_files = pyxas.retrieve_file_type(self.file_path, self.file_prefix, self.file_type)
             print('file load in sequence:')
             for fn in self.xanes_files:
                 print(fn.split("/")[-1])
@@ -7248,7 +7237,7 @@ class App(QWidget):
             fn, _ = QFileDialog.getSaveFileName(self, 'Save File', "", file_type, options=options)
             if fn.split('.')[-1] != 'csv':
                 fn += '.csv'
-            save_xanes_fit_param_file(self.fit_param, fn)
+            pyxas.save_xanes_fit_param_file(self.fit_param, fn)
             self.lb_execute_output.setText(f'{fn} saved')
             self.tx_param_output.appendPlainText(f'{fn} saved')
             self.save_fit_param_successful = 1
@@ -7265,7 +7254,7 @@ class App(QWidget):
             file_type = ' csv files (*.csv)'
             fn, _ = QFileDialog.getOpenFileName(xanes, "QFileDialog.getOpenFileName()", "", file_type, options=options)
             if fn:
-                self.fit_param = load_xanes_fit_param_file(fn, num_items=0)
+                self.fit_param = pyxas.load_xanes_fit_param_file(fn, num_items=0)
                 txt = self.lb_execute_output.text() + f'\nfit_param loaded: {fn}'
                 self.lb_execute_output.setText(txt)
                 self.load_fit_param_successful = 1
@@ -7405,12 +7394,12 @@ class App(QWidget):
                     num_cpu = self.fit_param['num_cpu']
                 try:
                     if num_cpu == 1:
-                        fit_2D_xanes_file(file_path, file_prefix,
+                        pyxas.fit_2D_xanes_file(file_path, file_prefix,
                                                 file_type, fit_param,
                                                 xanes_eng, spectrum_ref,
                                                 file_range=[], save_hdf=0)
                     else:
-                        fit_2D_xanes_file_mpi(file_path, file_prefix,
+                        pyxas.fit_2D_xanes_file_mpi(file_path, file_prefix,
                                                     file_type, fit_param,
                                                     xanes_eng, spectrum_ref,
                                                     file_range=[], save_hdf=0, num_cpu=num_cpu)
@@ -7459,7 +7448,7 @@ class App(QWidget):
                     self.lb_3D_prep_msg.setText('loading finished')
                     f.close()
                 elif 'tif' in file_type:
-                    img = get_img_from_tif_file(fn)
+                    img = pyxas.get_img_from_tif_file(fn)
                 s = img.shape
                 try:
                     import napari
@@ -7494,7 +7483,7 @@ class App(QWidget):
             else:
                 self.tomo_file['file_prefix'] = file_prefix
             self.tomo_file['file_type'] = '.' + fn_tmp[-1].split('.')[-1]
-            self.tomo_file['files'] = retrieve_file_type(self.tomo_file['file_path'],
+            self.tomo_file['files'] = pyxas.retrieve_file_type(self.tomo_file['file_path'],
                                                                self.tomo_file['file_prefix'],
                                                                self.tomo_file['file_type'])
             num = len(self.tomo_file['files'])
@@ -7513,7 +7502,7 @@ class App(QWidget):
             binning = int(self.tx_3D_bin.text())
             circle_mask_ratio = float(self.tx_3D_mask.text())
             align_method = int(self.tx_3D_align_method.text())
-            align_3D_tomo_file(file_path = self.tomo_file['file_path'],
+            pyxas.align_3D_tomo_file(file_path = self.tomo_file['file_path'],
                                      ref_index = ref_index,
                                      binning = binning,
                                      circle_mask_ratio = circle_mask_ratio,
@@ -7543,9 +7532,9 @@ class App(QWidget):
             file_path = self.tomo_file['file_path']
             file_prefix = self.tomo_file['file_prefix']
             file_type = self.tomo_file['file_type']
-            fn_tmp = retrieve_file_type(file_path, file_prefix, file_type)[0]
+            fn_tmp = pyxas.retrieve_file_type(file_path, file_prefix, file_type)[0]
             if 'tif' in file_type:
-                img_tmp = get_img_from_tif_file(fn_tmp)
+                img_tmp = pyxas.get_img_from_tif_file(fn_tmp)
                 s1, s2, s3 = img_tmp.shape
             elif 'h5' in file_type:
                 attr_img = attr_img
@@ -7562,7 +7551,7 @@ class App(QWidget):
             self.pb_3D_assemble.setText('Assembling ...')
             self.lb_3D_prep_msg.setText(f'assembling slice from {sli[0]} to {sli[1]} ...   Check terminal output for progress')
             QApplication.processEvents()
-            assemble_xanes_slice_from_tomo_mpi(file_path = file_path,
+            pyxas.assemble_xanes_slice_from_tomo_mpi(file_path = file_path,
                                                      file_prefix = file_prefix,
                                                      file_type = file_type,
                                                      attr_img = attr_img,
@@ -7663,9 +7652,9 @@ class App(QWidget):
             file_save_peak_fit_val = f'{file_path}/peak_fit_height'
             file_save_peak_fit_th_mask = f'{file_path}/threshold_mask'
 
-            create_directory(file_save_peak_fit_pos)
-            create_directory(file_save_peak_fit_err)
-            create_directory(file_save_peak_fit_val)
+            pyxas.create_directory(file_save_peak_fit_pos)
+            pyxas.create_directory(file_save_peak_fit_err)
+            pyxas.create_directory(file_save_peak_fit_val)
 
             if self.rd_3D_peak_max.isChecked():
                 fit_max = 1
@@ -7677,7 +7666,7 @@ class App(QWidget):
                 eng_range = [xs, xe]
             except:
                 eng_range = []
-            fs = retrieve_file_type(file_path,
+            fs = pyxas.retrieve_file_type(file_path,
                                           file_prefix=file_prefix,
                                           file_type=file_type)
             file_suffix = fs[0].split('.')[-1]
@@ -7690,9 +7679,9 @@ class App(QWidget):
                 self.pb_3D_find_peak_img.setText(f'processing {i + 1}/{len(fs)} ... ')
                 QApplication.processEvents()
                 if 'tif' in file_suffix:  # tiff file
-                    img_xanes = get_img_from_tif_file(fn)
+                    img_xanes = pyxas.get_img_from_tif_file(fn)
                 else:  # h5 file
-                    img_xanes = get_img_from_hdf_file(fn, hdf_attr)[hdf_attr]
+                    img_xanes = pyxas.get_img_from_hdf_file(fn, hdf_attr)[hdf_attr]
                 img_xanes *= scale * fit_max
 
                 time_s = time.time()
@@ -7710,11 +7699,11 @@ class App(QWidget):
                 io.imsave(fn_save_val, peak_val.astype(np.float32))
 
                 if self.chkbox_3D_gen_th_mask.isChecked():
-                    create_directory(file_save_peak_fit_th_mask)
+                    pyxas.create_directory(file_save_peak_fit_th_mask)
                     fn_save_th_mask = f'{file_save_peak_fit_th_mask}/{fn_save}_threshold_mask.tiff'
                     thresh_thick = float(self.tx_param_threshold_thick.text())
                     thresh_cost = float(self.tx_param_threshold_error.text())
-                    mask = fit_xanes2D_generate_mask(peak_val, fit_error,
+                    mask = pyxas.fit_xanes2D_generate_mask(peak_val, fit_error,
                                                      thresh_cost=thresh_cost,
                                                      thresh_thick=thresh_thick)
                     io.imsave(fn_save_th_mask, mask.astype(np.float32))
@@ -7736,7 +7725,7 @@ class App(QWidget):
             file_path = self.file_path
             for i in range(mask_comp):
                 fs[str(i)] = f'{file_path}/cluster_mask/mask_{i}'
-                create_directory(fs[str(i)])
+                pyxas.create_directory(fs[str(i)])
 
             fit_max = 1
             try:
@@ -7755,11 +7744,11 @@ class App(QWidget):
             try:
                 xs = float(self.tx_3D_edge_s.text())
                 xe = float(self.tx_3D_edge_e.text())
-                xs_id = find_nearest(xanes_eng, xs)
-                xe_id = find_nearest(xanes_eng, xe)
+                xs_id = pyxas.find_neares(xanes_eng, xs)
+                xe_id = pyxas.find_neares(xanes_eng, xe)
             except:
                 xs_id, xe_id = 0, -1
-            files = retrieve_file_type(file_path,
+            files = pyxas.retrieve_file_type(file_path,
                                           file_prefix=file_prefix,
                                           file_type=file_type)
             file_suffix = files[0].split('.')[-1]
@@ -7776,12 +7765,12 @@ class App(QWidget):
                     self.pb_3D_gen_cl_mask.setText(msg)
                     QApplication.processEvents()
                     if 'tif' in file_suffix:  # tiff file
-                        img_xanes = get_img_from_tif_file(fn)
+                        img_xanes = pyxas.get_img_from_tif_file(fn)
                     else:  # h5 file
-                        img_xanes = get_img_from_hdf_file(fn, hdf_attr)[hdf_attr]
+                        img_xanes = pyxas.get_img_from_hdf_file(fn, hdf_attr)[hdf_attr]
                     img_xanes *= scale * fit_max
                     img_xanes = img_xanes[xs_id:xe_id]
-                    smart_mask, img_labels = kmean_mask(img_xanes * scale, mask_comp)
+                    smart_mask, img_labels = pyxas.kmean_mask(img_xanes * scale, mask_comp)
                     for j in range(mask_comp):
                         fn_save_mask = f'{fs[str(j)]}/{fn_save}_cmask_{j}.tiff'
                         io.imsave(fn_save_mask, smart_mask[j].astype(np.float32))
@@ -8018,7 +8007,7 @@ def fit_peak_xanes_splie_mpi(img_xanes, xanes_eng, eng_range=[],
     from functools import partial
 
     try:
-        xs_id = pyxas.find_nearest(xanes_eng, eng_range[0])
+        xs_id = pyxas.find_neares(xanes_eng, eng_range[0])
         xe_id = pyxas.find_nearest(xanes_eng, eng_range[1])
     except:
         xs_id = 0
@@ -8034,7 +8023,7 @@ def fit_peak_xanes_splie_mpi(img_xanes, xanes_eng, eng_range=[],
 
     time_s = time.time()
     pool = Pool(num_cpu)
-    res = pool.map(partial(fit_peak_curve_spline, x=x, fit_order=fit_order,
+    res = pool.map(partial(pyxas.fit_peak_curve_spline, x=x, fit_order=fit_order,
                            smooth=smooth), y)
     s1 = len(y)
     peak_pos = np.zeros(s1)
@@ -8047,88 +8036,14 @@ def fit_peak_xanes_splie_mpi(img_xanes, xanes_eng, eng_range=[],
     return peak_pos, fit_error
 
 '''
-"""
-# following have been moved to lsq_fit.py
-def fit_peak_curve_spline(x, y, fit_order=3, smooth=0.002, weight=1):
-    spl = UnivariateSpline(x, y, k=fit_order, s=smooth, w=weight)
-    xx = np.linspace(x[0], x[-1], 1001)
-    yy = spl(xx)
-    peak_pos = xx[np.argmax(yy)]
-    fit_error = np.sum((y - spl(x)**2))
-    res = {}
-    res['peak_pos'] = peak_pos
-    res['fit_error'] = fit_error
-    res['peak_val'] = spl(peak_pos)
-    res['spl'] = spl
-    res['xx'] = xx
-    return res
-
-
-def fit_peak_curve_poly(x, y, fit_order=3):
-    '''
-    # x, y can be matrix
-    '''
-    try:
-        import cupy as cp
-        nnp = cp
-        ntype = 'cp'
-        y = cp.asarray(y)
-        x = cp.asarray(x)
-    except:
-        nnp = np
-        ntype = 'np'
-    time_s = time.time()
-    x_min, x_max = nnp.min(x), nnp.max(x)
-    s1 = len(y)
-    if len(y.shape) == 1:
-        Y = y.reshape([s1, 1])
-    else:
-        Y = y
-    if len(x.shape) == 1:
-        x0 = x.reshape([s1, 1])
-    else:
-        x0 = x
-    x0 = (x0 - x_min) / (x_max - x_min)
-    X = nnp.ones([s1, 1])
-    for i in nnp.arange(1, fit_order + 1):
-        X = nnp.concatenate([X, x0 ** i], 1)
-    A = nnp.linalg.inv(X.T @ X) @ (X.T @ Y)
-    xx = nnp.linspace(x0[0], x0[-1], 101).reshape([101, 1])
-    XX = nnp.ones([101, 1])
-    for i in nnp.arange(1, fit_order + 1):
-        XX = nnp.concatenate([XX, xx ** i], 1)
-    YY = XX @ A
-    peak_pos = xx[nnp.argmax(YY, 0)] * (x_max - x_min) + x_min
-    y_hat = X @ A
-    fit_error = nnp.sum((y_hat - Y)**2, 0)
-    res = {}
-    if ntype == 'np':
-        res['peak_pos'] = peak_pos
-        res['peak_val'] = np.max(YY, 0)
-        res['fit_error'] = fit_error
-        res['matrix_X'] = XX
-        res['matrix_A'] = A
-        res['matrix_Y'] = YY
-    else:
-        res['peak_pos'] = peak_pos.get()
-        res['fit_error'] = fit_error.get()
-        res['matrix_X'] = XX.get()
-        res['matrix_A'] = A.get()
-        res['peak_val'] = cp.max(YY, 0).get()
-        res['matrix_Y'] = YY.get()
-
-    time_e = time.time()
-    print(f'take {time_e-time_s:3.1f} sec')
-    return res
-"""
 
 def fit_peak_2D_xanes_poly(img_xanes, xanes_eng, eng_range=[],fit_order=3, fit_max=1):
     # from multiprocessing import Pool
     # from functools import partial
     img = img_xanes.copy()
     try:
-        xs_id = find_nearest(xanes_eng, eng_range[0])
-        xe_id = find_nearest(xanes_eng, eng_range[1])
+        xs_id = pyxas.find_neares(xanes_eng, eng_range[0])
+        xe_id = pyxas.find_neares(xanes_eng, eng_range[1])
         img = img[xs_id:xe_id]
         if len(xanes_eng):
             x = xanes_eng[xs_id:xe_id]
@@ -8146,7 +8061,7 @@ def fit_peak_2D_xanes_poly(img_xanes, xanes_eng, eng_range=[],fit_order=3, fit_m
         y = img_f
     else:
         y = 1 - img_f
-    res = fit_peak_curve_poly(x, y, fit_order)
+    res = pyxas.fit_peak_curve_poly(x, y, fit_order)
     peak_pos = res['peak_pos'].reshape([1, s0[1], s0[2]])
     fit_error = res['fit_error'].reshape([1, s0[1], s0[2]])
     peak_val = res['peak_val'].reshape([1, s0[1], s0[2]])

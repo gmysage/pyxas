@@ -77,6 +77,50 @@ def rm_noise(img, noise_level=2e-3, filter_size=3):
     return img_m
 
 
+def _get_mask(dx, dy, ratio):
+    """
+    Calculate 2D boolean circular mask.
+
+    Parameters
+    ----------
+    dx, dy : int
+        Dimensions of the 2D mask.
+
+    ratio : int
+        Ratio of the circle's diameter in pixels to
+        the smallest mask dimension.
+
+    Returns
+    -------
+    ndarray
+        2D boolean array.
+    """
+    rad1 = dx / 2.
+    rad2 = dy / 2.
+    if dx > dy:
+        r2 = rad1 * rad1
+    else:
+        r2 = rad2 * rad2
+    y, x = np.ogrid[0.5 - rad1:0.5 + rad1, 0.5 - rad2:0.5 + rad2]
+    return x * x + y * y < ratio * ratio * r2
+
+def circ_mask(img, axis, ratio=1, val=0):
+    im = np.float32(img)
+    s = im.shape
+    if len(s) == 2:
+        m = _get_mask(s[0], s[1], ratio)
+        m_out = (1 - m) * val
+        im_m = np.array(m, dtype=np.int) * im + m_out
+    else:
+        im = im.swapaxes(0, axis)
+        dx, dy, dz = im.shape
+        m = _get_mask(dx, dy, ratio)
+        m_out = (1 - a) * val
+        im_m = np.array(m, dtype=np.int) * im + m_out
+        im_m = im_m.swapaxes(0, axis)
+    return im_m
+        
+
 def pad(img, thick, direction):
 
     """
