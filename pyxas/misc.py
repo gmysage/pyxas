@@ -5,7 +5,6 @@ import os
 import numpy as np
 import h5py
 import time
-import tomopy
 from pyxas.image_util import *
 from scipy import ndimage
 from pystackreg import StackReg
@@ -280,7 +279,6 @@ def rgb(img_r, img_g=[], img_b=[], norm_flag=1, filter_size=3, circle_mask_ratio
     compose RGB image
     '''
     from scipy.signal import medfilt
-    import tomopy
     assert len(img_r.shape) == 2, '2D image only'
     s = img_r.shape
     if len(img_g) == 0:
@@ -295,7 +293,7 @@ def rgb(img_r, img_g=[], img_b=[], norm_flag=1, filter_size=3, circle_mask_ratio
     img_rgb[:,:,0] = r
     img_rgb[:,:,1] = g
     img_rgb[:,:,2] = b
-    img_rgb = tomopy.circ_mask(img_rgb, axis=2, ratio=circle_mask_ratio)
+    img_rgb = pyxas.circ_mask(img_rgb, axis=2, ratio=circle_mask_ratio)
     if norm_flag:
         for i in range(3):
             t = np.max(img_rgb[:,:,i])
@@ -416,7 +414,7 @@ def fit_xanes2D_align_tomo_proj(file_path='.', files_scan=[], binning=2, ref_ind
 
         img1_ali = pyxas.norm_txm(img1_ali)
         rec = pyxas.recon_sub(img1_ali, theta1, rot_cen, block_list)
-        rec = tomopy.circ_mask(rec, axis=0, ratio=ratio, val=0)
+        rec = pyxas.circ_mask(rec, axis=0, ratio=ratio, val=0)
         print('saving files...\n')
         
         
@@ -462,7 +460,7 @@ def fit_xanes2D_align_tomo_recon_along_axis(file_path='.', ref_index=-1, circle_
     files_recon = pyxas.retrieve_file_type(file_path, file_prefix=file_prefix, file_type=file_type)
     f = h5py.File(files_recon[ref_index], 'r')
     rec0 = np.array(f['img'])
-    #rec0 = tomopy.circ_mask(rec0, axis=0, ratio=0.8, val=0)    
+    #rec0 = pyxas.circ_mask(rec0, axis=0, ratio=0.8, val=0)    
     f.close()
     s = rec0.shape
     stack_range = [int(s[0]*(0.5-ratio/2)), int(s[0]*(0.5+ratio/2))]

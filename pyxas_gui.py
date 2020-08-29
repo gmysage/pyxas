@@ -4,7 +4,7 @@
 Created on Thu Jan 11 09:07:42 2018
 
 @author: Mingyuan Ge
-Email: gmysage@gmail.com
+Email: gmysage@gmail.com, mingyuan@bnl.gov
 """
 
 import sys
@@ -137,8 +137,8 @@ class App(QWidget):
     def default_layout(self):
         try:
             del self.img_xanes, self.img_update, self.xanes_2d_fit, self.xanes_fit_cost # self.img_bkg, self.img_bkg_removed, self.img_bkg_update
-        except:
-            pass
+        except Exception as err:
+            print(err)
         default_img = np.zeros([1,500, 500])
         self.fn_raw_image = ''
         self.save_version = 0
@@ -178,11 +178,14 @@ class App(QWidget):
         self.pb_smart_mask.setStyleSheet('color: rgb(0, 0, 0);')
         try:
             self.num_ref = self.num_ref
-        except:
-            self.num_ref= 0
+        except Exception as err:
+            self.num_ref = 0
+            print(err)
+            print('set num_ref = 0')
         try:
             self.spectrum_ref = self.spectrum_ref
-        except:
+        except Exception as err:
+            print(err)
             self.spectrum_ref = {}
         self.fitting_method = 1
         self.xanes_2d_fit = None
@@ -2512,8 +2515,10 @@ class App(QWidget):
                 # self.spectrum_ref[f'ref{self.num_ref}'] = np.array(pd.read_csv(fn, sep=' '))
                 self.spectrum_ref[f'ref{self.num_ref}'] = np.loadtxt(fn)
                 self.num_ref += 1
-            except:
-                print('un-supported xanes reference format')
+            except Exception as err:
+                self.msg = str(err)
+                self.update_msg()
+                print(f'un-supported xanes reference format. Error: {str(err)}')
 
     def reset_xanes_ref(self):
         self.num_ref = 0
@@ -2586,7 +2591,7 @@ class App(QWidget):
             try:
                 eng_s = float(self.tx_fit2d_s.text())
                 eng_e = float(self.tx_fit2d_e.text())
-                fit_eng_s, fit_eng_e = pyxas.find_neares(self.xanes_eng, eng_s), pyxas.find_neares(self.xanes_eng, eng_e)
+                fit_eng_s, fit_eng_e = pyxas.find_nearest(self.xanes_eng, eng_s), pyxas.find_nearest(self.xanes_eng, eng_e)
                 tmp = np.array(self.xanes_eng[fit_eng_s: fit_eng_e] >= self.spectrum_ref['ref0'][0,0]) * np.array(self.xanes_eng[fit_eng_s: fit_eng_e] <= self.spectrum_ref['ref0'][-1,0])
                 fit_region = np.arange(fit_eng_s, fit_eng_e)[tmp]
                 self.xanes_2d_fit, self.xanes_2d_fit_offset, self.xanes_fit_cost = pyxas.fit_2D_xanes_non_iter(img_stack[fit_region], self.xanes_eng[fit_region], self.spectrum_ref)
@@ -2638,9 +2643,9 @@ class App(QWidget):
                 for i in range(num_ref):
                     if self.cb_color_channel.findText(f'{i}') < 0:
                         self.cb_color_channel.addItem(f'{i}')
-            except:
-                print('fitting fails ...')
-                self.msg = 'fitting fails ..., may need to check energy lists'
+            except Exception as err:
+                print(f'fitting fails: {str(err)}')
+                self.msg = f'fitting fails: {str(err)}'
         self.update_msg()
         self.pb_fit2d.setEnabled(True)
         QApplication.processEvents()
@@ -2663,7 +2668,7 @@ class App(QWidget):
                 bounds = []
             eng_s = float(self.tx_fit2d_s.text())
             eng_e = float(self.tx_fit2d_e.text())
-            fit_eng_s, fit_eng_e = pyxas.find_neares(self.xanes_eng, eng_s), pyxas.find_neares(self.xanes_eng, eng_e)
+            fit_eng_s, fit_eng_e = pyxas.find_nearest(self.xanes_eng, eng_s), pyxas.find_nearest(self.xanes_eng, eng_e)
             tmp = np.array(self.xanes_eng[fit_eng_s: fit_eng_e] >= self.spectrum_ref['ref0'][0, 0]) * np.array(self.xanes_eng[fit_eng_s: fit_eng_e] <= self.spectrum_ref['ref0'][-1, 0])
             fit_region = np.arange(fit_eng_s, fit_eng_e)[tmp]
             try:
@@ -2717,9 +2722,9 @@ class App(QWidget):
                 for i in range(num_ref):
                     if self.cb_color_channel.findText(f'{i}') < 0:
                         self.cb_color_channel.addItem(f'{i}')
-            except:
-                print('iterative fitting fails ...')
-                self.msg = 'iterative fitting fails ...'
+            except Exception as err:
+                self.msg = f'iterative fitting fails. Error: {str(err)}'
+                print(self.msg)
             finally:
                 self.update_msg()
         self.pb_fit2d_iter.setEnabled(True)
@@ -2737,7 +2742,8 @@ class App(QWidget):
             for i in range(self.num_ref):
                 try:
                     plot_label = elem[i]
-                except:
+                except Exception as err:
+                    print(err)
                     plot_label = f'ref_{i}'
                 self.elem_label.append(plot_label)
                 spec = self.spectrum_ref[f'ref{i}']
@@ -2746,8 +2752,8 @@ class App(QWidget):
             print(legend)
             plt.legend(handles=legend)
             plt.show()
-        except:
-            self.msg = 'un-recognized reference spectrum format'
+        except Exception as err:
+            self.msg = f'un-recognized reference spectrum format. Error: {str(err)}'
             self.update_msg()
 
     def bin_image(self):
@@ -2768,8 +2774,8 @@ class App(QWidget):
             self.msg = 'image shape: {0}'.format(self.img_xanes.shape)
             self.update_msg()
             self.update_canvas_img()
-        except:
-            self.msg = 'xanes image not exist'
+        except Exception as err:
+            self.msg = f'xanes image not exist. Error: {str(err)}'
             self.update_msg()
 
     def scale_image(self):
@@ -2783,8 +2789,8 @@ class App(QWidget):
             if self.cb1.findText('Image updated') < 0:
                 self.cb1.addItem('Image updated')
             self.cb1.setCurrentText('Image updated')
-        except:
-            self.msg = 'fail to scale image'
+        except Exception as err:
+            self.msg = f'fail to scale image. Error: {str(err)}'
         finally:
             self.update_msg()
 
@@ -2826,8 +2832,8 @@ class App(QWidget):
             if self.cb1.findText('Mask') < 0:
                 self.cb1.addItem('Mask')
             self.pb_mask1.setStyleSheet('color: rgb(200, 50, 50);')
-        except:
-            self.msg = 'invalid mask '
+        except Exception as err:
+            self.msg = f'invalid mask. Error: {str(err)} '
             self.update_msg()
             self.pb_mask1.setStyleSheet('color: rgb(0,0,0);')
 
@@ -2852,8 +2858,8 @@ class App(QWidget):
             if self.cb1.findText('Mask') < 0:
                 self.cb1.addItem('Mask')
             self.pb_mask2.setStyleSheet('color: rgb(200, 50, 50);')
-        except:
-            self.msg = 'invalid mask '
+        except Exception as err:
+            self.msg = f'invalid mask. Error: {str(err)} '
             self.update_msg()
             self.pb_mask2.setStyleSheet('color: rgb(0,0,0);')
 
@@ -2875,8 +2881,8 @@ class App(QWidget):
             if self.cb1.findText('Mask') < 0:
                 self.cb1.addItem('Mask')
             self.pb_mask3.setStyleSheet('color: rgb(200,50,50);')
-        except:
-            self.msg = 'invalid mask '
+        except Exception as err:
+            self.msg = f'invalid mask. Error: {str(err)} '
             self.update_msg()
 
     def generate_smart_mask(self):
@@ -2908,8 +2914,8 @@ class App(QWidget):
             self.msg = 'Smart Mask generated'
             self.update_canvas_img()
             #self.pb_smart_mask.setStyleSheet('color: rgb(200,50,50);')
-        except:
-            self.msg = 'invalid mask '
+        except Exception as err:
+            self.msg = f'invalid mask. Error: {str(err)} '
             #self.pb_smart_mask.setStyleSheet('color: rgb(0,0,0);')
         finally:
             self.update_msg()
@@ -2960,8 +2966,9 @@ class App(QWidget):
             self.img_labels = img_label.copy()
             self.update_canvas_img()
             del img_label
-        except:
-            self.msg = 'fails to update image label'
+        except Exception as err:
+            self.msg = 'fails to update image label. Error: {str(err)}'
+            self.update_msg()
 
     def rm_mask1(self):
         try:
@@ -2970,8 +2977,8 @@ class App(QWidget):
             self.mask = self.canvas1.mask
             self.update_canvas_img()
             self.pb_mask1.setStyleSheet('color: rgb(0,0,0);')
-        except:
-            self.msg = 'something wrong in removing mask1'
+        except Exception as err:
+            self.msg = f'something wrong in removing mask1. Error: {str(err)}'
             self.update_msg()
 
     def rm_mask2(self):
@@ -2981,8 +2988,8 @@ class App(QWidget):
             self.mask = self.canvas1.mask
             self.update_canvas_img()
             self.pb_mask2.setStyleSheet('color: rgb(0,0,0);')
-        except:
-            self.msg = 'something wrong in removing mask2'
+        except Exception as err:
+            self.msg = f'something wrong in removing mask2. Error: {str(err)}'
             self.update_msg()
 
     def rm_mask3(self):
@@ -2992,8 +2999,8 @@ class App(QWidget):
             self.mask = self.canvas1.mask
             self.update_canvas_img()
             self.pb_mask3.setStyleSheet('color: rgb(0,0,0);')
-        except:
-            self.msg = 'something wrong in removing mask3'
+        except Exception as err:
+            self.msg = f'something wrong in removing mask3. Error: {str(err)}'
             self.update_msg()
 
     def rm_smart_mask(self):
@@ -3003,8 +3010,8 @@ class App(QWidget):
             self.mask = self.canvas1.mask
             self.update_canvas_img()
             self.pb_smart_mask.setStyleSheet('color: rgb(0,0,0);')
-        except:
-            self.msg = 'something wrong in removing smart mask'
+        except Exception as err:
+            self.msg = f'something wrong in removing smart mask. Error: {str(err)}'
             self.update_msg()
 
     def mask_dilation(self):
@@ -3020,8 +3027,8 @@ class App(QWidget):
                 self.canvas1.mask = self.mask
                 self.update_canvas_img()
                 #self.canvas1.update_img_one(self.smart_mask[img_index], img_index)
-            except:
-                self.msg = 'fails to perform dilation on "Smart Mask"'
+            except Exception as err:
+                self.msg = f'fails to perform dilation on "Smart Mask". Error: {str(err)}'
                 self.update_msg()
         else:
             try:
@@ -3029,8 +3036,8 @@ class App(QWidget):
                 self.mask = ndimage.binary_dilation(img, structure=struct).astype(img.dtype)
                 self.canvas1.mask = self.mask
                 self.update_canvas_img()
-            except:
-                self.msg = 'fails to perform dilation on "mask"'
+            except Exception as err:
+                self.msg = f'fails to perform dilation on "mask". Error:{str(err)}'
                 self.update_msg()
 
     def mask_erosion(self):
@@ -3045,8 +3052,8 @@ class App(QWidget):
                 self.mask = self.mask * self.smart_mask[img_index]
                 self.canvas1.mask = self.mask
                 self.update_canvas_img()
-            except:
-                self.msg = 'fails to perform dilation on "Smart Mask"'
+            except Exception as err:
+                self.msg = f'fails to perform dilation on "Smart Mask". Error: {str(err)}'
                 self.update_msg()
         else:
             try:
@@ -3054,8 +3061,8 @@ class App(QWidget):
                 self.mask = ndimage.binary_erosion(img, structure=struct).astype(img.dtype)
                 self.canvas1.mask = self.mask
                 self.update_canvas_img()
-            except:
-                self.msg = 'fails to perform dilation on "mask"'
+            except Exception as err:
+                self.msg = f'fails to perform dilation on "mask". Error: {str(err)}'
                 self.update_msg()
 
     def mask_fillhole(self):
@@ -3070,8 +3077,8 @@ class App(QWidget):
                 self.mask = self.mask * self.smart_mask[img_index]
                 self.canvas1.mask = self.mask
                 self.update_canvas_img()
-            except:
-                self.msg = 'fails to perform fill_holes on "Smart Mask"'
+            except Exception as err:
+                self.msg = f'fails to perform fill_holes on "Smart Mask". Error: {str(err)}'
                 self.update_msg()
         else:
             try:
@@ -3079,8 +3086,8 @@ class App(QWidget):
                 self.mask = ndimage.binary_fill_holes(img, structure=struct).astype(img.dtype)
                 self.canvas1.mask = self.mask
                 self.update_canvas_img()
-            except:
-                self.msg = 'fails to perform dilation on "mask"'
+            except Exception as err:
+                self.msg = f'fails to perform dilation on "mask". Error: {str(err)}'
                 self.update_msg()
 
 
@@ -3101,20 +3108,22 @@ class App(QWidget):
             roi_selected = 'roi_' + n
             canvas = self.canvas1
             roi_list = canvas.roi_list
-        except:
+        except Exception as err:
+            print(err)
             print(f'{roi_selected} not exist')
             n = '-1'
             roi_selected = 'roi_-1'
         try:
             eng_s = self.xanes_eng[0]
             eng_e = self.xanes_eng[-1]
-            fit_eng_s, fit_eng_e = pyxas.find_neares(self.xanes_eng, eng_s), pyxas.find_neares(self.xanes_eng, eng_e)
+            fit_eng_s = pyxas.find_nearest(self.xanes_eng, eng_s)
+            fit_eng_e = pyxas.find_nearest(self.xanes_eng, eng_e)
             tmp = np.array(self.xanes_eng[fit_eng_s: fit_eng_e] > self.spectrum_ref['ref0'][0, 0]) * \
                   np.array(self.xanes_eng[fit_eng_s: fit_eng_e] < self.spectrum_ref['ref0'][-1, 0])
             fit_region = np.arange(fit_eng_s, fit_eng_e)[tmp]
             #roi_selected = -1
-        except:
-            self.msg = 'something wrong (e.g., check ROI, reference spectrum, etc.)'
+        except Exception as err:
+            self.msg = f'something wrong (e.g., check ROI, reference spectrum, etc.). Error: {str(err)}'
             self.update_msg()
             x_data = [0]
             y_data = [0]
@@ -3138,12 +3147,13 @@ class App(QWidget):
                     try:
                         fit_offset = self.xanes_2d_fit_offset[:, y1:y2, x1:x2]
                         fit_offset = np.mean(np.mean(fit_offset, axis=1), axis=1)
-                    except:
+                    except Exception as err:
+                        print(err)
                         fit_offset = 0
                     fit_coef = np.mean(np.mean(fit_coef, axis=1), axis=1)
                     fit_success = 0.5
-            except:
-                pass
+            except Exception as err:
+                self.msg = f'Error: {str(err)}'
 
             return x_data, y_data, y_fit, fit_coef, fit_offset, cord, fit_success, roi_selected
 
@@ -3173,7 +3183,8 @@ class App(QWidget):
                 try:
                     fit_offset = self.xanes_2d_fit_offset[:, y1:y2, x1:x2]
                     fit_offset = np.mean(np.mean(fit_offset, axis=1), axis=1)
-                except:
+                except Exception as err:
+                    print(err)
                     fit_offset = 0
                 fit_coef = np.mean(np.mean(fit_coef, axis=1), axis=1)
             else:
@@ -3208,8 +3219,8 @@ class App(QWidget):
                 y_fit += fit_coef[i] * ref_interp
             y_fit += fit_offset
             fit_success = 1
-        except:
-            self.msg = 'something wrong (e.g., check ROI)'
+        except Exception as err:
+            self.msg = f'something wrong (e.g., check ROI). Error: {str(err)}'
             self.update_msg()
             y_data = np.zeros(x_data.shape)
             y_fit = y_data
@@ -3223,7 +3234,7 @@ class App(QWidget):
     def _roi_fit_mean(self):
         eng_s = self.xanes_eng[0]
         eng_e = self.xanes_eng[-1]
-        fit_eng_s, fit_eng_e = pyxas.find_neares(self.xanes_eng, eng_s), pyxas.find_neares(self.xanes_eng, eng_e)
+        fit_eng_s, fit_eng_e = pyxas.find_nearest(self.xanes_eng, eng_s), pyxas.find_nearest(self.xanes_eng, eng_e)
         tmp = np.array(self.xanes_eng[fit_eng_s: fit_eng_e] > self.spectrum_ref['ref0'][0, 0]) * np.array(self.xanes_eng[fit_eng_s: fit_eng_e] < self.spectrum_ref['ref0'][-1, 0])
         fit_region = np.arange(fit_eng_s, fit_eng_e)[tmp]
         roi_selected = 1
@@ -3317,7 +3328,7 @@ class App(QWidget):
             for i in range(len(fit_coef)):
                 try:
                     plot_label = elem[i]
-                except:
+                except Exception as err:
                     plot_label = f'ref#{i}'
                 self.elem_label.append(plot_label)
                 title += plot_label + f': {fit_coef[i] / fit_coef_sum:.3f}, '
@@ -3343,11 +3354,13 @@ class App(QWidget):
                                                            alpha=0.6, color=t_color[i%5], label=ref_name)
                             plt.xlim([x_data[0]-0.02, x_data[-1]+0.02])
                             legend.append(line_ref[ref_name])
-                    except:
-                        pass
+                    except Exception as err:
+                        print(err)
             plt.legend(handles=legend)
             plt.title(title)
             plt.show()
+            self.msg = ''
+            self.update_msg()
         if return_flag:
             return x_data, y_data, y_fit, fit_coef, cord, fit_success
 
@@ -3416,8 +3429,8 @@ class App(QWidget):
             self.cb1.setCurrentText('Noise removal')
             self.update_canvas_img()
             self.msg = 'Noise removed'
-        except:
-            self.msg = 'fails to remove noise'
+        except Exception as err:
+            self.msg = f'fails to remove noise. Error: {str(err)}'
         finally:
             self.update_msg()
 
@@ -3430,8 +3443,8 @@ class App(QWidget):
             if self.cb1.findText('Peak percentage') < 0:
                 self.cb1.addItem('Peak percentage')
             self.cb1.setCurrentText('Peak percentage')
-        except:
-            self.msg = 'fails to convert'
+        except Exception as err:
+            self.msg = f'fails to convert. Error: {str(err)}'
             self.update_msg()
 
     def fit_edge_curve(self):
@@ -3457,11 +3470,12 @@ class App(QWidget):
             self.tx_edge_order.setText(f'{k}')
             try:
                 x0 = float(self.tx_edge_pos.text())
-            except:
+            except Exception as err:
+                print(err)
                 x0 = xs
-            xs_id = pyxas.find_neares(x, xs)
-            xe_id = pyxas.find_neares(x, xe)
-            x0_id = pyxas.find_neares(x, x0)
+            xs_id = pyxas.find_nearest(x, xs)
+            xe_id = pyxas.find_nearest(x, xe)
+            x0_id = pyxas.find_nearest(x, x0)
             x = x[xs_id: xe_id]
             y = y[xs_id: xe_id]
             w = float(self.tx_pre_edge_wt.text())
@@ -3485,37 +3499,43 @@ class App(QWidget):
             plt.legend()
             plt.title('Curve fitting')
             plt.show()
-        except:
-            self.msg = 'Fails to fit curve'
+        except Exception as err:
+            self.msg = f'Fails to fit curve. Error: {str(err)}'
             self.update_msg()
 
     def find_edge_peak_single(self):
         try:
-            k = int(self.tx_edge_order.text())
+            k = int(eval(self.tx_edge_order.text()))
             x, y, _, roi_selected = self.extract_roi_spectrum_data(use_current_image=1)
             try:
                 xs = float(self.tx_edge_s.text())
-            except:
+            except Exception as err:
+                print(err)
                 xs = 0
             try:
                 xe = float(self.tx_edge_e.text())
-            except:
+            except Exception as err:
+                print(err)
                 xe = len(y)
             try:
                 x0 = float(self.tx_edge_pos.text())
-            except:
+            except Exception as err:
+                print(err)
                 x0 = xs
             try:
-                xs_id = pyxas.find_neares(self.xanes_eng, xs)
-            except:
+                xs_id = pyxas.find_nearest(self.xanes_eng, xs)
+            except Exception as err:
+                print(err)
                 xs_id = 0
             try:
-                xe_id = pyxas.find_neares(self.xanes_eng, xe)
-            except:
+                xe_id = pyxas.find_nearest(self.xanes_eng, xe)
+            except Exception as err:
+                print(err)
                 xe_id = len(y)
             try:
-                x0_id = pyxas.find_neares(self.xanes_eng, x0)
-            except:
+                x0_id = pyxas.find_nearest(self.xanes_eng, x0)
+            except Exception as err:
+                print(err)
                 x0_id = 0
             x = x[xs_id: xe_id]
             y = y[xs_id: xe_id]
@@ -3567,35 +3587,42 @@ class App(QWidget):
             QApplication.processEvents()
             try:
                 fit_order = int(self.tx_edge_order.text())
-            except:
+            except Exception as err:
+                print(err)
                 fit_order = 3
                 self.tx_edge_order.setText('3')
             img = self.canvas1.img_stack.copy()
             img = self.smooth(img * self.mask)
             try:
                 xs = float(self.tx_edge_s.text())
-            except:
+            except Exception as err:
+                print(err)
                 xs = 0
             try:
                 xe = float(self.tx_edge_e.text())
-            except:
+            except Exception as err:
+                print(err)
                 xe = len(img)
             k = int(self.tx_edge_order.text())
             try:
                 x0 = float(self.tx_edge_pos.text())
-            except:
+            except Exception as err:
+                print(err)
                 x0 = xs
             try:
-                xs_id = pyxas.find_neares(self.xanes_eng, xs)
-            except:
+                xs_id = pyxas.find_nearest(self.xanes_eng, xs)
+            except Exception as err:
+                print(err)
                 xs_id = 0
             try:
-                xe_id = pyxas.find_neares(self.xanes_eng, xe)
-            except:
+                xe_id = pyxas.find_nearest(self.xanes_eng, xe)
+            except Exception as err:
+                print(err)
                 xe_id = len(img)
             try:
-                x0_id = pyxas.find_neares(self.xanes_eng, x0)
-            except:
+                x0_id = pyxas.find_nearest(self.xanes_eng, x0)
+            except Exception as err:
+                print(err)
                 x0_id = 0
             eng = self.xanes_eng
 
@@ -3621,7 +3648,8 @@ class App(QWidget):
                 wt[:x0_id - xs_id] = w
                 try:
                     edge_smooth = float(self.tx_edge_smooth.text())
-                except:
+                except Exception as err:
+                    print(err)
                     edge_smooth = 0.001
                     self.tx_edge_smooth.setText('0.001')
                 for i in range(s[1]):
@@ -3723,8 +3751,8 @@ class App(QWidget):
             try:
                 xs = float(self.tx_edge_s.text())
                 xe = float(self.tx_edge_e.text())
-                xs_id = pyxas.find_neares(self.xanes_eng, xs)
-                xe_id = pyxas.find_neares(self.xanes_eng, xe)
+                xs_id = pyxas.find_nearest(self.xanes_eng, xs)
+                xe_id = pyxas.find_nearest(self.xanes_eng, xe)
                 x = np.linspace(self.xanes_eng[xs_id], self.xanes_eng[xe_id], 101)
             except:
                 x = np.linspace(-3, 3, 101)
@@ -3754,9 +3782,9 @@ class App(QWidget):
             xe = float(self.tx_edge_e.text())
             x0 = float(self.tx_edge_pos.text())
 
-            xs_id = pyxas.find_neares(self.xanes_eng, xs)
-            xe_id = pyxas.find_neares(self.xanes_eng, xe)
-            x0_id = pyxas.find_neares(self.xanes_eng, x0)
+            xs_id = pyxas.find_nearest(self.xanes_eng, xs)
+            xe_id = pyxas.find_nearest(self.xanes_eng, xe)
+            x0_id = pyxas.find_nearest(self.xanes_eng, x0)
 
             w = float(self.tx_pre_edge_wt.text())
 
@@ -3782,8 +3810,9 @@ class App(QWidget):
             plt.legend()
             plt.title(roi_selected)
             plt.show()
-        except:
-            pass
+        except Exception as err:
+            print(err)
+
 
     def convert_rgb_img(self, img, color_vec):
         s = img.shape
@@ -3834,7 +3863,8 @@ class App(QWidget):
                 try:
                     img = canvas.img_stack * canvas.mask
                     self.img_colormix_raw = deepcopy(img)
-                except:
+                except Exception as err:
+                    print(err)
                     img = []
 
                 if not len(img) == len(self.spectrum_ref):
@@ -3869,8 +3899,8 @@ class App(QWidget):
             else:
                 self.cb1.setCurrentText('Color mix')
                 self.update_canvas_img()
-        except:
-            pass
+        except Exception as err:
+            print(err)
 
     def convert_rgb_vector(self, color):
         n = len(color)
@@ -3923,8 +3953,8 @@ class App(QWidget):
                     try:
                         attr_name = key.replace(' ', '_')
                         hf.create_dataset(attr_name, data = np.array(val, dtype=np.float32))
-                    except:
-                        pass
+                    except Exception as err:
+                        print(err)
                 for i in range(self.num_ref):
                     hf.create_dataset(f'ref{i}', data=self.spectrum_ref[f'ref{i}'])
 
@@ -3960,8 +3990,8 @@ class App(QWidget):
             msg = textwrap.fill(msg, 100)
             print(msg)
             self.msg = msg
-        except:
-            self.msg = 'file saving fails ...'
+        except Exception as err:
+            self.msg = f'file saving fails. Error: {str(err)}'
         finally:
             self.update_msg()
 
@@ -3996,8 +4026,8 @@ class App(QWidget):
             self.img_update = deepcopy(img_stack)
             del img_stack
             self.msg = 'Background removed '
-        except:
-            self.msg = 'fails in remove background using ROI, check ROI selection'
+        except Exception as err:
+            self.msg = f'fails in remove background using ROI. Error: {str(err)}'
         finally:
             self.update_msg()
             self.pb_rmbg.setEnabled(True)
@@ -4028,8 +4058,8 @@ class App(QWidget):
                 kernal_size = self.smooth_param['kernal_size']
                 if kernal_size > 1:
                     img_stack = pyxas.img_smooth(img_stack, kernal_size, axis=axis)
-            except:
-                self.msg = 'image smoothing fails...'
+            except Exception as err:
+                self.msg = f'image smoothing fails. Error: {str(err)}'
                 self. update_msg()
             finally:
                 self.smooth_param['flag'] = 0
@@ -4086,8 +4116,8 @@ class App(QWidget):
             print(legend)
             plt.legend(handles=legend)
             plt.show()
-        except:
-            self.msg = 'no spectrum available for current image stack ...'
+        except Exception as err:
+            self.msg = f'no spectrum available for current image stack. Error: {str(err)}'
             self.update_msg()
 
     def evaluate_glitch(self):
@@ -4147,8 +4177,8 @@ class App(QWidget):
                     self.lb_eng1.setText(st) 
                     print('glitch removed in xanes_eng ')
                     self.msg = 'glitch removed !'
-                except:
-                    print('cannot delete xanes_eng')
+                except Exception as err:
+                    print(f'cannot delete xanes_eng. Error: {str(err)}')
                     self.msg = 'removing glitch failed ...'
                 finally:
                     self.update_msg()
@@ -4309,8 +4339,8 @@ class App(QWidget):
                 plt.plot(self.external_spec[:,0], self.external_spec[:,1])
                 plt.title('External xanes spectrum')
                 plt.show()
-            except:
-                print('un-supported spectrum format')
+            except Exception as err:
+                print(f'un-supported spectrum format. Error: {str(err)}')
 
     def norm_external_spec(self):
         try:
@@ -4333,8 +4363,8 @@ class App(QWidget):
             plt.plot(x_eng, self.external_spec_fit[:,1])
             plt.title('normalized spectrum')
             plt.show()
-        except:
-            self.msg = 'faild to fit external spectrum'
+        except Exception as err:
+            self.msg = f'faild to fit external spectrum. Error: {str(err)}'
             self.update_msg()
 
     def save_external_spec(self):
@@ -4349,8 +4379,8 @@ class App(QWidget):
                 np.savetxt(fn, np.array(self.external_spec_fit), '%2.5f')
                 print(fn + '  saved')
                 self.msg = f'{fn} is saved'
-        except:
-            self.msg = 'fails to save normed external spectrum'
+        except Exception as err:
+            self.msg = f'fails to save normed external spectrum. Error: {str(str)}'
         finally:
             self.update_msg()
 
@@ -4392,15 +4422,15 @@ class App(QWidget):
                 plt.title('normalized spectrum for ' + plot_label)
                 plt.show()    
             self.roi_spec = roi_spec_fit
-        except:
-            self.msg = 'Fitting error ...'
+        except Exception as err:
+            self.msg = f'Fitting error. Error: {str(err)}'
             self.update_msg()
 
     def save_normed_roi(self):
         try:
             os.makedirs(self.fpath + '/ROI/fitted_roi')
-        except:
-            print(self.fpath + '/ROI failed')
+        except Exception as err:
+            print(self.fpath + f'/ROI failed. Error: {str(err)}')
             pass
         try:
             fn_spec = 'fitted_spectrum_roi_from_' + self.cb1.currentText() + '_' + self.tx_file_index.text() + '.txt'
@@ -4442,8 +4472,8 @@ class App(QWidget):
                     df_cord.to_csv(f, sep=' ')
                 print(fn_spec + '  saved')
                 self.msg = 'Fitted ROI spectrum saved:   ' + fn
-        except:
-            self.msg = 'Save fitted roi spectrum fails ...'
+        except Exception as err:
+            self.msg = f'Save fitted roi spectrum fails. Error: {str(err)}'
         finally:
             self.update_msg()
 
@@ -4482,8 +4512,8 @@ class App(QWidget):
             self.cb1.setCurrentText('Image updated')
             QApplication.processEvents()
             del img_norm
-        except:
-            self.msg = 'fails to normalize 2D spectra image'
+        except Exception as err:
+            self.msg = f'fails to normalize 2D spectra image.  Error: {str(err)}'
         finally:
             self.pb_fit_img.setText('Norm Image')
             self.pb_fit_img.setEnabled(True)
@@ -4510,8 +4540,8 @@ class App(QWidget):
                 self.cb1.addItem('Image regulation')
             self.cb1.setCurrentText('Image regulation')
             QApplication.processEvents()
-        except:
-            self.msg = 'fails to regularize 2D spectra image'
+        except Exception as err:
+            self.msg = f'fails to regularize 2D spectra image.  Error: {str(err)}'
         finally:
             self.pb_reg_img.setText('Regulation')
             self.pb_reg_img.setEnabled(True)
@@ -4536,8 +4566,8 @@ class App(QWidget):
                 io.imsave(fn, img_stack)
                 print(f'current image stack has been saved to file: {fn}')
                 self.msg = f'image stack saved to: {fn}'
-        except:
-            self.msg = 'file saving fails ...'
+        except Exception as err:
+            self.msg = f'file saving fails.  Error: {str(err)}'
         finally:            
             self.update_msg()
             self.pb_save_img_stack.setEnabled(True)
@@ -4574,8 +4604,8 @@ class App(QWidget):
                 plt.imshow(img_stack, clim=[cmin, cmax], cmap=canvas.colormap)
                 plt.axis('off')
                 plt.show()
-        except:
-            self.msg = 'file saving fails ...'
+        except Exception as err:
+            self.msg = f'file saving fails.  Error: {str(err)}'
         finally:
             self.update_msg()
             self.pb_save_img_single.setEnabled(True)
@@ -4597,18 +4627,18 @@ class App(QWidget):
                 current_slice = self.sl1.value()
                 try:
                     self.img_xanes = np.delete(self.img_xanes, current_slice, axis=0)
-                except:
-                    print('cannot delete img_xanes')
+                except Exception as err:
+                    print(f'cannot delete img_xanes. Error: {str(err)}')
                 try:
                     self.img_update = np.delete(self.img_update, current_slice, axis=0)
-                except:
-                    print('cannot delete img_update')
+                except Exception as err:
+                    print(f'cannot delete img_update. Error: {str(err)}')
                 try:
                     self.xanes_eng = np.delete(self.xanes_eng, current_slice, axis=0)
                     st = '{0:3.1f}, {1:3.1f}, ..., {2:3.1f}  (totally, {3} energies)'.format(self.xanes_eng[0],self.xanes_eng[1],self.xanes_eng[-1],len(self.xanes_eng))
                     self.lb_eng1.setText(st)  # update angle information showing on the label
-                except:
-                    print('cannot delete energy')
+                except Exception as err:
+                    print(f'cannot delete energy. Error: {str(err)}')
                 self.msg = 'image #{} has been deleted'.format(current_slice)
                 self.update_msg()
                 self.update_canvas_img()
@@ -4645,13 +4675,13 @@ class App(QWidget):
                 self.lb_eng1.setText(st)
                 self.tx_fit2d_s.setText('{:2.4f}'.format(self.xanes_eng[0]))
                 self.tx_fit2d_e.setText('{:2.4f}'.format(self.xanes_eng[-1]))
-            except:
+            except Exception as err:
                 self.xanes_eng = np.array([0])
                 self.lb_eng1.setText('No energy data ...')
                 self.lb_eng2.setVisible(True)
                 self.tx_eng.setVisible(True)
                 self.pb_eng.setVisible(True)
-                self.msg = self.msg + ';  Energy list not exist'
+                self.msg = self.msg + f';  Energy list not exist.  Error: {str(err)}'
             self.update_msg()
             self.update_canvas_img()
 
@@ -4724,7 +4754,8 @@ class App(QWidget):
                 self.lb_ref_info.setStyleSheet('color: rgb(200, 50, 50);')
                 self.cb_color_channel.addItem(str(i))
                 QApplication.processEvents()
-            except:
+            except Exception as err:
+                print(err)
                 self.num_ref -= 1
         f.close()
         return 1
@@ -4826,8 +4857,8 @@ class App(QWidget):
     def open_imagej(self):
         try:
             os.system('imagej &')
-        except:
-            self.msg = 'can not find/open imagej'
+        except Exception as err:
+            self.msg = f'can not find/open imagej.  Error: {str(err)}'
             self.update_msg()
 
     def close_all_figures(self):
@@ -4884,13 +4915,13 @@ class App(QWidget):
                         self.lb_eng1.setText(st)
                         self.tx_fit2d_s.setText('{:2.4f}'.format(self.xanes_eng[0]))
                         self.tx_fit2d_e.setText('{:2.4f}'.format(self.xanes_eng[-1]))
-                    except:
+                    except Exception as err:
                         self.xanes_eng = np.array([0])
                         self.lb_eng1.setText('No energy data ...')
                         self.lb_eng2.setVisible(True)
                         self.tx_eng.setVisible(True)
                         self.pb_eng.setVisible(True)
-                        self.msg = self.msg + ';  Energy list not exist'
+                        self.msg = self.msg + f';  Energy list not exist.  Error: {str(err)}'
                         self.update_msg()
                     # read xanes-scan image
                     try:
@@ -4914,11 +4945,11 @@ class App(QWidget):
                         print(f'num of eng: {len(self.xanes_eng)}   image_shape: {self.img_xanes.shape}')
                         if (len(self.xanes_eng) != self.img_xanes.shape[0]):
                             self.msg = 'number of energy does not match number of images, try manual input ...'
-                    except:
+                    except Exception as err:
                         self.img_xanes = np.zeros([1, 100, 100])
-                        print('xanes image not exist')
+                        print(f'xanes image not exist.  Error: {str(err)}')
                         self.lb_ip.setText('File loading fails ...')
-                        self.msg = 'xanes image not exist'
+                        self.msg = f'xanes image not exist.  Error: {str(err)}'
                     load_fitted = 0
                     '''
                     if 'fitted' in list(f.keys()):
@@ -4947,9 +4978,9 @@ class App(QWidget):
                             self.cb1.addItem('Raw image')
                         self.cb1.setCurrentText('Raw image')
                         QApplication.processEvents()
-                    except:
+                    except Exception as err:
                         self.img_xanes = np.zeros([1, 100, 100])
-                        print('image not exist')
+                        print(f'image not exist.  Error: {str(err)}')
                     finally:
                         self.img_update = deepcopy(self.img_xanes)
                         self.update_canvas_img()
@@ -4982,8 +5013,8 @@ class App(QWidget):
                 st = '{0:2.4f}, {1:2.4f}, ..., {2:2.4f}    totally, {3} energies'.format(self.xanes_eng[0], self.xanes_eng[1], self.xanes_eng[-1], len(self.xanes_eng))
                 self.lb_eng1.setText(st)
                 self.msg = 'command executed'
-        except:
-            self.msg = 'un-recognized python command '
+        except Exception as err:
+            self.msg = f'un-recognized python command. Error: {str(err)} '
         finally:
             self.update_msg()
 
@@ -5089,8 +5120,8 @@ class App(QWidget):
             self.pb_align.setEnabled(True)
             print('Image aligned.\n Item "Aligned Image" has been added.')
             self.msg = 'Image aligning finished'
-        except:
-            self.msg = 'image stack has only one image slice, aligning aborted... '
+        except Exception as err:
+            self.msg = f'image stack has only one image slice, aligning aborted. Error: {str(err)} '
         finally:
             self.update_msg()
             self.update_canvas_img()
@@ -5107,8 +5138,8 @@ class App(QWidget):
         try:
             n = int(self.tx_ali_roi.text())
             roi_selected = 'roi_' + str(n)
-        except:
-            print('index should be integer')
+        except Exception as err:
+            print(f'index should be integer. Error: {str(err)}')
             n = 0
             roi_selected = 'None'
         n_roi = self.lst_roi.count()
@@ -5164,8 +5195,8 @@ class App(QWidget):
                     self.cb1.setCurrentText('Image updated')
                 print('Image aligned.\n Item "Aligned Image" has been added.')
                 self.msg = 'Image aligning finished'
-            except:
-                self.msg = 'image stack has only one image slice, aligning aborted... '
+            except Exception as err:
+                self.msg = f'image stack has only one image slice, aligning aborted. Error: {str(err)}'
             finally:
                 self.pb_align_roi.setText('Align Img (ROI)')
                 self.pb_align_roi.setEnabled(True)
@@ -5214,8 +5245,8 @@ class App(QWidget):
                 self.lb_shift.setText('  '+ fn_shift)
                 QApplication.processEvents()
                 self.shift_list = np.loadtxt(fn)
-            except:
-                print('un-recognized shift list')
+            except Exception as err:
+                print(f'un-recognized shift list. Error: {str(err)}')
             finally:
                 self.update_msg()
 
@@ -5235,8 +5266,8 @@ class App(QWidget):
                     fn += '.txt'
                 np.savetxt(fn, self.shift_list, '%3.2f')
                 self.msg = fn + ' saved.'
-            except:
-                self.msg = f'fails to save {fn}'
+            except Exception as err:
+                self.msg = f'fails to save {fn}.  Error: {str(err)}'
         self.update_msg()
 
     def update_canvas_img(self):
@@ -5505,8 +5536,8 @@ class App(QWidget):
                     self.tx_cmin.setText(f'{canvas.cmin}')
                     canvas.cmax = float(self.tx_edge_e.text())
                     self.tx_cmax.setText(f'{canvas.cmax}')
-                except:
-                    pass
+                except Exception as err:
+                    print(err)
                 # canvas.current_img_index = self.sl1.value()
                 canvas.title = []
                 canvas.update_img_stack()
@@ -5565,8 +5596,8 @@ class App(QWidget):
                 slide.setMaximum(0)
                 # canvas.update_img_stack()
                 canvas.set_contrast(cmin, cmax)
-        except:
-            self.msg = f'fails to update {type_index}'
+        except Exception as err:
+            self.msg = f'fails to update {type_index}.  Error: {str(err)}'
             self.update_msg()
         QApplication.processEvents()
 
@@ -7058,7 +7089,8 @@ class App(QWidget):
             msg = f'{self.xanes_files[0].split("/")[-1]}  ...  {self.xanes_files[-1].split("/")[-1]}'
             self.lb_3D_msg.setText(f'Message: {len(self.xanes_files)} files loaded:   [{msg}]')
             self.load_file_successful = 1
-        except:
+        except Exception as err:
+            print(err)
             self.load_file_successful = 0
 
     def load_3D_reference(self):
@@ -7080,8 +7112,8 @@ class App(QWidget):
                 self.spectrum_ref[f'ref{self.num_ref}'] = np.loadtxt(fn)
                 self.num_ref += 1
                 self.load_reference_successful = 1
-            except:
-                print('un-supported xanes reference format')
+            except Exception as err:
+                print(f'un-supported xanes reference format. Error: {str(err)}')
                 self.load_reference_successful = 0
 
     def load_3D_energy(self):
@@ -7119,7 +7151,8 @@ class App(QWidget):
             print(legend)
             plt.legend(handles=legend)
             plt.show()
-        except:
+        except Exception as err:
+            print(err)
             self.lb_param_ref_info = 'un-recognized reference spectrum format'
 
     def reset_3D_reference(self):
@@ -7189,8 +7222,8 @@ class App(QWidget):
                     self.fit_param['pre_edge'] = [pre_edge_s, pre_edge_e]
                     self.tx_param_pre_s.setText(f'{pre_edge_s:2.4f}')
                     self.tx_param_pre_e.setText(f'{pre_edge_e:2.4f}')
-                except:
-                    print('fails in save pre-edge energy')
+                except Exception as err:
+                    print(f'fails in save pre-edge energy.  Error: {str(err)}')
                     save_successful = 0
                 try:
                     post_edge_e = self.tx_param_post_e.text()
@@ -7200,8 +7233,8 @@ class App(QWidget):
                     self.fit_param['post_edge'] = [post_edge_s, post_edge_e]
                     self.tx_param_post_s.setText(f'{post_edge_s:2.4f}')
                     self.tx_param_post_e.setText(f'{post_edge_e:2.4f}')
-                except:
-                    print('fails in save post-edge energy')
+                except Exception as err:
+                    print(f'fails in save post-edge energy.  Error: {str(err)}')
                     save_successful = 0
 
             self.fit_param['regulation_flag'] = 1 if self.rd_param_reg_edge_yes.isChecked() else 0
@@ -7227,7 +7260,8 @@ class App(QWidget):
 
             self.fit_param['color'] = self.tx_param_color.text()
 
-        except:
+        except Exception as err:
+            print(err)
             save_successful = 0
         # save to .csv
         if save_successful:
@@ -7285,8 +7319,8 @@ class App(QWidget):
                     self.tx_param_fit_range_s.setText(f'{fit_eng_s:2.4f}')
                     fit_eng_e = self.fit_param['fit_eng'][1]
                     self.tx_param_fit_range_e.setText(f'{fit_eng_e:2.4f}')
-                except:
-                    pass
+                except Exception as err:
+                    print(err)
 
                 # fit_iter_bound
                 fit_iter_flag = self.fit_param['fit_iter_flag']
@@ -7301,7 +7335,8 @@ class App(QWidget):
                     self.tx_param_iter_num.setText(str(fit_iter_num))
                     try:
                         fit_iter_lambda = float(self.fit_param['fit_iter_lambda'])
-                    except:
+                    except Exception as err:
+                        print(err)
                         fit_iter_lambda = 0.5
                     self.tx_param_iter_lambda.setText(str(fit_iter_lambda))
                 else:
@@ -7333,7 +7368,8 @@ class App(QWidget):
                     self.tx_param_pre_e.setText(f'{pre_edge_e:2.4f}')
                     self.rd_param_fit_edge_yes.setChecked(1)
                     self.chkbox_fit_pre_edge.setChecked(0)
-                except:
+                except Exception as err:
+                    print(err)
                     self.rd_param_fit_edge_no.setChecked(1)
                     self.fit_param['fit_pre_edge_flag'] = 0
 
@@ -7343,7 +7379,8 @@ class App(QWidget):
                     self.tx_param_post_e.setText(f'{post_edge_e:2.4f}')
                     self.rd_param_fit_edge_yes.setChecked(1)
                     self.chkbox_fit_post_edge.setChecked(0)
-                except:
+                except Exception as err:
+                    print(err)
                     self.rd_param_fit_edge_no.setChecked(1)
                     self.fit_param['fit_post_edge_flag'] = 0
 
@@ -7371,7 +7408,8 @@ class App(QWidget):
                     print('un-recongnized file type')
 
                 self.tx_param_color.setText(self.fit_param['color'])
-        except:
+        except Exception as err:
+            print(err)
             self.load_fit_param_successful = 0
 
     def run_3D_command(self):
@@ -7390,7 +7428,7 @@ class App(QWidget):
                 spectrum_ref = self.spectrum_ref
                 try:
                     num_cpu = int(self.tx_param_cpu.text())
-                except:
+                except Exception:
                     num_cpu = self.fit_param['num_cpu']
                 try:
                     if num_cpu == 1:
@@ -7403,8 +7441,8 @@ class App(QWidget):
                                                     file_type, fit_param,
                                                     xanes_eng, spectrum_ref,
                                                     file_range=[], save_hdf=0, num_cpu=num_cpu)
-                except:
-                    txt = 'something wrong in fitting'
+                except Exception as err:
+                    txt = f'something wrong in fitting. Error: {str(err)}'
                     self.lb_execute_output.setText(txt)
                     print(txt)
                     return 0
@@ -7453,7 +7491,7 @@ class App(QWidget):
                 try:
                     import napari
                     napari.view_image(img)
-                except:
+                except Exception:
                     plt.figure()
                     plt.imshow(img[s[0]//2])
         except Exception as err:
@@ -7522,7 +7560,7 @@ class App(QWidget):
         attr_img = self.tx_3D_attr_img.text()
         try:
             sli = eval(self.tx_3D_assemble_sli.text())
-        except:
+        except Exception:
             sli = []
         align_flag = eval(self.tx_3D_assemble_ali_flag.text())
         align_ref_index = int(self.tx_3D_assemble_ali_ref.text())
@@ -7641,7 +7679,7 @@ class App(QWidget):
             fit_max = 1
             try:
                 xanes_eng = self.eng
-            except:
+            except Exception:
                 xanes_eng = []
             file_path = self.file_path
             file_type = self.file_type
@@ -7664,7 +7702,7 @@ class App(QWidget):
                 xs = float(self.tx_3D_edge_s.text())
                 xe = float(self.tx_3D_edge_e.text())
                 eng_range = [xs, xe]
-            except:
+            except Exception:
                 eng_range = []
             fs = pyxas.retrieve_file_type(file_path,
                                           file_prefix=file_prefix,
@@ -7730,7 +7768,8 @@ class App(QWidget):
             fit_max = 1
             try:
                 xanes_eng = self.eng
-            except:
+            except Exception as err:
+                print(err)
                 xanes_eng = []
             file_path = self.file_path
             file_type = self.file_type
@@ -7744,9 +7783,10 @@ class App(QWidget):
             try:
                 xs = float(self.tx_3D_edge_s.text())
                 xe = float(self.tx_3D_edge_e.text())
-                xs_id = pyxas.find_neares(xanes_eng, xs)
-                xe_id = pyxas.find_neares(xanes_eng, xe)
-            except:
+                xs_id = pyxas.find_nearest(xanes_eng, xs)
+                xe_id = pyxas.find_nearest(xanes_eng, xe)
+            except Exception as err:
+                print(err)
                 xs_id, xe_id = 0, -1
             files = pyxas.retrieve_file_type(file_path,
                                           file_prefix=file_prefix,
@@ -7839,7 +7879,8 @@ class MyCanvas(FigureCanvas):
             try:
                 z = self.current_img[row][col]
                 self.obj.lb_z_l.setText('intensity: {:3.4f}'.format(z))
-            except:
+            except Exception as err:
+                print(err)
                 self.obj.lb_z_l.setText('')
 
     def update_img_stack(self):
@@ -7887,8 +7928,8 @@ class MyCanvas(FigureCanvas):
             if self.show_roi_flag:
                 for i in range(len(self.roi_list)):
                     self.roi_display(self.roi_list[f'roi_{i}'])
-        except:
-            print('Error in updating image')
+        except Exception as err:
+            print(f'Error in updating image. Error: {str(err)}')
 
     def add_line(self):
         if self.draw_line:
@@ -7984,16 +8025,16 @@ class MyCanvas(FigureCanvas):
         try:
             self.cb.remove()
             self.draw()
-        except:
-            pass
+        except Exception as err:
+            print(err)
 
     def add_colorbar(self):
         if self.colorbar_on_flag:
             try:
                 self.cb.remove()
                 self.draw()
-            except:
-                pass
+            except Exception as err:
+                print(err)
             self.divider = make_axes_locatable(self.axes)
             self.cax = self.divider.append_axes('right', size='3%', pad=0.06)
             self.cb = self.fig.colorbar(self.im, cax=self.cax, orientation='vertical')
@@ -8007,7 +8048,7 @@ def fit_peak_xanes_splie_mpi(img_xanes, xanes_eng, eng_range=[],
     from functools import partial
 
     try:
-        xs_id = pyxas.find_neares(xanes_eng, eng_range[0])
+        xs_id = pyxas.find_nearest(xanes_eng, eng_range[0])
         xe_id = pyxas.find_nearest(xanes_eng, eng_range[1])
     except:
         xs_id = 0
@@ -8042,18 +8083,20 @@ def fit_peak_2D_xanes_poly(img_xanes, xanes_eng, eng_range=[],fit_order=3, fit_m
     # from functools import partial
     img = img_xanes.copy()
     try:
-        xs_id = pyxas.find_neares(xanes_eng, eng_range[0])
-        xe_id = pyxas.find_neares(xanes_eng, eng_range[1])
+        xs_id = pyxas.find_nearest(xanes_eng, eng_range[0])
+        xe_id = pyxas.find_nearest(xanes_eng, eng_range[1])
         img = img[xs_id:xe_id]
         if len(xanes_eng):
             x = xanes_eng[xs_id:xe_id]
         else:
             x = np.arange(len(img))
-    except:
+    except Exception as err:
+        print(err)
         img = img_xanes.copy()
     try:
         x = xanes_eng[xs_id:xe_id]
-    except:
+    except Exception as err:
+        print(err)
         x = np.arange(len(img))
     s0 = img.shape
     img_f = img.reshape([s0[0], -1])
