@@ -1,23 +1,25 @@
 # pyxas 
-pyxas is a python library for 2D XANES fitting
+PyXAS is a python library for fast 2D/3D XANES analysis with graphic user interface (GUI) provided.
 
-## Prerequisites
-python: > 3.6 
-numpy\
-scipy\
-sklean\
-skimage\
-pystackreg
 
 ## Installation
-Clone this project to your machine:
+
+Recommended:
+
+```
+pip install pyxas
+
+```
+And run "pyxas_gui"
+
+
+Or clone this project to your machine::
 
 ```
 git clone https://github.com/gmysage/pyxas.git
 cd pyxas
-python pyxas_gui.py
+./pyxas_gui
 ```
-  
 
 ## License
 [BSD]
