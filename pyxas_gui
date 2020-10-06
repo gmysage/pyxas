@@ -316,6 +316,10 @@ class App(QWidget):
         lb_empty2.setFixedWidth(10)
         lb_empty3 = QLabel()
         lb_empty3.setFixedWidth(100)
+        lb_empty4 = QLabel()
+        lb_empty4.setFixedWidth(40)
+        lb_empty5 = QLabel()
+        lb_empty5.setFixedWidth(277)
 
         gpbox = QGroupBox('Load image')
         gpbox.setFont(self.font1)
@@ -414,13 +418,29 @@ class App(QWidget):
         lb_hdf_xanes = QLabel()
         lb_hdf_xanes.setFont(self.font2)
         lb_hdf_xanes.setText('Dataset for XANES:')
-        lb_hdf_xanes.setFixedWidth(140)
+        lb_hdf_xanes.setFixedWidth(160)
 
         lb_hdf_eng = QLabel()
         lb_hdf_eng.setFont(self.font2)
         lb_hdf_eng.setText('Dataset for Energy:')
-        lb_hdf_eng.setFixedWidth(140)
-        
+        lb_hdf_eng.setFixedWidth(160)
+
+        self.chkbox_white_field_corr = QCheckBox('White field corrected')
+        self.chkbox_white_field_corr.setFont(self.font2)
+        self.chkbox_white_field_corr.setFixedWidth(172)
+        self.chkbox_white_field_corr.setChecked(True)
+        self.chkbox_white_field_corr.stateChanged.connect(self.check_white_field_normed)
+
+        lb_hdf_bkg = QLabel()
+        lb_hdf_bkg.setFont(self.font2)
+        lb_hdf_bkg.setText('Dataset for white field:')
+        lb_hdf_bkg.setFixedWidth(160)
+
+        lb_hdf_dark = QLabel()
+        lb_hdf_dark.setFont(self.font2)
+        lb_hdf_dark.setText('Dataset for dark field:')
+        lb_hdf_dark.setFixedWidth(160)
+
         lb_db_xanes = QLabel()
         lb_db_xanes.setFont(self.font2)
         lb_db_xanes.setText('Scan id:')
@@ -435,6 +455,18 @@ class App(QWidget):
         self.tx_hdf_xanes.setText('img_xanes')
         self.tx_hdf_xanes.setFixedWidth(85)
         self.tx_hdf_xanes.setFont(self.font2)
+
+        self.tx_hdf_xanes_bkg = QLineEdit()
+        self.tx_hdf_xanes_bkg.setText('img_bkg')
+        self.tx_hdf_xanes_bkg.setFixedWidth(85)
+        self.tx_hdf_xanes_bkg.setDisabled(True)
+        self.tx_hdf_xanes_bkg.setFont(self.font2)
+
+        self.tx_hdf_xanes_dark = QLineEdit()
+        self.tx_hdf_xanes_dark.setText('img_dark')
+        self.tx_hdf_xanes_dark.setFixedWidth(85)
+        self.tx_hdf_xanes_dark.setDisabled(True)
+        self.tx_hdf_xanes_dark.setFont(self.font2)
 
         self.tx_hdf_eng = QLineEdit()
         self.tx_hdf_eng.setText('X_eng')
@@ -487,12 +519,30 @@ class App(QWidget):
         hbox1.addWidget(lb_ld)
         hbox1.addWidget(self.rd_tif)
         hbox1.addWidget(self.rd_hdf)
+        hbox1.addWidget(lb_empty4)
         hbox1.addWidget(lb_hdf_xanes)
         hbox1.addWidget(self.tx_hdf_xanes)
         hbox1.addWidget(self.pb_ld)
         hbox1.addLayout(hbox_bin)
         hbox1.addWidget(lb_empty)
         hbox1.setAlignment(QtCore.Qt.AlignLeft)
+
+        hbox1_ext = QHBoxLayout()
+        hbox1_ext.addWidget(lb_empty3)
+        hbox1_ext.addWidget(self.chkbox_white_field_corr)
+        hbox1_ext.addWidget(lb_hdf_bkg)
+        hbox1_ext.addWidget(self.tx_hdf_xanes_bkg)
+        #hbox1_ext.addWidget(lb_hdf_dark)
+        #hbox1_ext.addWidget(self.tx_hdf_xanes_dark)
+        hbox1_ext.addWidget(lb_empty)
+        hbox1_ext.setAlignment(QtCore.Qt.AlignLeft)
+
+        hbox1_ext2 = QHBoxLayout()
+        hbox1_ext2.addWidget(lb_empty5)
+        hbox1_ext2.addWidget(lb_hdf_dark)
+        hbox1_ext2.addWidget(self.tx_hdf_xanes_dark)
+        hbox1_ext2.addWidget(lb_empty)
+        hbox1_ext2.setAlignment(QtCore.Qt.AlignLeft)
 
         # load fitted file
         self.pb_ld_fitted = QPushButton('Load Fitted')
@@ -515,6 +565,7 @@ class App(QWidget):
         hbox3.addWidget(lb_ld_eng)
         hbox3.addWidget(self.rd_txt_eng)
         hbox3.addWidget(self.rd_hdf_eng)
+        hbox3.addWidget(lb_empty4)
         hbox3.addWidget(lb_hdf_eng)
         hbox3.addWidget(self.tx_hdf_eng)
         hbox3.addWidget(self.pb_ld_eng)
@@ -538,6 +589,8 @@ class App(QWidget):
 
         vbox = QVBoxLayout()
         vbox.addLayout(hbox1)
+        vbox.addLayout(hbox1_ext)
+        vbox.addLayout(hbox1_ext2)
         vbox.addLayout(hbox3)
         vbox.addLayout(hbox_eng)
         vbox.addLayout(hbox_manul_input)
@@ -4864,6 +4917,15 @@ class App(QWidget):
     def close_all_figures(self):
         plt.close('all')
 
+    def check_white_field_normed(self):
+        if self.chkbox_white_field_corr.isChecked():
+            self.tx_hdf_xanes_bkg.setDisabled(True)
+            self.tx_hdf_xanes_dark.setDisabled(True)
+        else:
+            self.tx_hdf_xanes_bkg.setEnabled(True)
+            self.tx_hdf_xanes_dark.setEnabled(True)
+        QApplication.processEvents()
+
     def load_image(self):
         self.default_layout()
         self.pb_ld.setEnabled(False)
@@ -4925,7 +4987,23 @@ class App(QWidget):
                         self.update_msg()
                     # read xanes-scan image
                     try:
-                        self.img_xanes = pyxas.rm_abnormal(np.array(f[dataset_xanes]))
+                        try:
+                            self.img_xanes = pyxas.rm_abnormal(np.array(f[dataset_xanes]))
+                            if not self.chkbox_white_field_corr.isChecked():
+                                dataset_bkg = self.tx_hdf_xanes_bkg.text()
+                                dataset_dark = self.tx_hdf_xanes_dark.text()
+                                img_bkg = np.array(f[dataset_bkg])
+                                img_dark = np.array(f[dataset_dark])
+                                self.img_xanes = pyxas.rm_abnormal((self.img_xanes - img_dark) / (img_bkg - img_dark))
+                        except Exception as err:
+                            print(err)
+                            k = list(f.keys())
+                            hdf_attr = ', '.join(k)
+                            self.msg = str(err) + '\n' + ' '*18 + 'available hdf attr:  ' + hdf_attr
+                            self.update_msg()
+                            f.close()
+                            self.pb_ld.setEnabled(True)
+                            return 0
                         s = self.img_xanes.shape
                         if len(s) == 2:
                             self.img_xanes = np.expand_dims(self.img_xanes, axis=0)
