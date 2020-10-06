@@ -9,10 +9,8 @@ from pyxas.xanes_util import *
 from pyxas.xanes_fit import *
 from pyxas.image_util import *
 from pyxas.misc import *
-from pyxas.batch_xanes import *
 from pyxas.align3D import *
 from pyxas.colormix import *
-from pyxas.tomo_recon import *
 from pyxas.align_tomo_proj import *
 from skimage import io
 
