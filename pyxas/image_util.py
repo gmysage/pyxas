@@ -115,7 +115,7 @@ def circ_mask(img, axis, ratio=1, val=0):
         im = im.swapaxes(0, axis)
         dx, dy, dz = im.shape
         m = _get_mask(dx, dy, ratio)
-        m_out = (1 - a) * val
+        m_out = (1 - m) * val
         im_m = np.array(m, dtype=np.int) * im + m_out
         im_m = im_m.swapaxes(0, axis)
     return im_m
@@ -771,8 +771,8 @@ are used to
           Nc,Nr = np.meshgrid(Nc,Nr)
           Greg = buf2ft*np.exp(1j*2*np.pi*(-1.*row_shift*Nr/nr-1.*col_shift*Nc/nc))
           Greg = Greg*np.exp(1j*diffphase)
-       elif (nargout > 1)&(usfac == 0):
-          Greg = np.dot(buf2ft,exp(1j*diffphase))
+       elif (nargout > 1) and (usfac == 0):
+          Greg = np.dot(buf2ft,np.exp(1j*diffphase))
           
        #plt.figure(3)
        image_reg = sf.ifft2(Greg) * np.sqrt(nr*nc)

@@ -303,121 +303,177 @@ def align_3D_coarse(img_ref, img1, circle_mask_ratio=1, method='other'):
     return img_ali, shift_matrix
 
 
-def align_3D_tomo_file(file_path='.', ref_index=-1, binning=1, circle_mask_ratio=0.9, file_prefix='recon', file_type='.h5', align_coarse=1, align_method=1, hdf_attr='img'):    
-    '''
-    align_method: 
-        1:  old method
-        2:  3D cross-correlation
-    '''
 
-    import time
-    file_path = os.path.abspath(file_path)
-    files_recon = pyxas.retrieve_file_type(file_path, file_prefix=file_prefix, file_type=file_type)
+def get_tomo_image(fn, file_type='.h5', hdf_attr='img'):
+    if 'h5' in file_type:
+        img = pyxas.get_img_from_hdf_file(fn, hdf_attr)[hdf_attr]
+        try:
+            scan_id = pyxas.get_img_from_hdf_file(fn, 'scan_id')['scan_id']
+            scan_id = int(scan_id)
+        except:
+            scan_id = 0
+        try:
+            X_eng = pyxas.get_img_from_hdf_file(fn, 'X_eng')['X_eng']
+            X_eng = float(X_eng)
+        except:
+            X_eng = 0
+    elif 'tif' in file_type:
+        img = pyxas.get_img_from_tif_file(fn)
+        scan_id = 0
+        X_eng = 0    
+    return img, scan_id, X_eng
+    
+    
+       
 
-    num_file = len(files_recon)
-    res = pyxas.get_img_from_hdf_file(files_recon[ref_index], hdf_attr, 'scan_id', 'X_eng')
-    img_ref = res['img']
-    scan_id = int(res['scan_id'])
-    X_eng = float(res['X_eng'])
-    if binning > 1:
-        img_ref = pyxas.bin_image(img_ref, binning)
+def align_3D_tomo_image(img, img_ref, circle_mask_ratio=1, align_method=2, align_coarse=1):
     if align_method == 1:
-        img_ref = pyxas.move_3D_to_center(img_ref, circle_mask_ratio=circle_mask_ratio)
-    else:
-        if circle_mask_ratio < 1:
-            img_ref = pyxas.circ_mask(img_ref, axis=0, ratio=circle_mask_ratio)
-    fn_save = f'{file_path}/ali_recon_{scan_id}_bin_{binning}.h5'
-    pyxas.save_hdf_file(fn_save, 'img', img_ref, 'scan_id', scan_id, 'X_eng', X_eng)
-
-    time_start = time.time()
-    for i in range(num_file):
-        fn = files_recon[i]
-        fn_short = fn.split('/')[-1]
-        if fn == files_recon[ref_index]:
-            continue
-        print(f'#{i+1}/{num_file}  aligning {fn_short} ...')
-        res = pyxas.get_img_from_hdf_file(fn, 'img', 'scan_id', 'X_eng')
-        img1 = res['img']
-        if circle_mask_ratio < 1:
-            img1 = pyxas.circ_mask(img1, axis=0, ratio=circle_mask_ratio)
-        scan_id = int(res['scan_id'])
-        X_eng = float(res['X_eng'])
-        if binning > 1:
-            img1 = pyxas.bin_image(img1, binning)
-        if align_method == 1:
-            if align_coarse:
-                img1, shift_matrix = pyxas.align_3D_coarse(img_ref, img1, circle_mask_ratio=circle_mask_ratio, method='other')
-            img1_ali, shift_matrix = pyxas.align_3D_fine(img_ref, img1, circle_mask_ratio=circle_mask_ratio, sli_select=0, row_select=0, test_range=[-30, 30], sli_shift_guess=0, row_shift_guess=0, col_shift_guess=0, cen_mass_flag=1)
-        elif align_method == 2:            
-            img1_ali, h_shft, r_shft, c_shft = align_img3D(img_ref, img1, align_flag=1)   
-            print(f'h_shft = {h_shft:4.1f}, r_shft = {r_shft:4.1f}, c_shft = {c_shft:4.1f}')     
-        fn_save = f'{file_path}/ali_recon_{scan_id}_bin_{binning}.h5'  
-        print(f'saving aligned file: {fn_save.split("/")[-1]}\n')
-        pyxas.save_hdf_file(fn_save, 'img', img1_ali, 'scan_id', scan_id, 'X_eng', X_eng)   
-        print(f'time elasped: {time.time() - time_start:05.1f}\n')
-        
-        
-def align_3D_tomo_file_mpi_sub(files_recon, ref_tomo, file_path='.', binning=1, circle_mask_ratio=0.9, align_method=1):
-    '''
-    align_method: 
-        1:  old method
-        2:  3D cross-correlation
-    '''
-    img_ref = ref_tomo
-    fn = files_recon
-    fn_short = fn.split('/')[-1]
-    print(f'aligning {fn_short} ...')
-    res = pyxas.get_img_from_hdf_file(fn, 'img', 'scan_id', 'X_eng')
-    img1 = res['img']
-    if circle_mask_ratio < 1:
-        img1 = pyxas.circ_mask(img1, axis=0, ratio=circle_mask_ratio)
-    scan_id = int(res['scan_id'])
-    X_eng = float(res['X_eng'])
-    if binning > 1:
-        img1 = pyxas.bin_image(img1, binning)
-    if align_method == 1:
-        img1, shift_matrix = pyxas.align_3D_coarse(img_ref, img1, circle_mask_ratio=circle_mask_ratio, method='other')
-        img1_ali, shift_matrix = pyxas.align_3D_fine(img_ref, img1, circle_mask_ratio=circle_mask_ratio,
+        img1, shift_matrix = pyxas.align_3D_coarse(img_ref, img, circle_mask_ratio=circle_mask_ratio, method='other')
+        img_ali, shift_matrix = pyxas.align_3D_fine(img_ref, img1, circle_mask_ratio=circle_mask_ratio,
                                                      sli_select=0, row_select=0, test_range=[-30, 30],
                                                      sli_shift_guess=0, row_shift_guess=0,
                                                      col_shift_guess=0, cen_mass_flag=1)
     elif align_method == 2:
-        img1_ali, h_shft, r_shft, c_shft = align_img3D(img_ref, img1, align_flag=1)
-        print(f'h_shft = {h_shft:4.1f}, r_shft = {r_shft:4.1f}, c_shft = {c_shft:4.1f}')
-    fn_save = f'{file_path}/ali_recon_{scan_id}_bin_{binning}.h5'  
-    print(f'saving aligned file: {fn_save.split("/")[-1]}\n')
-    pyxas.save_hdf_file(fn_save, 'img', img1_ali, 'scan_id', scan_id, 'X_eng', X_eng)   
+        img_ali, h_shft, r_shft, c_shft = align_img3D(img_ref, img, align_flag=1)
+        print(f'h_shft = {h_shft:4.1f}, r_shft = {r_shft:4.1f}, c_shft = {c_shft:4.1f}')    
+    return img_ali
 
-        
-def align_3D_tomo_file_mpi(file_path='.', ref_index=-1, binning=1, circle_mask_ratio=0.8, file_prefix='recon', file_type='.h5', align_method=1, num_cpu=4):
+
+
+def align_3D_tomo_file_mpi_sub(files_recon, img_ref, file_path='.', binning=1, circle_mask_ratio=0.9, file_type='.h5', align_coarse=1, align_method=1, hdf_attr='img'):
     '''
     align_method: 
         1:  old method
         2:  3D cross-correlation
     '''
+    
+    fn = files_recon
+    fn_short = fn.split('/')[-1]
+    print(f'aligning {fn_short} ...')    
+    img1, scan_id, X_eng = get_tomo_image(files_recon, file_type, hdf_attr)
+    if circle_mask_ratio < 1:
+        img1 = pyxas.circ_mask(img1, axis=0, ratio=circle_mask_ratio)
+    if binning > 1:
+        img1 = pyxas.bin_image(img1, binning)
+    img_ali = align_3D_tomo_image(img1, img_ref, circle_mask_ratio, align_method, align_coarse)
+    fn_save = f'{file_path}/ali_recon_{scan_id}_bin_{binning}.h5'  
+    print(f'saving aligned file: {fn_save.split("/")[-1]}\n')
+    pyxas.save_hdf_file(fn_save, 'img', img_ali.astype(np.float32), 'scan_id', scan_id, 'X_eng', X_eng)   
 
+
+
+
+def align_3D_tomo_file_specific(file_save_path='.', files_recon=[], files_ref='', binning=1, circle_mask_ratio=0.9, file_type='.h5', align_coarse=1, align_method=1, hdf_attr='img'):    
+    '''
+    align_method: 
+        1:  old method
+        2:  3D cross-correlation
+    '''
+    import time
+    file_path = os.path.abspath(file_save_path)
+    img_ref, scan_id, X_eng = get_tomo_image(files_ref, file_type, hdf_attr)
+        
+    if binning > 1:
+        img_ref = pyxas.bin_image(img_ref, binning)
+    if circle_mask_ratio < 1:
+        img_ref = pyxas.circ_mask(img_ref, axis=0, ratio=circle_mask_ratio)
+    if align_method == 1:
+        img_ref = pyxas.move_3D_to_center(img_ref, circle_mask_ratio=circle_mask_ratio)
+            
+    fn_save = f'{file_path}/ali_recon_{scan_id}_bin_{binning}.h5'
+    pyxas.save_hdf_file(fn_save, 'img', img_ref.astype(np.float32), 'scan_id', scan_id, 'X_eng', X_eng)
+
+    time_start = time.time()
+    num_file = len(files_recon)
+    for i in range(num_file):
+        fn = files_recon[i]
+        align_3D_tomo_file_mpi_sub(fn, img_ref, file_path, binning, circle_mask_ratio, file_type, align_coarse, align_method, hdf_attr)   
+        print(f'time elasped: {time.time() - time_start:05.1f}\n')
+        
+        
+
+
+def align_3D_tomo_folder(file_path='.', ref_index=-1, binning=1, circle_mask_ratio=0.9, file_prefix='recon', file_type='.h5', align_coarse=1, align_method=1, hdf_attr='img'):    
+    '''
+    align_method: 
+        1:  old method
+        2:  3D cross-correlation
+    '''
+    import time
+    file_save_path = os.path.abspath(file_path)
+    files_recon = pyxas.retrieve_file_type(file_path, file_prefix=file_prefix, file_type=file_type)
+    files_ref = files_recon[ref_index]
+    align_3D_tomo_file_specific(file_save_path, files_recon, files_ref, binning, circle_mask_ratio, file_type, align_coarse, align_method, hdf_attr)
+
+        
+               
+        
+def align_3D_tomo_file_mpi_specific(file_save_path, files_recon=[], files_ref='', binning=1, circle_mask_ratio=0.8, file_type='.h5', align_coarse=1, align_method=1, hdf_attr='img', num_cpu=4):
+    '''
+    align_method: 
+        1:  old method
+        2:  3D cross-correlation
+    '''
     from multiprocessing import Pool, cpu_count
     from functools import partial
     num_cpu = min(round(cpu_count() * 0.8), num_cpu)
     print(f'align_3D_tomo using {num_cpu:2d} CPUs')
     # save ref image
-    file_path = os.path.abspath(file_path)
-    files_recon = pyxas.retrieve_file_type(file_path, file_prefix=file_prefix, file_type=file_type)
-    res = pyxas.get_img_from_hdf_file(files_recon[ref_index], 'img', 'scan_id', 'X_eng')
-    img_ref = res['img']
-    scan_id = int(res['scan_id'])
-    X_eng = float(res['X_eng'])
-    s = img_ref.shape
+    file_path = os.path.abspath(file_save_path)
+    img_ref, scan_id, X_eng = get_tomo_image(files_ref, file_type, hdf_attr)
     if binning > 1:
         img_ref = pyxas.bin_image(img_ref, binning)
+    if circle_mask_ratio < 1:
+            img_ref = pyxas.circ_mask(img_ref, axis=0, ratio=circle_mask_ratio)
     if align_method == 1: 
         img_ref = pyxas.move_3D_to_center(img_ref, circle_mask_ratio=circle_mask_ratio)
-    else:
-        if circle_mask_ratio < 1:
-            img_ref = pyxas.circ_mask(img_ref, axis=0, ratio=circle_mask_ratio)
-    fn_save = f'{file_path}/ali_recon_{scan_id}_bin_{binning}.h5'
-    pyxas.save_hdf_file(fn_save, 'img', img_ref, 'scan_id', scan_id, 'X_eng', X_eng)
+        
+    fn_save = f'{file_save_path}/ali_recon_{scan_id}_bin_{binning}.h5'
+    pyxas.save_hdf_file(fn_save, 'img', img_ref.astype(np.float32), 'scan_id', scan_id, 'X_eng', X_eng)
     # start align
     pool = Pool(num_cpu)
-    pool.map(partial(align_3D_tomo_file_mpi_sub, ref_tomo=img_ref, file_path=file_path, binning=binning, circle_mask_ratio=circle_mask_ratio, align_method=align_method), files_recon)
-    pool.close()
+    pool.map(partial(align_3D_tomo_file_mpi_sub, 
+                    img_ref=img_ref, 
+                    file_path=file_path, 
+                    binning=binning, 
+                    circle_mask_ratio=circle_mask_ratio, 
+                    file_type=file_type,
+                    align_coarse=align_coarse,
+                    align_method=align_method,
+                    hdf_attr=hdf_attr), 
+            files_recon)        
+    pool.close()    
+        
+
+def align_3D_tomo_folder_mpi(file_path='.', ref_index=-1, binning=1, circle_mask_ratio=0.8, file_prefix='recon', file_type='.h5', align_coarse=1, align_method=1, hdf_attr='img', num_cpu=4):
+    '''
+    align_method: 
+        1:  old method
+        2:  3D cross-correlation
+    '''
+    file_path = os.path.abspath(file_path)
+    files_recon = pyxas.retrieve_file_type(file_path, file_prefix=file_prefix, file_type=file_type)
+    files_ref = files_recon[ref_index]
+    align_3D_tomo_file_mpi_specific(file_path, files_recon, files_ref, binning, circle_mask_ratio, file_type, align_coarse, align_method, hdf_attr, num_cpu)
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    

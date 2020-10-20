@@ -83,8 +83,8 @@ class App(QWidget):
     def initUI(self):
         self.setWindowTitle(self.title)
         self.setGeometry(self.left, self.top, self.width, self.height)
-        self.font1 = QtGui.QFont('Arial', 11.5, QtGui.QFont.Bold)
-        self.font2 = QtGui.QFont('Arial', 11.5, QtGui.QFont.Normal)
+        self.font1 = QtGui.QFont('Arial', 11, QtGui.QFont.Bold)
+        self.font2 = QtGui.QFont('Arial', 11, QtGui.QFont.Normal)
         self.fpath = os.getcwd()
         self.roi_file_id = 0
         self.spectrum_ref = {}
@@ -5792,6 +5792,11 @@ class App(QWidget):
         self.pb_align_tomo_file.setFont(self.font2)
         self.pb_align_tomo_file.clicked.connect(self.align_3D_tomo_file)
 
+        self.pb_align_tomo_single = QPushButton('Align single file')
+        self.pb_align_tomo_single.setFixedWidth(160)
+        self.pb_align_tomo_single.setFont(self.font2)
+        self.pb_align_tomo_single.clicked.connect(self.align_3D_tomo_file_single)
+
         lb_prefix = QLabel()
         lb_prefix.setText('file_prefix:')
         lb_prefix.setFixedWidth(80)
@@ -5804,7 +5809,7 @@ class App(QWidget):
         self.tx_3D_prefix.setFixedWidth(80)
 
         lb_ref_index = QLabel()
-        lb_ref_index.setText('Ref. file:')
+        lb_ref_index.setText('Ref. index:')
         lb_ref_index.setFixedWidth(80)
         lb_ref_index.setFont(self.font2)
         lb_ref_index.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
@@ -5850,6 +5855,66 @@ class App(QWidget):
         self.tx_3D_align_method.setValidator(QIntValidator())
         self.tx_3D_align_method.setFont(self.font2)
 
+        lb_attr_img = QLabel()
+        lb_attr_img.setText('attr_img:')
+        lb_attr_img.setFixedWidth(80)
+        lb_attr_img.setFont(self.font2)
+        lb_attr_img.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+
+        self.tx_3D_tomo_attr_img = QLineEdit()
+        self.tx_3D_tomo_attr_img.setText('img')
+        self.tx_3D_tomo_attr_img.setFont(self.font2)
+        self.tx_3D_tomo_attr_img.setFixedWidth(80)
+
+        lb_num_cpu = QLabel()
+        lb_num_cpu.setText('num of cpu:')
+        lb_num_cpu.setFixedWidth(80)
+        lb_num_cpu.setFont(self.font2)
+        lb_num_cpu.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+
+        self.tx_3D_tomo_cpu = QLineEdit()
+        self.tx_3D_tomo_cpu.setText('1')
+        self.tx_3D_tomo_cpu.setFont(self.font2)
+        self.tx_3D_tomo_cpu.setValidator(QIntValidator())
+        self.tx_3D_tomo_cpu.setFixedWidth(80)
+
+        lb_empty_ali0 = QLabel()
+        lb_empty_ali0.setFixedWidth(160)
+
+        lb_sel_ref = QLabel()
+        lb_sel_ref.setFixedWidth(80)
+        lb_sel_ref.setFont(self.font2)
+        lb_sel_ref.setText('Ref. file:')
+        lb_sel_ref.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+
+        self.tx_sel_ref = QLineEdit()
+        self.tx_sel_ref.setFixedWidth(400)
+        self.tx_sel_ref.setFont(self.font2)
+
+        self.pb_sel_ref = QPushButton('select')
+        self.pb_sel_ref.setFixedWidth(80)
+        self.pb_sel_ref.setFont(self.font2)
+        self.pb_sel_ref.clicked.connect(self.select_3D_ref_file)
+
+        lb_empty_ali = QLabel()
+        lb_empty_ali.setFixedWidth(160)
+
+        lb_sel_align = QLabel()
+        lb_sel_align.setFixedWidth(80)
+        lb_sel_align.setFont(self.font2)
+        lb_sel_align.setText('Align file:')
+        lb_sel_align.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+
+        self.tx_sel_align = QLineEdit()
+        self.tx_sel_align.setFixedWidth(400)
+        self.tx_sel_align.setFont(self.font2)
+
+        self.pb_sel_align = QPushButton('select')
+        self.pb_sel_align.setFixedWidth(80)
+        self.pb_sel_align.setFont(self.font2)
+        self.pb_sel_align.clicked.connect(self.select_3D_align_file)
+
+
         hbox_file = QHBoxLayout()
         hbox_file.addWidget(self.pb_load_tomo_file)
         hbox_file.addWidget(lb_prefix)
@@ -5857,22 +5922,51 @@ class App(QWidget):
         hbox_file.addStretch()
         hbox_file.setAlignment(QtCore.Qt.AlignLeft)
 
-        hbox_ali = QHBoxLayout()
-        hbox_ali.addWidget(self.pb_align_tomo_file)
-        hbox_ali.addWidget(lb_ref_index)
-        hbox_ali.addWidget(self.tx_3D_ref_index)
-        hbox_ali.addWidget(lb_bin)
-        hbox_ali.addWidget(self.tx_3D_bin)
-        hbox_ali.addWidget(lb_mask)
-        hbox_ali.addWidget(self.tx_3D_mask)
-        hbox_ali.addWidget(lb_method)
-        hbox_ali.addWidget(self.tx_3D_align_method)
-        hbox_ali.addStretch()
-        hbox_ali.setAlignment(QtCore.Qt.AlignLeft)
+        hbox_ali1 = QHBoxLayout()
+        hbox_ali1.addWidget(self.pb_align_tomo_file)
+        hbox_ali1.addWidget(lb_ref_index)
+        hbox_ali1.addWidget(self.tx_3D_ref_index)
+        hbox_ali1.addWidget(lb_bin)
+        hbox_ali1.addWidget(self.tx_3D_bin)
+        hbox_ali1.addWidget(lb_mask)
+        hbox_ali1.addWidget(self.tx_3D_mask)
+        hbox_ali1.addWidget(lb_method)
+        hbox_ali1.addWidget(self.tx_3D_align_method)
+        hbox_ali1.addStretch()
+        hbox_ali1.setAlignment(QtCore.Qt.AlignLeft)
+
+        hbox_ali2 = QHBoxLayout()
+        hbox_ali2.addWidget(lb_empty_ali0)
+        hbox_ali2.addWidget(lb_attr_img)
+        hbox_ali2.addWidget(self.tx_3D_tomo_attr_img)
+        hbox_ali2.addWidget(lb_num_cpu)
+        hbox_ali2.addWidget(self.tx_3D_tomo_cpu)
+        hbox_ali2.setAlignment(QtCore.Qt.AlignLeft)
+
+        hbox_ali_single1 = QHBoxLayout()
+        hbox_ali_single1.addWidget(self.pb_align_tomo_single)
+        hbox_ali_single1.addWidget(lb_sel_ref)
+        hbox_ali_single1.addWidget(self.tx_sel_ref)
+        hbox_ali_single1.addWidget(self.pb_sel_ref)
+        hbox_ali_single1.setAlignment(QtCore.Qt.AlignLeft)
+
+        hbox_ali_single2 = QHBoxLayout()
+        hbox_ali_single2.addWidget(lb_empty_ali)
+        hbox_ali_single2.addWidget(lb_sel_align)
+        hbox_ali_single2.addWidget(self.tx_sel_align)
+        hbox_ali_single2.addWidget(self.pb_sel_align)
+        hbox_ali_single2.setAlignment(QtCore.Qt.AlignLeft)
+
+        lb_empty = QLabel()
+        lb_empty.setFixedHeight(40)
 
         vbox = QVBoxLayout()
         vbox.addLayout(hbox_file)
-        vbox.addLayout(hbox_ali)
+        vbox.addLayout(hbox_ali1)
+        vbox.addLayout(hbox_ali2)
+        vbox.addLayout(hbox_ali_single1)
+        vbox.addLayout(hbox_ali_single2)
+        vbox.addWidget(lb_empty)
         vbox.addStretch()
 
         return vbox
@@ -5888,8 +5982,8 @@ class App(QWidget):
         self.lst_3D_tomo = QListWidget()
         self.lst_3D_tomo.setFont(self.font2)
         self.lst_3D_tomo.itemClicked.connect(self.show_3D_h5_attr)
-        self.lst_3D_tomo.setFixedWidth(200)
-        self.lst_3D_tomo.setFixedHeight(360)
+        self.lst_3D_tomo.setFixedWidth(400)
+        self.lst_3D_tomo.setFixedHeight(400)
 
 
         lb_3D_h5_attr = QLabel()
@@ -7566,12 +7660,19 @@ class App(QWidget):
                 elif 'tif' in file_type:
                     img = pyxas.get_img_from_tif_file(fn)
                 s = img.shape
+                circle_mask_ratio = np.float(self.tx_3D_mask.text())
+                if circle_mask_ratio < 1:
+                    img = pyxas.circ_mask(img, axis=0, ratio=circle_mask_ratio)
                 try:
                     import napari
+                    print('view in napari')
                     napari.view_image(img)
                 except Exception:
-                    plt.figure()
+                    plt.figure(f'circle_mask_ratio = {circle_mask_ratio}')
                     plt.imshow(img[s[0]//2])
+                    plt.show()
+                    QApplication.processEvents()
+                    print('view in matplotlib')
         except Exception as err:
             print(err)
 
@@ -7612,27 +7713,91 @@ class App(QWidget):
     def align_3D_tomo_file(self):
         try:
             self.pb_align_tomo_file.setText('Aligning ...')
-            self.lb_3D_prep_msg.setText('aligning ...    Check terminal output for progress')
+            self.lb_3D_prep_msg.setText('Aligning ...    check terminal output for progress.')
             QApplication.processEvents()
             ref_index = int(self.tx_3D_ref_index.text())
             binning = int(self.tx_3D_bin.text())
             circle_mask_ratio = float(self.tx_3D_mask.text())
             align_method = int(self.tx_3D_align_method.text())
-            pyxas.align_3D_tomo_file(file_path = self.tomo_file['file_path'],
-                                     ref_index = ref_index,
-                                     binning = binning,
-                                     circle_mask_ratio = circle_mask_ratio,
-                                     file_prefix = self.tomo_file['file_prefix'],
-                                     file_type = self.tomo_file['file_type'],
-                                     align_coarse = 1,
-                                     align_method = align_method
-                                     )
+            hdf_attr = self.tx_3D_tomo_attr_img.text()
+            num_cpu = int(self.tx_3D_tomo_cpu.text())
+            if num_cpu == 1:
+                pyxas.align_3D_tomo_folder(file_path = self.tomo_file['file_path'],
+                                         ref_index = ref_index,
+                                         binning = binning,
+                                         circle_mask_ratio = circle_mask_ratio,
+                                         file_prefix = self.tomo_file['file_prefix'],
+                                         file_type = self.tomo_file['file_type'],
+                                         align_coarse = 1,
+                                         align_method = align_method,
+                                         hdf_attr = hdf_attr
+                                         )
+            else:
+                pyxas.align_3D_tomo_folder_mpi(file_path=self.tomo_file['file_path'],
+                                         ref_index=ref_index,
+                                         binning=binning,
+                                         circle_mask_ratio=circle_mask_ratio,
+                                         file_prefix=self.tomo_file['file_prefix'],
+                                         file_type=self.tomo_file['file_type'],
+                                         align_coarse=1,
+                                         align_method=align_method,
+                                         hdf_attr=hdf_attr,
+                                         num_cpu=num_cpu)
         except Exception as err:
             print(err)
             self.lb_3D_prep_msg.setText(f'{str(err)}')
         finally:
             self.pb_align_tomo_file.setText('Align tomo files')
+            self.lb_3D_prep_msg.setText('Align finished')
             QApplication.processEvents()
+
+    def align_3D_tomo_file_single(self):
+        try:
+            self.pb_align_tomo_single.setText('Aligning ...')
+            self.lb_3D_prep_msg.setText('Aligning ...    check terminal output for progress.')
+            QApplication.processEvents()
+
+            fn_ref_sub = self.tx_sel_ref.text()
+            fn_align_sub = self.tx_sel_align.text()
+
+            fn_ref = self.tomo_file['file_path'] + '/' + fn_ref_sub
+            fn_align = self.tomo_file['file_path'] + '/' + fn_align_sub
+
+            binning = int(self.tx_3D_bin.text())
+            circle_mask_ratio = float(self.tx_3D_mask.text())
+            align_method = int(self.tx_3D_align_method.text())
+            hdf_attr = self.tx_3D_tomo_attr_img.text()
+
+            pyxas.align_3D_tomo_file_specific(file_save_path=self.tomo_file['file_path'],
+                                              files_recon=[fn_align],
+                                              files_ref=fn_ref,
+                                              binning=binning,
+                                              circle_mask_ratio=circle_mask_ratio,
+                                              align_coarse=1,
+                                              align_method=align_method,
+                                              hdf_attr=hdf_attr)
+        except Exception as err:
+            print(err)
+            self.lb_3D_prep_msg.setText(f'{str(err)}')
+        finally:
+            self.pb_align_tomo_single.setText('Align single file')
+            self.lb_3D_prep_msg.setText('Align finished')
+            QApplication.processEvents()
+
+
+    def select_3D_ref_file(self):
+        item = self.lst_3D_tomo.selectedItems()
+        if len(item):
+            fn_sub = item[0].text()
+            self.tx_sel_ref.setText(fn_sub)
+
+
+    def select_3D_align_file(self):
+        item = self.lst_3D_tomo.selectedItems()
+        if len(item):
+            fn_sub = item[0].text()
+            self.tx_sel_align.setText(fn_sub)
+
 
     def assemble_3D_xanes(self):
         attr_img = self.tx_3D_attr_img.text()
