@@ -4609,12 +4609,12 @@ class App(QWidget):
             if self.cb1.currentText() == 'Color mix':
                 self.save_img_single()
             else:
-                img_stack = (canvas.img_stack* self.mask1 * self.mask2).astype(np.float32)
+                img_stack = (canvas.img_stack * self.mask1 * self.mask2 * self.mask).astype(np.float32)
                 options = QFileDialog.Option()
                 options |= QFileDialog.DontUseNativeDialog
                 file_type = 'tif files (*.tiff)'
                 fn, _ = QFileDialog.getSaveFileName(self, 'Save File', "", file_type, options=options)
-                if fn[-5:] != '.tiff' or fn[-4:]!='.tif':
+                if fn[-5:] != '.tiff' and fn[-4:]!='.tif':
                     fn += '.tiff'
                 io.imsave(fn, img_stack)
                 print(f'current image stack has been saved to file: {fn}')
