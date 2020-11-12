@@ -148,16 +148,19 @@ def retrieve_image_from_file(file_path='/home/mingyuan/Work/scan8538_8593/align'
     return img
 
 
-def get_1st_image_from_tomo_scan(file_path='/home/mingyuan/Work/scan8538_8593'):
-    files = retrieve_file_type(file_path, file_prefix='fly', file_type='.h5')
-    index = 0
+def get_image_from_tomo_scan(index=0, file_path='.', file_prefix='fly', file_type='h5', theta_value=None):
+    files = retrieve_file_type(file_path, file_prefix, file_type)
     eng = []
     img0 = []
     theta =[]
     for fn in files:
         if fn[-3:] == '.h5':
             print(f'reading file {fn}')
-            img_tomo, eng_tomo, theta_norm = retrieve_norm_tomo_image(fn, index=0)
+            if not theta_value is None:
+                f = h5py.File(fn, 'r')
+                theta_tmp = np.array(f['angle'])
+                index = find_nearest(theta_tmp, theta_value)
+            img_tomo, eng_tomo, theta_norm, scan_id = retrieve_norm_tomo_image(fn, index=index)
             img0.append(img_tomo)
             eng.append(eng_tomo)
             theta.append(theta_norm)
