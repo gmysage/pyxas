@@ -4945,7 +4945,6 @@ class App(QWidget):
             flag_read_from_file = 1
             flag_read_from_database =0
         elif self.rd_tif.isChecked():
-            print('read tiff or tif file')
             file_type = 'tif files (*.tif, *.tiff)'
             flag_read_from_file = 1
             flag_read_from_database = 0

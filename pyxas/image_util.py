@@ -114,11 +114,7 @@ def circ_mask(img, axis, ratio=1, val=0):
     else:
         im = im.swapaxes(0, axis)
         dx, dy, dz = im.shape
-<<<<<<< HEAD
         m = _get_mask(dy, dz, ratio)
-=======
-        m = _get_mask(dx, dy, ratio)
->>>>>>> 66f40d8d824fa2df205ae2e49ff05cdb17094f71
         m_out = (1 - m) * val
         im_m = np.array(m, dtype=np.int) * im + m_out
         im_m = im_m.swapaxes(0, axis)

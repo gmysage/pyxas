@@ -533,24 +533,40 @@ def assemble_xanes_slice_from_tomo_mpi_sub(sli, file_path, files_recon, attr_img
 
     time_s = time.time()
     num_file = len(files_recon)
-    f = h5py.File(files_recon[0], 'r')    
-    num_slice = len(f[attr_img])
-    s = np.array(list(f[attr_img][0])).shape
-    f.close()
+
+    file_type = files_recon[0].split('.')[-1]
+    if 'tif' in file_type:
+        img_tmp = io.imread(files_recon[0])
+        s = img_tmp.shape
+        num_slice = s[0]
+        s = (s[1], s[2])
+    elif 'h5' in file_type:
+        f = h5py.File(files_recon[0], 'r')
+        num_slice = len(f[attr_img])
+        s = np.array(list(f[attr_img][0])).shape
+        f.close()
+    else:
+        print('un-recognized file type')
+        return 0
+
     img_xanes = np.zeros([num_file, s[0], s[1]])
-    #mask3D = np.ones([num_slice, s[0], s[1]])
     xanes_eng = np.zeros(num_file)
     mask = np.ones([s[0], s[1]])
     res = {}    
     print(f'processing slice: {sli}')
     for j in range(num_file):
-        f = h5py.File(files_recon[j], 'r')
-        tmp = np.array(f[attr_img][sli])
-        try:
-            tmp_eng = np.array(f[attr_eng])
-        except:
+        fn = files_recon[j]
+        if 'tif' in file_type:
+            tmp = io.imread(fn)[sli]
             tmp_eng = 0
-        f.close()
+        elif 'h5' in file_type:
+            f = h5py.File(fn, 'r')
+            tmp = np.array(f[attr_img][sli])
+            try:
+                tmp_eng = np.array(f[attr_eng])
+            except:
+                tmp_eng = 0
+            f.close()
         img_xanes[j] = tmp
         xanes_eng[j] = tmp_eng
     # align xanes stack
@@ -606,13 +622,23 @@ def assemble_xanes_slice_from_tomo_mpi(file_path='.', file_prefix='ali_recon', f
     xanes_assemble_dir = f'{file_path}/xanes_assemble'
     if not os.path.exists(xanes_assemble_dir):
         os.makedirs(xanes_assemble_dir)
-    f = h5py.File(files_recon[0], 'r')    
-    num_slice = len(f['img'])
+
+    if 'tif' in file_type:
+        img_tmp = io.imread(files_recon[0])
+        s = img_tmp.shape
+        num_slice = s[0]
+    elif 'h5' in file_type:
+        f = h5py.File(files_recon[0], 'r')
+        num_slice = len(f['img'])
+        s = np.array(f['img'][0]).shape
+        f.close()
+    else:
+        print('unrecognized file type')
+        return 0
+
     if len(sli) == 0:
         sli=[0, num_slice]
     sli = np.arange(sli[0], sli[1])
-    s = np.array(f['img'][0]).shape    
-    f.close()
 
     mask_3D = np.ones([num_slice, s[0], s[1]])    
     time_s = time.time()
