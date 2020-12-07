@@ -176,6 +176,8 @@ class App(QWidget):
         self.pb_mask2.setStyleSheet('color: rgb(0, 0, 0);')
         self.pb_mask3.setStyleSheet('color: rgb(0, 0, 0);')
         self.pb_smart_mask.setStyleSheet('color: rgb(0, 0, 0);')
+        self.save_fit_param_successful = 0
+        self.load_fit_param_successful = 0
         try:
             self.num_ref = self.num_ref
         except Exception as err:

@@ -61,7 +61,7 @@ def align_img_stackreg(img_ref, img, align_flag=1, method='translation'):
 def align_img_stack(img, img_mask=None, select_image_index=None, print_flag=1):
     img_align = deepcopy(img)
     n = img_align.shape[0]
-    if img_mask.any()==None:
+    if img_mask is None:
         img_mask = deepcopy(img)
     if select_image_index==None:
         for i in range(1, n):     

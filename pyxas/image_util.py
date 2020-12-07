@@ -40,6 +40,20 @@ def img_smooth(img, kernal_size, axis=0):
     return img_stack
 
 
+def img_fillhole(img, binary_threshold=0.5):
+    img_b = img.copy()
+    img_b[np.isnan(img_b)] = 0
+    img_b[np.isinf(img_b)] = 0
+    img_b[img_b > binary_threshold] = 1
+    img_b[img_b < 1] = 0
+
+    struct = ndimage.generate_binary_structure(2, 1)
+    mask = ndimage.binary_fill_holes(img_b, structure=struct).astype(img.dtype)
+    img_fillhole = img * mask
+    return mask, img_fillhole
+
+
+
 def img_dilation(img, binary_threshold=0.5, iterations=2):
     img_b = img.copy()
     img_b[np.isnan(img_b)] = 0
