@@ -7368,7 +7368,7 @@ class App(QWidget):
             fit_bound_s = self.tx_param_iter_bounds_low.text()
             fit_bound_e = self.tx_param_iter_bounds_high.text()
             fit_bound_s = float(fit_bound_s) if fit_bound_s else 0
-            fit_bound_e = float(fit_bound_e) if fit_bound_s else 100
+            fit_bound_e = float(fit_bound_e) if fit_bound_e else 100
             self.fit_param['fit_iter_bound'] = [fit_bound_s, fit_bound_e]
             self.tx_param_iter_bounds_low.setText(str(fit_bound_s))
             self.tx_param_iter_bounds_high.setText(str(fit_bound_e))
