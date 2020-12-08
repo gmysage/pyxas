@@ -149,6 +149,16 @@ def save_xanes_fitting_image(res, file_save_path, fn, color='r,g,b'):
     file_save_mask = f'{file_save_path}/fitting_mask'
     file_save_fit = f'{file_save_path}/fitting_result'
     file_save_fit_norm = f'{file_save_path}/fitting_result_norm'
+
+    tmp = res['xanes_2d_fit']
+    s = tmp.shape
+    fn_fit = []
+    fn_fit_norm = []
+    for i in range(s[0]):
+        fn_fit.append(f'{file_save_fit}/comp{i}')
+        create_directory(fn_fit[i])
+        fn_fit_norm.append(f'{file_save_fit_norm}/comp{i}')
+        create_directory(fn_fit_norm[i])
     
     create_directory(file_save_path)
     create_directory(file_save_colormix1)
@@ -201,11 +211,17 @@ def save_xanes_fitting_image(res, file_save_path, fn, color='r,g,b'):
     for n in range(res['n_comp']):
         fn_save = f'{file_save_mask}/mask_{n}/mask{0}_{fn}.tiff'
         io.imsave(fn_save, np.array(res[f'mask_{n}'], dtype=np.int16))
+
     # sae ftting results
-    fn_save = f'{file_save_fit}/fit_{fn}.tiff'
-    io.imsave(fn_save, np.array(res['xanes_2d_fit'], dtype=np.float32))
-    fn_save = f'{file_save_fit_norm}/fit_norm_{fn}.tiff'
-    io.imsave(fn_save, np.array(res['xanes_2d_fit_norm'], dtype=np.float32))
+    s = res['xanes_2d_fit'].shape
+    for i in range(s[0]):
+        tmp = res['xanes_2d_fit']
+        fn_save = f'{fn_fit[i]}/comp{i}_fit_{fn}.tiff'
+        io.imsave(fn_save, np.array(tmp[i], dtype=np.float32))
+    for i in range(s[0]):
+        tmp = res['xanes_2d_fit_norm']
+        fn_save = f'{fn_fit_norm[i]}/comp{i}_fit_norm_{fn}.tiff'
+        io.imsave(fn_save, np.array(tmp[i], dtype=np.float32))
 
 
 
@@ -216,7 +232,7 @@ def fit_2D_xanes_file(file_path, file_prefix, file_type, fit_param, xanes_eng, s
     batch processing xanes given xanes files
     '''
     time_start = time.time()
-    n_comp = int(fit_param['n_comp'])
+    n_comp = max(int(fit_param['n_comp']), 1)
 
     file_save_path = f'{file_path}/fitted_xanes'
     pyxas.create_directory(file_save_path)
@@ -313,9 +329,9 @@ def fit_2D_xanes_file(file_path, file_prefix, file_type, fit_param, xanes_eng, s
                 hf.create_dataset('xanes_fit_thickness', data=np.array(thickness_3D, dtype=np.float32))
                 hf.create_dataset('xanes_fit_cost', data=np.array(fitting_cost_3D, dtype=np.float32))
                 hf.create_dataset('xanes_fit_offset', data=np.array(fitting_offset_3D, dtype=np.float32))
-                hf.create_dataset('mask', data=np.array(mask_3D, dtype=np.int8))
+                hf.create_dataset('mask', data=np.array(mask_3D, dtype=np.int16))
                 for n in range(res['n_comp']):
-                    hf.create_dataset(f'mask_{n}', data=np.array(mask_3D_comp[n], dtype=np.int8))
+                    hf.create_dataset(f'mask_{n}', data=np.array(mask_3D_comp[n], dtype=np.int16))
                 for j in range(num_channel):
                     hf.create_dataset(f'xanes_fit_comp{j}', data=np.array(fitted_xanes_3D[j], dtype=np.float32))
                     hf.create_dataset(f'xanes_fit_comp{j}_norm', data=np.array(fitted_xanes_3D_norm[j], dtype=np.float32))

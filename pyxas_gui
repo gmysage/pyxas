@@ -35,6 +35,9 @@ from matplotlib.figure import Figure
 from copy import deepcopy
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import pyxas
+import warnings
+
+
 
 global xanes
 
@@ -7511,7 +7514,7 @@ class App(QWidget):
                     except Exception as err:
                         print(err)
                         fit_iter_lambda = 0.5
-                    self.tx_param_iter_lambda.setText(str(fit_iter_lambda))
+                    self.tx_param_iter_lambda.setText(f'{fit_iter_lambda:2.4f}')
                 else:
                     self.chkbox_fit_iter.setChecked(0)
 
@@ -7540,7 +7543,7 @@ class App(QWidget):
                     self.tx_param_pre_s.setText(f'{pre_edge_s:2.4f}')
                     self.tx_param_pre_e.setText(f'{pre_edge_e:2.4f}')
                     self.rd_param_fit_edge_yes.setChecked(1)
-                    self.chkbox_fit_pre_edge.setChecked(0)
+                    #self.chkbox_fit_pre_edge.setChecked(0)
                 except Exception as err:
                     print(err)
                     self.rd_param_fit_edge_no.setChecked(1)
@@ -7551,7 +7554,7 @@ class App(QWidget):
                     self.tx_param_post_s.setText(f'{post_edge_s:2.4f}')
                     self.tx_param_post_e.setText(f'{post_edge_e:2.4f}')
                     self.rd_param_fit_edge_yes.setChecked(1)
-                    self.chkbox_fit_post_edge.setChecked(0)
+                    #self.chkbox_fit_post_edge.setChecked(0)
                 except Exception as err:
                     print(err)
                     self.rd_param_fit_edge_no.setChecked(1)
@@ -7608,7 +7611,7 @@ class App(QWidget):
                         pyxas.fit_2D_xanes_file(file_path, file_prefix,
                                                 file_type, fit_param,
                                                 xanes_eng, spectrum_ref,
-                                                file_range=[], save_hdf=0)
+                                                file_range=[], save_hdf=1)
                     else:
                         pyxas.fit_2D_xanes_file_mpi(file_path, file_prefix,
                                                     file_type, fit_param,
@@ -8366,6 +8369,7 @@ def longest_commonPrefix(strs):
 
 
 if __name__ == '__main__':
+    warnings.filterwarnings("ignore")
     app = QApplication(sys.argv)
     xanes = App()
     xanes.show()
