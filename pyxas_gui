@@ -7304,10 +7304,11 @@ class App(QWidget):
             self.lb_param_eng_info.setText(
                 f'Energy: {n_eng} energies: {self.eng[0]}, {self.eng[1]},   ...   {self.eng[-1]} keV')
             self.load_eng_successful = 1
-            self.tx_param_fit_range_s.setText(str(self.eng[0]))
-            self.tx_param_fit_range_e.setText(str(self.eng[1]))
-            self.tx_3D_edge_s.setText(str(self.eng[0]))
-            self.tx_3D_edge_e.setText(str(self.eng[-1]))
+            if not self.load_file_successful:
+                self.tx_param_fit_range_s.setText(f'{self.eng[0]:2.4f}')
+                self.tx_param_fit_range_e.setText(f'{self.eng[-1]:2.4f}')
+            self.tx_3D_edge_s.setText(f'{self.eng[0]:2.4f}')
+            self.tx_3D_edge_e.setText(f'{self.eng[-1]:2.4f}')
 
         except Exception as err:
             self.lb_param_eng_info = 'Energy load fails'
