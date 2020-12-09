@@ -381,8 +381,11 @@ def fit_2D_xanes_file_mpi(file_path, file_prefix, file_type, fit_param, xanes_en
     except:
         n_comp = 1
     pool = Pool(num_cpu)
-    res = pool.map(partial(pyxas.fit_2D_xanes_file_mpi_sub, fit_param=fit_param, xanes_eng=xanes_eng, spectrum_ref=spectrum_ref, file_save_path=file_save_path), files_scan)
-
+    if save_hdf:
+        res = pool.map(partial(pyxas.fit_2D_xanes_file_mpi_sub, fit_param=fit_param, xanes_eng=xanes_eng, spectrum_ref=spectrum_ref, file_save_path=file_save_path, return_flag=1), files_scan)
+    else:
+        pool.map(partial(pyxas.fit_2D_xanes_file_mpi_sub, fit_param=fit_param, xanes_eng=xanes_eng,
+                         spectrum_ref=spectrum_ref, file_save_path=file_save_path, return_flag=0), files_scan)
     # assembling mpi fitting results and saving to hdf file
     if save_hdf:
         thickness_3D = np.zeros([num_file, s[1], s[2]])
@@ -435,7 +438,7 @@ def fit_2D_xanes_file_mpi(file_path, file_prefix, file_type, fit_param, xanes_en
 
 
 
-def fit_2D_xanes_file_mpi_sub(files_scan, fit_param, xanes_eng, spectrum_ref, file_save_path):
+def fit_2D_xanes_file_mpi_sub(files_scan, fit_param, xanes_eng, spectrum_ref, file_save_path, return_flag=1):
 
     res = {}
     time_start = time.time()
@@ -469,7 +472,8 @@ def fit_2D_xanes_file_mpi_sub(files_scan, fit_param, xanes_eng, spectrum_ref, fi
         res[f'fitted_xanes_3D_ch{j}'] = np.squeeze(res['xanes_2d_fit'][j])
         res[f'fitted_xanes_3D_ch{j}_norm'] = np.squeeze(res['xanes_2d_fit_norm'][j])
     print(f'{files_scan_short} taking time: {time.time() - time_start:05.1f}\n')
-    return res
+    if return_flag:
+        return res
 
 
 def fit_xanes2D_norm_edge(img_xanes, xanes_eng, pre_edge, post_edge, fit_eng=[], norm_txm_flag=1, fit_pre_edge_flag=1, fit_post_edge_flag=0, norm_method='new'):
