@@ -5435,7 +5435,7 @@ class App(QWidget):
                 canvas.update_img_stack()
                 slide.setMaximum(max(sh[0] - 1, 0))
                 self.current_image = img[0]
-                self.data_summary[type_index] = self.canvas1.img_stack
+                self.data_summary[type_index] = self.canvas1.img_stack * self.mask
             elif type_index == 'XANES Fit (Elem. concentration)':
                 self.img_colormix_raw = np.array([])
                 canvas.rgb_flag = 0
@@ -5457,7 +5457,7 @@ class App(QWidget):
                 canvas.update_img_stack()
                 slide.setMaximum(max(sh[0] - 1, 0))
                 self.current_image = img[0]
-                self.data_summary[type_index] = self.canvas1.img_stack
+                self.data_summary[type_index] = self.canvas1.img_stack * self.mask
             elif type_index == 'XANES Fit error':
                 self.img_colormix_raw = np.array([])
                 canvas.rgb_flag = 0
@@ -5522,7 +5522,7 @@ class App(QWidget):
                 canvas.update_img_stack()
                 slide.setMaximum(0)
                 self.current_image = img[0]
-                self.data_summary[type_index] = self.canvas1.img_stack
+                self.data_summary[type_index] = self.canvas1.img_stack * self.mask
             elif type_index == 'Smart Mask':
                 self.img_colormix_raw = np.array([])
                 canvas.rgb_flag = 0
@@ -5602,7 +5602,7 @@ class App(QWidget):
                 canvas.update_img_stack()
                 slide.setMaximum(0)
                 self.current_image = img[0]
-                self.data_summary[type_index] = self.canvas1.img_stack
+                self.data_summary[type_index] = self.canvas1.img_stack * self.mask
             elif type_index == 'XANES Peak Fit':
                 self.img_colormix_raw = np.array([])
                 canvas.rgb_flag = 0
@@ -5625,7 +5625,7 @@ class App(QWidget):
                 canvas.update_img_stack()
                 slide.setMaximum(0)
                 self.current_image = img[0]
-                self.data_summary[type_index] = self.canvas1.img_stack
+                self.data_summary[type_index] = self.canvas1.img_stack * self.mask
             elif type_index == 'XANES Peak Fit Height':
                 self.img_colormix_raw  = np.array([])
                 canvas.rgb_flag = 0
@@ -5641,7 +5641,7 @@ class App(QWidget):
                 canvas.update_img_stack()
                 slide.setMaximum(0)
                 self.current_image = img[0]
-                self.data_summary[type_index] = self.canvas1.img_stack
+                self.data_summary[type_index] = self.canvas1.img_stack * self.mask
             elif type_index == 'Peak percentage':
                 self.img_colormix_raw = np.array([])
                 canvas.rgb_flag = 0
