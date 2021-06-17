@@ -69,7 +69,7 @@ print(shifts_fft)
 
 from numpy import sin, cos
 from skimage.transform import warp
-from mayavi.mlab import *
+#from mayavi.mlab import *
 #img3D = tomopy.shepp3d(200)
 from scipy import ndimage
 
@@ -231,7 +231,7 @@ def test_fun(r, theta,):
 ############## scipy ndimage.map_coordinates #############
 from numpy import sin, cos
 from skimage.transform import warp
-from mayavi.mlab import *
+#from mayavi.mlab import *
 
 
 #img3D = tomopy.shepp3d(200)

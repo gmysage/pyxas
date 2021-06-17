@@ -8,7 +8,7 @@ from copy import deepcopy
 from scipy.ndimage import shift, center_of_mass
 from pystackreg import StackReg
 from pyxas.image_util import dftregistration,idxmax
-
+from skimage import io
 
 def align_img(img_ref, img, align_flag=1):
     img1_fft = np.fft.fft2(img_ref)
@@ -61,7 +61,7 @@ def align_img_stackreg(img_ref, img, align_flag=1, method='translation'):
 def align_img_stack(img, img_mask=None, select_image_index=None, print_flag=1):
     img_align = deepcopy(img)
     n = img_align.shape[0]
-    if img_mask.any()==None:
+    if img_mask is None:
         img_mask = deepcopy(img)
     if select_image_index==None:
         for i in range(1, n):     
@@ -346,7 +346,7 @@ def align_3D_tomo_file_mpi_sub(files_recon, img_ref, file_path='.', binning=1, c
         1:  old method
         2:  3D cross-correlation
     '''
-    
+    bin_info = ''
     fn = files_recon
     fn_short = fn.split('/')[-1]
     print(f'aligning {fn_short} ...')    
@@ -355,10 +355,16 @@ def align_3D_tomo_file_mpi_sub(files_recon, img_ref, file_path='.', binning=1, c
         img1 = pyxas.circ_mask(img1, axis=0, ratio=circle_mask_ratio)
     if binning > 1:
         img1 = pyxas.bin_image(img1, binning)
+        bin_info == f'_bin_{binning}'
     img_ali = align_3D_tomo_image(img1, img_ref, circle_mask_ratio, align_method, align_coarse)
-    fn_save = f'{file_path}/ali_recon_{scan_id}_bin_{binning}.h5'  
-    print(f'saving aligned file: {fn_save.split("/")[-1]}\n')
-    pyxas.save_hdf_file(fn_save, 'img', img_ali.astype(np.float32), 'scan_id', scan_id, 'X_eng', X_eng)   
+    if X_eng == 0: # read tiff file
+        fn_save = f'{file_path}/ali_{fn_short}'  
+        print(f'saving aligned file: {fn_save.split("/")[-1]}\n')
+        io.imsave(fn_save, img_ali.astype(np.float32))
+    else:
+        fn_save = f'{file_path}/ali_recon_{scan_id}{bin_info}.h5'  
+        print(f'saving aligned file: {fn_save.split("/")[-1]}\n')
+        pyxas.save_hdf_file(fn_save, 'img', img_ali.astype(np.float32), 'scan_id', scan_id, 'X_eng', X_eng)   
 
 
 

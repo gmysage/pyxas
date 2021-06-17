@@ -533,29 +533,44 @@ def assemble_xanes_slice_from_tomo_mpi_sub(sli, file_path, files_recon, attr_img
 
     time_s = time.time()
     num_file = len(files_recon)
-    f = h5py.File(files_recon[0], 'r')    
-    num_slice = len(f[attr_img])
-    s = np.array(list(f[attr_img][0])).shape
-    f.close()
+
+    file_type = files_recon[0].split('.')[-1]
+    if 'tif' in file_type:
+        img_tmp = io.imread(files_recon[0])
+        s = img_tmp.shape
+        num_slice = s[0]
+        s = (s[1], s[2])
+    elif 'h5' in file_type:
+        f = h5py.File(files_recon[0], 'r')
+        num_slice = len(f[attr_img])
+        s = np.array(list(f[attr_img][0])).shape
+        f.close()
+    else:
+        print('un-recognized file type')
+        return 0
+
     img_xanes = np.zeros([num_file, s[0], s[1]])
-    #mask3D = np.ones([num_slice, s[0], s[1]])
     xanes_eng = np.zeros(num_file)
     mask = np.ones([s[0], s[1]])
     res = {}    
     print(f'processing slice: {sli}')
     for j in range(num_file):
-        f = h5py.File(files_recon[j], 'r')
-        tmp = np.array(f[attr_img][sli])
-        try:
-            tmp_eng = np.array(f[attr_eng])
-        except:
+        fn = files_recon[j]
+        if 'tif' in file_type:
+            tmp = io.imread(fn)[sli]
             tmp_eng = 0
-        f.close()
+        elif 'h5' in file_type:
+            f = h5py.File(fn, 'r')
+            tmp = np.array(f[attr_img][sli])
+            try:
+                tmp_eng = np.array(f[attr_eng])
+            except:
+                tmp_eng = 0
+            f.close()
         img_xanes[j] = tmp
         xanes_eng[j] = tmp_eng
     # align xanes stack
-    if align_flag:
-        s = img_xanes.shape          
+    if align_flag:          
         if len(ali_sli) == 0:
             ali_sli = [0, num_slice-1]        
         ali_sli = np.array(ali_sli)
@@ -606,13 +621,25 @@ def assemble_xanes_slice_from_tomo_mpi(file_path='.', file_prefix='ali_recon', f
     xanes_assemble_dir = f'{file_path}/xanes_assemble'
     if not os.path.exists(xanes_assemble_dir):
         os.makedirs(xanes_assemble_dir)
-    f = h5py.File(files_recon[0], 'r')    
-    num_slice = len(f['img'])
+
+    if 'tif' in file_type:
+        img_tmp = io.imread(files_recon[0])
+        s = img_tmp[0].shape
+        num_slice = len(img_tmp)
+    elif 'h5' in file_type:
+        f = h5py.File(files_recon[0], 'r')
+        num_slice = len(f['img'])
+        s = np.array(f['img'][0]).shape
+        f.close()
+    else:
+        print('unrecognized file type')
+        return 0
+
     if len(sli) == 0:
         sli=[0, num_slice]
+    if len(sli) == 1:
+        sli = [sli[0], sli[0]+1]
     sli = np.arange(sli[0], sli[1])
-    s = np.array(f['img'][0]).shape    
-    f.close()
 
     mask_3D = np.ones([num_slice, s[0], s[1]])    
     time_s = time.time()
@@ -634,37 +661,54 @@ def assemble_xanes_slice_from_tomo(file_path='.', file_prefix='ali_recon', file_
     file_path = os.path.abspath(file_path)
     files_recon = pyxas.retrieve_file_type(file_path, file_prefix=file_prefix, file_type=file_type)
     num_file = len(files_recon)
-    f = h5py.File(files_recon[0], 'r')    
-    num_slice = len(f['img'])
-    s = np.array(list(f['img'][0])).shape
-    f.close()
+    
+
+    if 'tif' in file_type:
+        img_tmp = io.imread(files_recon[0])
+        s = img_tmp[0].shape
+        num_slice = len(img_tmp)
+    elif 'h5' in file_type:
+        f = h5py.File(files_recon[0], 'r')
+        num_slice = len(f['img'])
+        s = np.array(f['img'][0]).shape
+        f.close()
+    else:
+        print('unrecognized file type')
+        return 0
+
     xanes_assemble_dir = f'{file_path}/xanes_assemble'
     if not os.path.exists(xanes_assemble_dir):
         os.makedirs(xanes_assemble_dir)    
     if len(sli) == 0:
         sli=[0, num_slice]
+    if len(sli) == 1:
+        sli = [sli[0], sli[0]+1]
     sli = np.arange(sli[0], sli[1])
     img_xanes = np.zeros([num_file, s[0], s[1]])
     mask3D = np.ones([num_slice, s[0], s[1]])
     xanes_eng = np.zeros(num_file)
-    for i in sli:
+    for i in range(sli[0], sli[1]):
         print(f'processing slice: {i}/({sli[0]}: {sli[-1]})')
         
         for j in range(num_file):
-            f = h5py.File(files_recon[j], 'r')
-            tmp = np.array(f[attr_img][i])
-            try:
-                tmp_eng = np.array(f[attr_eng])
-            except:
+            if 'tif' in file_type:
+                tmp = io.imread(files_recon[j])[i] 
                 tmp_eng = 0
-            f.close()
+            else:                
+                f = h5py.File(files_recon[j], 'r')
+                tmp = np.array(f[attr_img][i])
+                try:
+                    tmp_eng = np.array(f[attr_eng])
+                except:
+                    tmp_eng = 0
+                f.close()
             img_xanes[j] = tmp
             xanes_eng[j] = tmp_eng
         # align xanes stack
         if align_flag:            
             s = img_xanes.shape
             if len(ali_sli) == 0:
-                ali_sli = [0, s[0]]
+                ali_sli = [0, num_slice-1]
             ali_sli = np.array(ali_sli)
             if i >= np.min(ali_sli) and i <= np.max(ali_sli):
                 if align_roi_ratio >= 1:
@@ -693,3 +737,82 @@ def assemble_xanes_slice_from_tomo(file_path='.', file_prefix='ali_recon', file_
         return img_xanes, xanes_eng
 
 
+
+def assemble_xanes_from_files(files_recon, sli=[], align_flag=0, align_ref_index=-1, align_roi_ratio=0.8, ali_sli=[], align_algorithm='stackreg', flag_save_2d_xanes=1, flag_mask=0, return_flag=0):
+    num_file = len(files_recon)    
+    file_type = files_recon[0].split('.')[-1]
+    if 'tif' in file_type:
+        img_tmp = io.imread(files_recon[0])
+        s = img_tmp[0].shape
+        num_slice = s[0]
+    elif 'h5' in file_type:
+        f = h5py.File(files_recon[0], 'r')
+        num_slice = len(f['img'])
+        s = np.array(f['img'][0]).shape
+        f.close()
+    else:
+        print('unrecognized file type')
+        return 0
+
+    file_path = os.getcwd()
+    xanes_assemble_dir = f'{file_path}/xanes_assemble'
+    if not os.path.exists(xanes_assemble_dir):
+        os.makedirs(xanes_assemble_dir)    
+    if len(sli) == 0:
+        sli=[0, num_slice]
+    if len(sli) == 1:
+        sli = [sli[0], sli[0]+1]
+        xanes_assemble_dir = f'{file_path}/xanes_assemble'
+
+    sli = np.arange(sli[0], sli[1])
+    img_xanes = np.zeros([num_file, s[0], s[1]])
+    mask3D = np.ones([num_slice, s[0], s[1]])
+    xanes_eng = np.zeros(num_file)
+    for i in sli:
+        print(f'processing slice: {i}/({sli[0]}: {sli[-1]})')
+        
+        for j in range(num_file):
+            if 'tif' in file_type:
+                tmp = io.imread(files_recon[j])[i] 
+                tmp_eng = 0
+            else:                
+                f = h5py.File(files_recon[j], 'r')
+                tmp = np.array(f[attr_img][i])
+                try:
+                    tmp_eng = np.array(f[attr_eng])
+                except:
+                    tmp_eng = 0
+                f.close()
+            img_xanes[j] = tmp
+            xanes_eng[j] = tmp_eng
+        # align xanes stack
+        if align_flag:            
+            s = img_xanes.shape
+            if len(ali_sli) == 0:
+                ali_sli = [0, num_slice-1]
+            ali_sli = np.array(ali_sli)
+            if i >= np.min(ali_sli) and i <= np.max(ali_sli):
+                if align_roi_ratio >= 1:
+                    img_mask = None
+                else:
+                    rs, re = 1-align_roi_ratio, align_roi_ratio
+                    img_mask = img_xanes[:, int(s[1]*rs):int(s[1]*re), int(s[2]*rs):int(s[2]*re)]
+                if align_ref_index == -1:
+                    align_ref_index = img_xanes.shape[0] - 1
+                if align_algorithm == 'stackreg':
+                    img_xanes = pyxas.align_img_stack_stackreg(img_xanes, img_mask, select_image_index=align_ref_index) 
+                else:
+                    img_xanes = pyxas.align_img_stack(img_xanes, img_mask, select_image_index=align_ref_index) 
+                # apply mask        
+                if flag_mask:
+                    try:
+                        mask = kmean_mask(img_xanes)
+                    #img_xanes *= mask
+                        mask3D[i] = mask
+                    except:
+                        pass
+        if flag_save_2d_xanes:
+            io.imsave(f'{file_path}/xanes_assemble/xanes_2D_slice_{i:03d}.tiff', np.array(img_xanes, dtype=np.float32))
+    io.imsave(f'{file_path}/xanes_assemble/mask3D.tiff', np.array(mask3D, dtype=np.float32))
+    if return_flag:
+        return img_xanes, xanes_eng
