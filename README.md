@@ -4,8 +4,6 @@ PyXAS is a python library for fast 2D/3D XANES analysis with graphic user interf
 
 ## Installation
 
-Recommended:
-
 ```
 pip install pyxas
 
@@ -13,7 +11,7 @@ pip install pyxas
 And run "pyxas_gui"
 
 
-Or clone this project to your machine::
+For newest version, clone this project to your machine::
 
 ```
 git clone https://github.com/gmysage/pyxas.git

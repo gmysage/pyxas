@@ -35,6 +35,9 @@ from matplotlib.figure import Figure
 from copy import deepcopy
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import pyxas
+import warnings
+
+
 
 global xanes
 
@@ -176,6 +179,8 @@ class App(QWidget):
         self.pb_mask2.setStyleSheet('color: rgb(0, 0, 0);')
         self.pb_mask3.setStyleSheet('color: rgb(0, 0, 0);')
         self.pb_smart_mask.setStyleSheet('color: rgb(0, 0, 0);')
+        self.save_fit_param_successful = 0
+        self.load_fit_param_successful = 0
         try:
             self.num_ref = self.num_ref
         except Exception as err:
@@ -4945,7 +4950,6 @@ class App(QWidget):
             flag_read_from_file = 1
             flag_read_from_database =0
         elif self.rd_tif.isChecked():
-            print('read tiff or tif file')
             file_type = 'tif files (*.tif, *.tiff)'
             flag_read_from_file = 1
             flag_read_from_database = 0
@@ -5431,7 +5435,7 @@ class App(QWidget):
                 canvas.update_img_stack()
                 slide.setMaximum(max(sh[0] - 1, 0))
                 self.current_image = img[0]
-                self.data_summary[type_index] = self.canvas1.img_stack
+                self.data_summary[type_index] = self.canvas1.img_stack * self.mask
             elif type_index == 'XANES Fit (Elem. concentration)':
                 self.img_colormix_raw = np.array([])
                 canvas.rgb_flag = 0
@@ -5453,7 +5457,7 @@ class App(QWidget):
                 canvas.update_img_stack()
                 slide.setMaximum(max(sh[0] - 1, 0))
                 self.current_image = img[0]
-                self.data_summary[type_index] = self.canvas1.img_stack
+                self.data_summary[type_index] = self.canvas1.img_stack * self.mask
             elif type_index == 'XANES Fit error':
                 self.img_colormix_raw = np.array([])
                 canvas.rgb_flag = 0
@@ -5518,7 +5522,7 @@ class App(QWidget):
                 canvas.update_img_stack()
                 slide.setMaximum(0)
                 self.current_image = img[0]
-                self.data_summary[type_index] = self.canvas1.img_stack
+                self.data_summary[type_index] = self.canvas1.img_stack * self.mask
             elif type_index == 'Smart Mask':
                 self.img_colormix_raw = np.array([])
                 canvas.rgb_flag = 0
@@ -5598,7 +5602,7 @@ class App(QWidget):
                 canvas.update_img_stack()
                 slide.setMaximum(0)
                 self.current_image = img[0]
-                self.data_summary[type_index] = self.canvas1.img_stack
+                self.data_summary[type_index] = self.canvas1.img_stack * self.mask
             elif type_index == 'XANES Peak Fit':
                 self.img_colormix_raw = np.array([])
                 canvas.rgb_flag = 0
@@ -5621,7 +5625,7 @@ class App(QWidget):
                 canvas.update_img_stack()
                 slide.setMaximum(0)
                 self.current_image = img[0]
-                self.data_summary[type_index] = self.canvas1.img_stack
+                self.data_summary[type_index] = self.canvas1.img_stack * self.mask
             elif type_index == 'XANES Peak Fit Height':
                 self.img_colormix_raw  = np.array([])
                 canvas.rgb_flag = 0
@@ -5637,7 +5641,7 @@ class App(QWidget):
                 canvas.update_img_stack()
                 slide.setMaximum(0)
                 self.current_image = img[0]
-                self.data_summary[type_index] = self.canvas1.img_stack
+                self.data_summary[type_index] = self.canvas1.img_stack * self.mask
             elif type_index == 'Peak percentage':
                 self.img_colormix_raw = np.array([])
                 canvas.rgb_flag = 0
@@ -7300,10 +7304,11 @@ class App(QWidget):
             self.lb_param_eng_info.setText(
                 f'Energy: {n_eng} energies: {self.eng[0]}, {self.eng[1]},   ...   {self.eng[-1]} keV')
             self.load_eng_successful = 1
-            self.tx_param_fit_range_s.setText(str(self.eng[0]))
-            self.tx_param_fit_range_e.setText(str(self.eng[1]))
-            self.tx_3D_edge_s.setText(str(self.eng[0]))
-            self.tx_3D_edge_e.setText(str(self.eng[-1]))
+            if not self.load_file_successful:
+                self.tx_param_fit_range_s.setText(f'{self.eng[0]:2.4f}')
+                self.tx_param_fit_range_e.setText(f'{self.eng[-1]:2.4f}')
+            self.tx_3D_edge_s.setText(f'{self.eng[0]:2.4f}')
+            self.tx_3D_edge_e.setText(f'{self.eng[-1]:2.4f}')
 
         except Exception as err:
             self.lb_param_eng_info = 'Energy load fails'
@@ -7364,7 +7369,7 @@ class App(QWidget):
             fit_bound_s = self.tx_param_iter_bounds_low.text()
             fit_bound_e = self.tx_param_iter_bounds_high.text()
             fit_bound_s = float(fit_bound_s) if fit_bound_s else 0
-            fit_bound_e = float(fit_bound_e) if fit_bound_s else 100
+            fit_bound_e = float(fit_bound_e) if fit_bound_e else 100
             self.fit_param['fit_iter_bound'] = [fit_bound_s, fit_bound_e]
             self.tx_param_iter_bounds_low.setText(str(fit_bound_s))
             self.tx_param_iter_bounds_high.setText(str(fit_bound_e))
@@ -7510,7 +7515,7 @@ class App(QWidget):
                     except Exception as err:
                         print(err)
                         fit_iter_lambda = 0.5
-                    self.tx_param_iter_lambda.setText(str(fit_iter_lambda))
+                    self.tx_param_iter_lambda.setText(f'{fit_iter_lambda:2.4f}')
                 else:
                     self.chkbox_fit_iter.setChecked(0)
 
@@ -7539,7 +7544,7 @@ class App(QWidget):
                     self.tx_param_pre_s.setText(f'{pre_edge_s:2.4f}')
                     self.tx_param_pre_e.setText(f'{pre_edge_e:2.4f}')
                     self.rd_param_fit_edge_yes.setChecked(1)
-                    self.chkbox_fit_pre_edge.setChecked(0)
+                    #self.chkbox_fit_pre_edge.setChecked(0)
                 except Exception as err:
                     print(err)
                     self.rd_param_fit_edge_no.setChecked(1)
@@ -7550,7 +7555,7 @@ class App(QWidget):
                     self.tx_param_post_s.setText(f'{post_edge_s:2.4f}')
                     self.tx_param_post_e.setText(f'{post_edge_e:2.4f}')
                     self.rd_param_fit_edge_yes.setChecked(1)
-                    self.chkbox_fit_post_edge.setChecked(0)
+                    #self.chkbox_fit_post_edge.setChecked(0)
                 except Exception as err:
                     print(err)
                     self.rd_param_fit_edge_no.setChecked(1)
@@ -7607,7 +7612,7 @@ class App(QWidget):
                         pyxas.fit_2D_xanes_file(file_path, file_prefix,
                                                 file_type, fit_param,
                                                 xanes_eng, spectrum_ref,
-                                                file_range=[], save_hdf=0)
+                                                file_range=[], save_hdf=1)
                     else:
                         pyxas.fit_2D_xanes_file_mpi(file_path, file_prefix,
                                                     file_type, fit_param,
@@ -8365,6 +8370,7 @@ def longest_commonPrefix(strs):
 
 
 if __name__ == '__main__':
+    warnings.filterwarnings("ignore")
     app = QApplication(sys.argv)
     xanes = App()
     xanes.show()

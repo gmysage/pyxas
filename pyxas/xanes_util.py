@@ -652,6 +652,10 @@ def normalize_2D_xanes2(img_stack, xanes_eng, pre_edge, post_edge, pre_edge_only
     img_post_flat = np.sort(img_post_mean.flatten())
     img_post_flat = img_post_flat[img_post_flat > 0]
     n_post = len(img_post_flat)
+    if not n_post:
+        img_post_flat = np.sort(img_post_mean.flatten())
+        img_post_flat = img_post_flat[img_post_flat >= 0]
+        n_post = len(img_post_flat)
     thresh_post = img_post_flat[int(n_post * 0.8)]
     index_zero = img_post_mean < thresh_post
     num_non_zero = np.sum(np.sum(1 - np.array(index_zero, dtype=int), axis=0), axis=0)
