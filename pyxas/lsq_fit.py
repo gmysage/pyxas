@@ -232,13 +232,13 @@ def soft_threshold(rho, lamda):
             theta = (rho + lamda)
         elif rho >  lamda:
             theta = (rho - lamda)
-        else:
+        else: 
             theta = 0
     '''
     return y
 
 
-def coordinate_descent_lasso(A, y, lamda=.01, num_iters=10, X_guess=[], intercept=False, bounds=[], print_flag=1):
+def coordinate_descent_lasso(A, y, lamda=.01, num_iters=10, X_guess=[], intercept=False, bounds=[]):
     '''
     Coordinate gradient descent for lasso regression - for normalized data.
     The intercept parameter allows to specify whether or not we regularize theta_0
@@ -257,8 +257,7 @@ def coordinate_descent_lasso(A, y, lamda=.01, num_iters=10, X_guess=[], intercep
         bounds = [-1e16, 1e16]
 
     for i in range(num_iters):
-        if print_flag:
-            print(f'iter = {i}')
+        print(f'iter = {i}')
         # Looping through each coordinate
         for j in range(n_spectra):
             # Vectorized implementation
@@ -378,7 +377,7 @@ def test():
 
     Y_est = np.squeeze(np.dot(W, X))
     plt.figure();plt.subplot(121);plt.plot(cost)
-
+    
 
     plt.subplot(122);plt.plot(t, Y_test, 'r.-');
     # plt.plot(t, Y_true, 'g');

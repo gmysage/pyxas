@@ -588,15 +588,15 @@ def align_2D_rotation(img_ref, img2, n=10, prec=0.1, angle_limit=None):
         
         im2_, _, _ = pyxas.align_img(im1, im2)
 
-        _, _, ang1 = find_img_angle(im1)
-        _, _, ang2 = find_img_angle(im2)
+        _, _, ang1 = pyxas.find_img_angle(im1)
+        _, _, ang2 = pyxas.find_img_angle(im2)
         d_ang = np.abs(ang1 - ang2)
                 
-        img_ali1 = rotate_2D(im2, d_ang)
+        img_ali1 = pyxas.rotate_2D(im2, d_ang)
         img_ali1, _, _ = pyxas.align_img(im1, img_ali1)
         sum1 = np.sum(im1 * img_ali1)
 
-        img_ali2 = rotate_2D(im2, -d_ang)
+        img_ali2 = pyxas.rotate_2D(im2, -d_ang)
         img_ali2, _, _ = pyxas.align_img(im2, img_ali2)
         sum2 = np.sum(im1 * img_ali2)
         
