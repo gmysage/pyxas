@@ -2,10 +2,11 @@ from scipy.signal import medfilt
 import numpy as np
 import matplotlib.pyplot as plt
 from pyxas.lsq_fit import lsq_fit_iter, lsq_fit_iter2, coordinate_descent_lasso, admm_iter
-from scipy.interpolate import InterpolatedUnivariateSpline, interp1d
+from scipy.interpolate import InterpolatedUnivariateSpline, interp1d, UnivariateSpline
 from copy import deepcopy
 from numpy.polynomial.polynomial import polyfit, polyval
 from pyxas.image_util import rm_abnormal, bin_ndarray, img_smooth
+import scipy
 
 
 
@@ -14,10 +15,117 @@ def find_nearest(data, value):
     return np.abs(data - value).argmin()
 
 
+def fit1D(x_raw, y_raw, x_fit, order=2, smooth=0.001):
+    spl = UnivariateSpline(x_raw, y_raw, k=order, s=smooth)
+    y_fit = spl(x_fit)
+    return y_fit
+
+
+def exclude_data(x, y, exclude=[]):
+    if len(exclude) == 2:
+        id1 = find_nearest(x, exclude[0])
+        id2 = find_nearest(x, exclude[1])
+        y0 = list(y[:id1]) + list(y[id2:])
+        y0 = np.array(y0)
+    else:
+        y0 = y
+    return y0
+
+
+def fit_element_mu(x_eng, y_spec, mu_raw):
+    # for single curve, y_spec can be an array
+
+    # for 2D image, y_spec.shape = (n_eng, total_pix)
+    mu = np.array(mu_raw)
+    if len(mu.shape) == 1:
+        mu = np.expand_dims(mu, 1)
+
+    x0 = x_eng.copy()
+    y0 = y_spec.copy()
+    num = len(x0)
+    if len(y0.shape) == 1:
+        Y = y0.reshape((num, 1))
+    else:
+        Y = y_spec.copy()
+    n_mu = mu.shape[1]
+    A = np.ones([num, n_mu+2])
+    A[:, :n_mu] = mu
+    A[:, -2] = x0
+
+    A_inv = scipy.linalg.inv(A.T @ A)
+    X = A_inv @ A.T @ Y
+    return X, A
+
+
+def fit_xanes_curve_with_bkg(x_eng, y_spec, exclude_eng, plot_flag, spectrum_ref):
+    # asssume linear background
+    # ref: reference spectrum should have same energy as x_eng
+
+    x0 = exclude_data(x_eng, x_eng, exclude_eng)
+    y0 = exclude_data(x_eng, y_spec, exclude_eng)
+
+    num = len(x0)
+    n_ref = len(spectrum_ref)
+    ref0 = np.zeros((num, n_ref))
+    for i in range(n_ref):
+        current_ref = spectrum_ref[f'ref{i}']
+        ref0[:, i] = fit1D(current_ref[:, 0], current_ref[:, 1], x_eng)
+
+    X, _ = fit_element_mu(x0, y0, ref0)
+
+    A = np.ones([num, n_ref+2])
+    A[:, :n_ref] = ref0
+    A[:, -2] = x0
+
+    y_fit = A @ X
+    title = ''
+    for i in range(n_ref):
+        title = title + f'ref #{i}: {X[i, 0]:2.2f},   '
+    if plot_flag:
+        plt.figure()
+        plt.plot(x_eng, y_spec, 'r.', label='raw data')
+        plt.plot(x_eng, y_fit, 'c', label='fitted')
+        plt.legend()
+        plt.title(title)
+
+    return X, y_fit, A
+
+
+def fit_2D_xanes_with_bkg(x_eng, img_xanes, exclude_eng, plot_flag, spectrum_ref):
+    # img_xanes.shape = (n_eng, R, C)
+    s = img_xanes.shape
+    y_spec = img_xanes.reshape((s[0], s[1]*s[2]))
+    X, y_fit, A = fit_xanes_curve_with_bkg(x_eng, y_spec, exclude_eng, 0, spectrum_ref)
+    n_ref = len(spectrum_ref)
+    if plot_flag:
+        plt.figure()
+        for i in range(n_ref):
+            plt.subplot(1,n_ref, i+1)
+            t = X[i].reshape((s[1], s[2]))
+            plt.imshow(t)
+            plt.title(f'ref #{i}')
+    x = X[:n_ref]
+    x = x.reshape(n_ref, s[1], s[2])
+    cost = np.sum((y_fit - y_spec)**2, axis=0) / s[0]
+    cost = cost.reshape(1, s[1], s[2])
+    offset = X[-1]
+    offset = offset.reshape(1, s[1], s[2])
+    slope = X[-2]
+
+    thickness = y_fit[-1] - y_fit[0]
+    thickness = thickness - slope * (x_eng[-1] - x_eng[0])
+    thickness = np.abs(np.arctan(slope) * thickness)
+    thickness = thickness.reshape(1, s[1], s[2])
+    slope = slope.reshape(1, s[1], s[2])
+    y_fit = y_fit.reshape(s[0], s[1], s[2])
+    return x, offset, cost, thickness, y_fit, slope
+
+
 def fit_curve(x_raw, y_raw, x_fit, deg=1):
     coef1 = polyfit(x_raw, y_raw, deg)
     y_fit = polyval(x_fit, coef1)
     return y_fit
+
 
 def L(x, x0, gamma):
     '''
@@ -40,7 +148,7 @@ def load_xanes_ref(*args):
 
     num_ref = len(args)
     assert num_ref >1, "num of reference should larger than 1"
-    spectrum_ref = {}    
+    spectrum_ref = {}
     for i in range(num_ref):
         spectrum_ref[f'ref{i}'] = args[i]
     return spectrum_ref
@@ -64,61 +172,12 @@ def fit_2D_xanes_non_iter(img_xanes, eng, spectrum_ref):
     ----------
     A: reference spectrum (2-colume array: xray_energy vs. absorption_spectrum)
     X: fitted coefficient of each ref spectrum
-    b: experimental 2D XANES data 
+    b: experimental 2D XANES data
 
     Outputs:
     ----------
     fit_coef: the 'x' in the equation 'Ax=b': fitted coefficient of each ref spectrum
     cost: cost between fitted spectrum and raw data
-    '''
-
-    '''
-    # b = Ax 
-    
-    num_ref = len(spectrum_ref)
-    spec_interp = {}
-    comp = {}   
-    A = [] 
-    s = img_xanes.shape
-    for i in range(num_ref):
-        tmp = interp1d(spectrum_ref[f'ref{i}'][:,0], spectrum_ref[f'ref{i}'][:,1], kind='cubic')
-        A.append(tmp(eng).reshape(1, len(eng)))
-        spec_interp[f'ref{i}'] = tmp(eng).reshape(1, len(eng))
-        comp[f'A{i}'] = spec_interp[f'ref{i}'].reshape(len(eng), 1)
-        comp[f'A{i}_t'] = comp[f'A{i}'].T
-    # e.g., spectrum_ref contains: ref1, ref2, ref3
-    # e.g., comp contains: A1, A2, A3, A1_t, A2_t, A3_t
-    #       A1 = ref1.reshape(110, 1)
-    #       A1_t = A1.T
-    A = np.squeeze(A).T
-    #M = np.zeros([num_ref+1, num_ref+1])
-    M = np.zeros([num_ref, num_ref])
-    for i in range(num_ref):
-        for j in range(num_ref):
-            M[i,j] = np.dot(comp[f'A{i}_t'], comp[f'A{j}'])
-
-#        M[i, num_ref] = 1
-#    M[num_ref] = np.ones((1, num_ref+1))
-#    M[num_ref, -1] = 0
-    # e.g.
-    # M = np.array([[float(np.dot(A1_t, A1)), float(np.dot(A1_t, A2)), float(np.dot(A1_t, A3)), 1.],
-    #                [float(np.dot(A2_t, A1)), float(np.dot(A2_t, A2)), float(np.dot(A2_t, A3)), 1.],
-    #                [float(np.dot(A3_t, A1)), float(np.dot(A3_t, A2)), float(np.dot(A3_t, A3)), 1.],
-    #                [1., 1., 1., 0.]])
-    M_inv = np.linalg.inv(M)
-    b_tot = img_xanes.reshape(s[0],-1)
-    B = np.ones([num_ref, b_tot.shape[1]])
-    for i in range(num_ref):
-        B[i] = np.dot(comp[f'A{i}_t'], b_tot)
-    x = np.dot(M_inv, B)
-    #x = x[:-1]    
-    x[x<0] = 0
-    x_sum = np.sum(x, axis=0, keepdims=True)
-    #x = x / x_sum
-    cost = np.sum((np.dot(A, x) - b_tot)**2, axis=0)/s[0]
-    cost = cost.reshape(1, s[1], s[2])
-    x = x.reshape(num_ref, s[1], s[2])
-
     '''
     # Y = bX + b0: X is the reference spectrum
     num_ref = len(spectrum_ref)
@@ -159,7 +218,7 @@ def fit_2D_xanes_iter(img_xanes, eng, spectrum_ref, coef0=None, offset=None, lea
 
     spectrum_ref: dictionary, obtained from, e.g. spectrum_ref = load_xanes_ref(Ni2, Ni3)
 
-    coef0: initial guess of the fitted coefficient, 
+    coef0: initial guess of the fitted coefficient,
            it has dimention of [num_of_referece, img_xanes.shape[1], img_xanes.shape[2]]
 
     learning_rate: float
@@ -183,7 +242,7 @@ def fit_2D_xanes_iter(img_xanes, eng, spectrum_ref, coef0=None, offset=None, lea
     '''
     num_ref = len(spectrum_ref)
     s = img_xanes.shape
-    A = [] 
+    A = []
     for i in range(num_ref):
         #tmp = interp1d(spectrum_ref[f'ref{i}'][:,0], spectrum_ref[f'ref{i}'][:,1], kind='cubic')
         tmp = InterpolatedUnivariateSpline(spectrum_ref[f'ref{i}'][:, 0], spectrum_ref[f'ref{i}'][:, 1], k=3)
@@ -210,7 +269,7 @@ def fit_2D_xanes_iter(img_xanes, eng, spectrum_ref, coef0=None, offset=None, lea
 
 def fit_2D_xanes_iter2(img_xanes, eng, spectrum_ref, coef0=None, offset=None, lamda=0.01, rho=0.01, n_iter=10, bounds=[0,1], method=1):
     '''
-    method = 1: using coordinate_descent 
+    method = 1: using coordinate_descent
     method = 2: using admm
     '''
     num_ref = len(spectrum_ref)
@@ -689,5 +748,3 @@ def normalize_2D_xanes2(img_stack, xanes_eng, pre_edge, post_edge, pre_edge_only
     img_thickness[img_thickness<0] = 0
     img_norm = rm_abnormal(img_norm)
     return img_norm, img_thickness
-
-

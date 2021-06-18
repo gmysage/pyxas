@@ -391,7 +391,7 @@ class App(QWidget):
         lb_mod.setFont(self.font2)
         lb_mod.setText('Image mode:')
         lb_mod.setFixedWidth(100)
-        
+
         # radio button for loading image
         self.file_group = QButtonGroup()
         self.file_group.setExclusive(True)
@@ -450,7 +450,7 @@ class App(QWidget):
         lb_db_xanes.setFont(self.font2)
         lb_db_xanes.setText('Scan id:')
         lb_db_xanes.setFixedWidth(60)
-        
+
         self.tx_db_xanes = QLineEdit()
         self.tx_db_xanes.setText('-1')
         self.tx_db_xanes.setFixedWidth(85)
@@ -557,7 +557,7 @@ class App(QWidget):
         self.pb_ld_fitted.setFixedWidth(140)
 
 
-        # databroker 
+        # databroker
         hbox2 = QHBoxLayout()
         hbox2.addWidget(lb_empty3)
         hbox2.addWidget(lb_empty2)
@@ -1482,7 +1482,7 @@ class App(QWidget):
         self.lb_ref_info.setStyleSheet('color: rgb(200, 50, 50);')
         self.lb_ref_info.setText('Reference spectrum: ')
         self.lb_ref_info.setFixedWidth(300)
-        
+
         self.pb_ld_ref = QPushButton('Load Ref.')
         self.pb_ld_ref.setFont(self.font2)
         self.pb_ld_ref.clicked.connect(self.load_xanes_ref)
@@ -1518,6 +1518,12 @@ class App(QWidget):
         self.pb_fit2d.setEnabled(True)
         self.pb_fit2d.setFixedWidth(105)
 
+        self.pb_fit2d_wo_edge_norm = QPushButton('Fit 2D w/o pre/post-edge norm')
+        self.pb_fit2d_wo_edge_norm.setFont(self.font2)
+        self.pb_fit2d_wo_edge_norm.clicked.connect(self.fit_2d_xanes_non_iter_with_bkg)
+        self.pb_fit2d_wo_edge_norm.setEnabled(True)
+        self.pb_fit2d_wo_edge_norm.setFixedWidth(210)
+
         self.pb_reset_ref = QPushButton('Reset Ref.')
         self.pb_reset_ref.setFont(self.font2)
         self.pb_reset_ref.clicked.connect(self.reset_xanes_ref)
@@ -1531,10 +1537,14 @@ class App(QWidget):
         self.pb_reset_fit.setFixedWidth(105)
 
         hbox_reset_ref = QHBoxLayout()
-        # hbox_fit2d.addWidget(self.pb_fit2d)
         hbox_reset_ref.addWidget(self.pb_reset_ref)
         hbox_reset_ref.addWidget(self.pb_reset_fit)
-        hbox_reset_ref.setAlignment(QtCore.Qt.AlignTop)
+        hbox_reset_ref.setAlignment(QtCore.Qt.AlignLeft)
+
+        hbox_fit_non_iter = QHBoxLayout()
+        hbox_fit_non_iter.addWidget(self.pb_fit2d)
+        hbox_fit_non_iter.addWidget(self.pb_fit2d_wo_edge_norm)
+        hbox_fit_non_iter.setAlignment(QtCore.Qt.AlignLeft)
 
         #############################################
         lb_fit2d_s = QLabel()
@@ -1563,7 +1573,7 @@ class App(QWidget):
         hbox_fit2d_range.setAlignment(QtCore.Qt.AlignLeft)
 
         ######################################
-        
+
         self.pb_fit2d_iter = QPushButton('Fit 2D (iter)')
         self.pb_fit2d_iter.setFont(self.font2)
         self.pb_fit2d_iter.clicked.connect(self.fit_2d_xanes_iter)
@@ -1731,7 +1741,7 @@ class App(QWidget):
         self.tx_fit_roi.setText('-1')
         # self.tx_fit_roi.setValidator(QIntValidator())
         self.tx_fit_roi.setFixedWidth(50)
-        
+
         self.pb_export_roi_fit = QPushButton('Export ROI fit')
         self.pb_export_roi_fit.setFont(self.font2)
         self.pb_export_roi_fit.clicked.connect(self.export_roi_fit)
@@ -1765,14 +1775,14 @@ class App(QWidget):
         hbox_save.setAlignment(QtCore.Qt.AlignTop)
 
         ##########################
-        
+
         vbox_assemble = QVBoxLayout()
         vbox_assemble.addWidget(lb_fit2d)
         vbox_assemble.addWidget(self.lb_ref_info)
         vbox_assemble.addLayout(hbox_fit2d_range)
         vbox_assemble.addLayout(hbox_ref)
         vbox_assemble.addLayout(hbox_reset_ref)
-        # vbox_assemble.addLayout(hbox_iter)
+        vbox_assemble.addLayout(hbox_fit_non_iter)
         vbox_assemble.addLayout(vbox_method)
 
         vbox_assemble.addLayout(hbox_plot)
@@ -2006,7 +2016,7 @@ class App(QWidget):
         hbox_smart_mask3.setAlignment(QtCore.Qt.AlignLeft)
 
         hbox_smart_mask4 = QHBoxLayout()
-        hbox_smart_mask4.addWidget(self.pb_add_smart_mask_roi)
+        #hbox_smart_mask4.addWidget(self.pb_add_smart_mask_roi)
         hbox_smart_mask4.addWidget(self.pb_apply_smart_mask)
         hbox_smart_mask4.addWidget(self.pb_rem_smart_mask)
         hbox_smart_mask4.setAlignment(QtCore.Qt.AlignLeft)
@@ -2520,7 +2530,7 @@ class App(QWidget):
         hbox_chbx_l.addWidget(self.lb_z_l)
         hbox_chbx_l.addWidget(lb_empty)
         hbox_chbx_l.addWidget(self.pb_save_img_single)
-        hbox_chbx_l.addWidget(self.pb_save_img_stack)        
+        hbox_chbx_l.addWidget(self.pb_save_img_stack)
         hbox_chbx_l.setAlignment(QtCore.Qt.AlignLeft)
 
         hbox_cmap = QHBoxLayout()
@@ -2640,6 +2650,7 @@ class App(QWidget):
         return return_flag, img_stack
 
     def fit_2d_xanes(self):
+        self.fit_2d_non_iter_method = 1
         self.pb_fit2d.setDisabled(True)
         QApplication.processEvents()
         #canvas = self.canvas1
@@ -2707,6 +2718,80 @@ class App(QWidget):
         self.update_msg()
         self.pb_fit2d.setEnabled(True)
         QApplication.processEvents()
+
+
+    def fit_2d_xanes_non_iter_with_bkg(self):
+        self.fit_2d_non_iter_method = 2
+        self.pb_fit2d.setDisabled(True)
+        QApplication.processEvents()
+        #canvas = self.canvas1
+        return_flag, img_stack = self.choose_image_for_fittting()
+        img_stack = self.smooth(img_stack * self.mask)
+        if return_flag:
+            try:
+                eng_s = float(self.tx_fit2d_s.text())
+                eng_e = float(self.tx_fit2d_e.text())
+                fit_eng_s, fit_eng_e = pyxas.find_nearest(self.xanes_eng, eng_s), pyxas.find_nearest(self.xanes_eng, eng_e)
+                tmp = np.array(self.xanes_eng[fit_eng_s: fit_eng_e] >= self.spectrum_ref['ref0'][0,0]) * np.array(self.xanes_eng[fit_eng_s: fit_eng_e] <= self.spectrum_ref['ref0'][-1,0])
+                fit_region = np.arange(fit_eng_s, fit_eng_e)[tmp]
+                self.xanes_2d_fit, self.xanes_2d_fit_offset, self.xanes_fit_cost, thickness, self.xanes_y_fit_with_bkg, self.xanes_fit_slope_with_bkg = pyxas.fit_2D_xanes_with_bkg(self.xanes_eng[fit_region], img_stack[fit_region], [], 0, self.spectrum_ref)
+                if self.cb1.findText('XANES Fit (ratio, summed to 1)') < 0:
+                    self.cb1.addItem('XANES Fit (ratio, summed to 1)')
+                if self.cb1.findText('XANES Fit (Elem. concentration)') < 0:
+                    self.cb1.addItem('XANES Fit (Elem. concentration)')
+                if self.cb1.findText('XANES Fit (thickness)') < 0:
+                    self.img_pre_edge_sub_mean = thickness
+                    self.cb1.addItem('XANES Fit (thickness)')
+                if self.cb1.findText('XANES Fit error') < 0:
+                    self.cb1.addItem('XANES Fit error')
+                if self.cb1.findText('XANES Fit offset') < 0:
+                    self.cb1.addItem('XANES Fit offset')
+                # save to data_summary:
+                # 1: xanes_fit ratio:
+                img = self.xanes_2d_fit
+                img_sum = np.sum(img, axis=0, keepdims=True)
+                img_sum[np.abs(img_sum) < 1e-6] = 1e6
+                img = img / img_sum
+                img = pyxas.rm_abnormal(img)
+                self.data_summary['XANES Fit (ratio, summed to 1)'] = self.smooth(img) * self.mask
+                # 2: xanes_fit concentration:
+                img = img * self.img_pre_edge_sub_mean
+                img = pyxas.rm_abnormal(img)
+                self.data_summary['XANES Fit (Elem. concentration)'] = self.smooth(img) * self.mask
+                # 3: xanes_fit error:
+                self.data_summary['XANES Fit error'] = self.xanes_fit_cost.copy()
+                # 4: xanes_fit offset:
+                self.data_summary['XANES Fit offset'] = self.xanes_2d_fit_offset.copy()
+                # finish saving to data_summary
+
+                self.cb1.setCurrentText('XANES Fit (ratio, summed to 1)')
+                elem = self.tx_elem.text()
+                elem = elem.replace(' ', '')
+                elem = elem.replace(';', ',')
+                elem = elem.split(',')
+                if elem[0] == '':
+                    elem = []
+                self.elem_label = elem
+                self.update_canvas_img()
+                self.msg = '2D fitting finished. "XANES Fit" has been added for imshow'
+                self.pb_plot_roi.setEnabled(True)
+                self.pb_export_roi_fit.setEnabled(True)
+                self.pb_colormix.setEnabled(True)
+                self.pb_save.setEnabled(True)
+                num_ref = len(self.spectrum_ref)
+                self.cb_color_channel.clear()
+                for i in range(num_ref):
+                    if self.cb_color_channel.findText(f'{i}') < 0:
+                        self.cb_color_channel.addItem(f'{i}')
+            except Exception as err:
+                print(f'fitting fails: {str(err)}')
+                self.msg = f'fitting fails: {str(err)}'
+        self.update_msg()
+        self.pb_fit2d.setEnabled(True)
+        QApplication.processEvents()
+
+
+
 
     def reset_xanes_fit(self):
         self.reset_xanes_ref()
@@ -2971,6 +3056,12 @@ class App(QWidget):
             self.cb1.setCurrentText('Smart Mask')
             self.msg = 'Smart Mask generated'
             self.update_canvas_img()
+
+            n_smart_mask = len(self.smart_mask)
+            for i in range(n_smart_mask):
+                roi_name = f'roi_SM_{i}'
+                self.canvas1.roi_add_to_list(roi_name = roi_name)
+                self.msg += f'; {roi_name} added to the ROI list'
             #self.pb_smart_mask.setStyleSheet('color: rgb(200,50,50);')
         except Exception as err:
             self.msg = f'invalid mask. Error: {str(err)} '
@@ -3223,7 +3314,7 @@ class App(QWidget):
         x_data = self.xanes_eng[fit_region]
 
         try:
-            if (type(roi_selected) is str) and ('roi_' in roi_selected) and (not 'SM' in roi_selected):
+            if (type(roi_selected) is str) and ('roi_' in roi_selected) and (not 'SM' in roi_selected) and not('-1' in roi_selected):
                 roi_cord = np.int32(np.array(roi_list[roi_selected][:4]))
                 print(f'{roi_cord}')
                 a, b, c, d = roi_cord[0], roi_cord[1], roi_cord[2], roi_cord[3]
@@ -3250,7 +3341,7 @@ class App(QWidget):
                     sm_index = int(roi_selected.split('_')[-1])
                     mask = self.smart_mask[sm_index]
                 elif '-1' in roi_selected:
-                    mask = self.mask
+                    mask = self.mask * np.ones((img.shape[1], img.shape[2]))
                 else:
                     raise IndexError
                 if len(img):
@@ -3288,35 +3379,43 @@ class App(QWidget):
             fit_offset = 0
         return x_data, y_data, y_fit, fit_coef, fit_offset, cord, fit_success, roi_selected
 
-    '''
-    def _roi_fit_mean(self):
-        eng_s = self.xanes_eng[0]
-        eng_e = self.xanes_eng[-1]
-        fit_eng_s, fit_eng_e = pyxas.find_nearest(self.xanes_eng, eng_s), pyxas.find_nearest(self.xanes_eng, eng_e)
-        tmp = np.array(self.xanes_eng[fit_eng_s: fit_eng_e] > self.spectrum_ref['ref0'][0, 0]) * np.array(self.xanes_eng[fit_eng_s: fit_eng_e] < self.spectrum_ref['ref0'][-1, 0])
-        fit_region = np.arange(fit_eng_s, fit_eng_e)[tmp]
-        roi_selected = 1
-        canvas = self.canvas1
-        roi_list = canvas.roi_list
-        if not self.img_update.shape == self.img_regulation.shape:
-            img = deepcopy(self.img_update[fit_region])
-        else:
-            img = deepcopy(self.img_regulation[fit_region])
-        x_data = self.xanes_eng[fit_region]
+
+    def _roi_fit2(self):
         try:
-            n = int(self.tx_fit_roi.text())
-            roi_selected = 'roi_' + str(n)
-        except:
-            print('index should be integer')
-            n = 0
-        n_roi = self.lst_roi.count()
-        if n > n_roi or n < 0:
-            self.msg = 'roi not exist, will show the fitting average'
-            roi_selected = -1
+            n = self.tx_fit_roi.text()
+            roi_selected = 'roi_' + n
+            canvas = self.canvas1
+            roi_list = canvas.roi_list
+        except Exception as err:
+            print(err)
+            print(f'{roi_selected} not exist')
+            n = '-1'
+            roi_selected = 'roi_-1'
+        try:
+            eng_s = self.xanes_eng[0]
+            eng_e = self.xanes_eng[-1]
+            fit_eng_s = pyxas.find_nearest(self.xanes_eng, eng_s)
+            fit_eng_e = pyxas.find_nearest(self.xanes_eng, eng_e)
+            tmp = np.array(self.xanes_eng[fit_eng_s: fit_eng_e] > self.spectrum_ref['ref0'][0, 0]) * \
+                  np.array(self.xanes_eng[fit_eng_s: fit_eng_e] < self.spectrum_ref['ref0'][-1, 0])
+            fit_region = np.arange(fit_eng_s, fit_eng_e)[tmp]
+            #roi_selected = -1
+        except Exception as err:
+            self.msg = f'something wrong (e.g., check ROI, reference spectrum, etc.). Error: {str(err)}'
             self.update_msg()
-        if roi_selected:
-            print(f'{roi_selected}')
-            try:
+            fit_success = 0
+            return fit_success
+
+        img = self._select_xanes_fit_img()
+        if len(img):
+            img = img[fit_region]
+            img = self.smooth(img)
+
+        x_data = self.xanes_eng[fit_region]
+
+        try:
+            if (type(roi_selected) is str) and ('roi_' in roi_selected) and (not 'SM' in roi_selected) and not ('-1' in roi_selected):
+                mask = 1
                 roi_cord = np.int32(np.array(roi_list[roi_selected][:4]))
                 print(f'{roi_cord}')
                 a, b, c, d = roi_cord[0], roi_cord[1], roi_cord[2], roi_cord[3]
@@ -3325,54 +3424,58 @@ class App(QWidget):
                 y1 = min(b, d)
                 y2 = max(b, d)
                 cord = [x1, x2, y1, y2]
-                try:
+                if len(img):
                     prj = img[:, y1:y2, x1:x2]
-                    s = prj.shape
-                    y_data = np.mean(np.mean(prj, axis=1), axis=1) 
-                except:
-                    y_data = []
-                #prj_mean = np.zeros([prj.shape[0], 1, 1])
-                #prj_mean[:,0,0] = np.mean(np.mean(prj, axis=1), axis=1)
-                #fit_coef, fit_cost = pyxas.fit_2D_xanes_non_iter(prj_mean, self.xanes_eng[fit_eng_s:fit_eng_e],self.spectrum_ref)
-                #fit_coef = np.squeeze(fit_coef)
-                #fit_cost = np.squeeze(fit_cost)
-                
-                fit_coef = self.xanes_2d_fit[:, y1:y2, x1:x2]
-                fit_coef = np.mean(np.mean(fit_coef, axis=1), axis=1)
-                try:
-                    fit_offset = self.xanes_2d_fit_offset[:, y1:y2, x1:x2]
-                    fit_offset = np.mean(np.mean(fit_offset, axis=1), axis=1)
-                except:
-                    fit_offset = 0
-                               
-                y_fit = 0
-                for i in range(self.num_ref):
-                    ref = self.spectrum_ref[f'ref{i}']
-                    tmp = interp1d(ref[:,0], ref[:,1], kind='cubic')
-                    ref_interp = tmp(x_data).reshape(y_data.shape)
-                    y_fit += fit_coef[i] * ref_interp
-                y_fit += fit_offset
-                fit_success = 1
-            except:
-                self.msg = 'something wrong, no fitting performed'
-                self.update_msg()
-                y_data = np.zeros(x_data.shape)
-                y_fit = y_data
-                fit_success = 0
-                cord = [0,0,0,0]
-                fit_coef = [0]
-                fit_offset = 0
-        else:
+                    y_data = np.mean(np.mean(prj, axis=1), axis=1)
+                else: # img = []
+                    y_data = np.zeros(x_data.shape)
+            else:
+                if 'SM' in roi_selected:
+                    sm_index = int(roi_selected.split('_')[-1])
+                    mask = self.smart_mask[sm_index]
+                elif '-1' in roi_selected:
+                    mask = self.mask * np.ones((img.shape[1], img.shape[2]))
+                else:
+                    raise IndexError
+                if len(img):
+                    prj = img * mask
+                    y_data = np.sum(np.sum(prj, axis=1), axis=1) / np.sum(mask)
+                else: # img = []
+                    y_data = np.zeros(x_data.shape)
+
+            prj_mean = np.zeros([prj.shape[0], 1, 1])
+            prj_mean[:, 0, 0] = y_data
+            fit_coef, fit_offset, fit_cost, thickness, y_fit, slope = pyxas.fit_2D_xanes_with_bkg(x_data, prj_mean, [], 0, self.spectrum_ref)
+            fit_coef = np.squeeze(fit_coef)
+            fit_offset = np.squeeze(fit_offset)
+            slope = np.squeeze(slope)
+            y_fit = np.squeeze(y_fit)
+            cord = [0, 0, 0, 0]
+            fit_success = 1
+        except Exception as err:
+            self.msg = f'something wrong (e.g., check ROI). Error: {str(err)}'
+            self.update_msg()
             y_data = np.zeros(x_data.shape)
             y_fit = y_data
             fit_success = 0
             cord = [0,0,0,0]
             fit_coef = [0]
-            fit_offset = [0]
-        return x_data, y_data, y_fit, fit_coef, fit_offset, cord, fit_success, roi_selected
-    '''
+            fit_offset = 0
+            slope = 0
+        return x_data, y_data, y_fit, fit_coef, fit_offset, slope, cord, fit_success, roi_selected
+
+
 
     def plot_roi_fit(self, return_flag):
+        if self.fit_2d_non_iter_method == 1:
+            self.plot_roi_fit1(return_flag)
+        elif self.fit_2d_non_iter_method == 2:
+            self. plot_roi_fit2(return_flag)
+        else:
+            print('fail to plot')
+
+
+    def plot_roi_fit1(self, return_flag):
         x_data, y_data, y_fit, fit_coef, fit_offset, cord, fit_success, roi_selected = self._roi_fit()
         elem = self.tx_elem.text()
         elem = elem.replace(' ', '')
@@ -3409,6 +3512,61 @@ class App(QWidget):
                             x_ref = self.spectrum_ref[ref_name][:,0]
                             y_ref = self.spectrum_ref[ref_name][:,1]
                             line_ref[ref_name], = plt.plot(x_ref, y_ref*scale*scale_i+fit_offset,
+                                                           alpha=0.6, color=t_color[i%5], label=ref_name)
+                            plt.xlim([x_data[0]-0.02, x_data[-1]+0.02])
+                            legend.append(line_ref[ref_name])
+                    except Exception as err:
+                        print(err)
+            plt.legend(handles=legend)
+            plt.title(title)
+            plt.show()
+            self.msg = ''
+            self.update_msg()
+        if return_flag:
+            return x_data, y_data, y_fit, fit_coef, cord, fit_success
+
+
+    def plot_roi_fit2(self, return_flag):
+        x_data, y_data, y_fit, fit_coef, fit_offset, slope, cord, fit_success, roi_selected = self._roi_fit2()
+        elem = self.tx_elem.text()
+        elem = elem.replace(' ', '')
+        elem = elem.replace(';', ',')
+        elem = elem.split(',')
+        if elem[0] == '':
+            elem = []
+        if fit_success > 0:
+
+            fit_coef_sum = np.sum(fit_coef)
+            title = f'{roi_selected}:  '
+            for i in range(len(fit_coef)):
+                try:
+                    plot_label = elem[i]
+                except Exception as err:
+                    plot_label = f'ref#{i}'
+                self.elem_label.append(plot_label)
+                title += plot_label + f': {fit_coef[i] / fit_coef_sum:.3f}, '
+
+            plt.figure()
+            legend = []
+            if fit_success == 1:
+                line_raw, = plt.plot(x_data, y_data, 'b.', label='Experiment data')
+                legend.append(line_raw)
+                line_fit, = plt.plot(x_data, y_fit, color='r', label='Fitted')
+                legend.append(line_fit)
+                if self.chkbox_overlay_ref.isChecked():
+                    t_color = ['g', 'orange', 'm', 'c', 'y']
+                    line_ref = {}
+                    try:
+                        id_max = y_fit.argmax()
+                        fit_offset_tmp = fit_offset + slope * x_data
+                        scale = (np.max(y_fit) - fit_offset_tmp[id_max]) / np.max(self.spectrum_ref['ref0'][:,1])
+                        for i in range(self.num_ref):
+                            ref_name = f'ref{i}'
+                            scale_i = fit_coef[i]/fit_coef_sum
+                            x_ref = self.spectrum_ref[ref_name][:,0]
+                            y_ref = self.spectrum_ref[ref_name][:,1]
+                            offset = fit_offset + slope * (x_ref)
+                            line_ref[ref_name], = plt.plot(x_ref, y_ref*scale*scale_i+offset,
                                                            alpha=0.6, color=t_color[i%5], label=ref_name)
                             plt.xlim([x_data[0]-0.02, x_data[-1]+0.02])
                             legend.append(line_ref[ref_name])
@@ -3976,7 +4134,7 @@ class App(QWidget):
                 vec[i] = [1, 0, 1]
             if color[i] == 'y':
                 vec[i] = [1, 1, 0]
-        return vec 
+        return vec
 
     def save_2Dfit(self):
         pre_s = float(self.tx_fit_pre_s.text())
@@ -4207,7 +4365,7 @@ class App(QWidget):
             self.update_msg()
 
     def remove_glitch(self):
-        tmp = self.tx_glitch_thresh.text()           
+        tmp = self.tx_glitch_thresh.text()
         glitch_thresh =  self.tx_glitch_thresh.text()
         if len(self.roi_spec_dif) != len(self.xanes_eng):
             self.msg = 'data size disagree...'
@@ -4232,7 +4390,7 @@ class App(QWidget):
                     print('glitch removed in img_update ')
                     self.xanes_eng = self.xanes_eng[mask]
                     st = '{0:3.1f}, {1:3.1f}, ..., {2:3.1f}  (totally, {3} angles)'.format(self.xanes_eng[0],self.xanes_eng[1],self.xanes_eng[-1],len(self.xanes_eng))
-                    self.lb_eng1.setText(st) 
+                    self.lb_eng1.setText(st)
                     print('glitch removed in xanes_eng ')
                     self.msg = 'glitch removed !'
                 except Exception as err:
@@ -4290,12 +4448,11 @@ class App(QWidget):
                 y = [y1, y1, y2, y2, y1]
                 plt.plot(x, y, '-', color=plot_color, linewidth=1.0, label=plot_label)
                 roi_name = '#' + plot_label.split('_')[-1]
-                plt.annotate(roi_name, xy=(x1, y1 - 40),
+                plt.annotate(roi_name, xy=(x1, y1 - 10),
                              bbox={'facecolor': plot_color, 'alpha': 0.5, 'pad': 2},
                              fontsize=10)
             else: # mask_type == 'SM':
-                plt.figure()
-                plt.imshow(mask_roi)
+                plt.imshow(mask_roi * current_img)
         plt.show()
 
     def hide_roi(self):
@@ -4452,7 +4609,7 @@ class App(QWidget):
             canvas = self.canvas1
             img_stack = deepcopy(canvas.img_stack)
             roi_list = canvas.roi_list
-            x_eng = deepcopy(self.xanes_eng)        
+            x_eng = deepcopy(self.xanes_eng)
             num_roi_sel = len(self.lst_roi.selectedItems())
             roi_spec_fit = np.zeros([len(x_eng), num_roi_sel+1])
             roi_spec_fit[:,0] = x_eng
@@ -4478,7 +4635,7 @@ class App(QWidget):
                 plt.subplot(212)  # plot normalized spectrum
                 plt.plot(x_eng, roi_spec_fit[:, n])
                 plt.title('normalized spectrum for ' + plot_label)
-                plt.show()    
+                plt.show()
             self.roi_spec = roi_spec_fit
         except Exception as err:
             self.msg = f'Fitting error. Error: {str(err)}'
@@ -4495,7 +4652,7 @@ class App(QWidget):
             fn_spec = self.fpath + '/ROI/fitted_roi/' + fn_spec
             # fn_cord = 'fitted_coordinates_roi_from_' + self.cb1.currentText() + '_' + self.tx_file_index.text() + '.txt'
             # fn_cord = self.fpath + '/ROI/fitted_roi/' + fn_cord
-            canvas = self.canvas1            
+            canvas = self.canvas1
             roi_spec = deepcopy(self.roi_spec)
             roi_spec = np.around(roi_spec, 4)
             roi_list = canvas.roi_list
@@ -4511,7 +4668,7 @@ class App(QWidget):
                 x2 = max(a, c)
                 y1 = min(b, d)
                 y2 = max(b, d)
-                area = (x2 - x1) * (y2 - y1)            
+                area = (x2 - x1) * (y2 - y1)
                 roi_dict_spec[plot_label] = pd.Series(roi_spec[:, n])
                 roi_dict_cord[plot_label] = pd.Series([x1, y1, x2, y2, area], index=['x1', 'y1', 'x2', 'y2', 'area'])
             df_spec = pd.DataFrame(roi_dict_spec)
@@ -4626,7 +4783,7 @@ class App(QWidget):
                 self.msg = f'image stack saved to: {fn}'
         except Exception as err:
             self.msg = f'file saving fails.  Error: {str(err)}'
-        finally:            
+        finally:
             self.update_msg()
             self.pb_save_img_stack.setEnabled(True)
             QApplication.processEvents()
@@ -5283,7 +5440,7 @@ class App(QWidget):
                 self.pb_align_roi.setText('Align Img (ROI)')
                 self.pb_align_roi.setEnabled(True)
                 self.update_canvas_img()
-                self.update_msg()      
+                self.update_msg()
         else:
             self.pb_align_roi.setText('Align Img (ROI)')
             self.pb_align_roi.setEnabled(True)
@@ -6170,7 +6327,7 @@ class App(QWidget):
 
         return vbox_1
 
-    
+
     def layout_3D_param_open_filefolder(self):
         gpbox = QGroupBox('Files')
         gpbox.setFont(self.font1)
@@ -7632,7 +7789,7 @@ class App(QWidget):
             return 0
 
     '''
-    Align 3D and 
+    Align 3D and
     '''
 
     def show_3D_h5_attr(self):
