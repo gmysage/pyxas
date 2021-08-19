@@ -7769,7 +7769,7 @@ class App(QWidget):
                         pyxas.fit_2D_xanes_file(file_path, file_prefix,
                                                 file_type, fit_param,
                                                 xanes_eng, spectrum_ref,
-                                                file_range=[], save_hdf=1)
+                                                file_range=[], save_hdf=0)
                     else:
                         pyxas.fit_2D_xanes_file_mpi(file_path, file_prefix,
                                                     file_type, fit_param,

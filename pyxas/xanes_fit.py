@@ -216,7 +216,7 @@ def fit_2D_xanes_file(file_path, file_prefix, file_type, fit_param, xanes_eng, s
     batch processing xanes given xanes files
     '''
     time_start = time.time()
-    n_comp = int(fit_param['n_comp'])
+    n_comp = max(int(fit_param['n_comp']), 1);
 
     file_save_path = f'{file_path}/fitted_xanes'
     pyxas.create_directory(file_save_path)
