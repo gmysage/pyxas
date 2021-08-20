@@ -163,7 +163,7 @@ def lsq_fit_iter(X, Y, W=None, learning_rate=0.002, n_iter=100, bounded=True, pr
 
 
 
-def lsq_fit_iter2(A, Y, W=None, B=0, learning_rate=0.002, n_iter=100, bounds=[0,1], f_scale1=0.5):
+def lsq_fit_iter2(A, Y, W=None, B=0, learning_rate=0.002, n_iter=100, bounds=[0,1], f_scale1=0.5, B_update=1):
     # solve AW + B = Y (W and B need to be solved)
 
     if W is None:
@@ -187,14 +187,14 @@ def lsq_fit_iter2(A, Y, W=None, B=0, learning_rate=0.002, n_iter=100, bounds=[0,
             index = np.abs(tmp) > 0.5 * np.abs(W)
             tmp[index] = 0.5 * np.abs(W[index])
             W -= tmp
-            B -= db*learning_rate
-            #W[W <= bounds[0]] = bounds[0]
-            #W[W >= bounds[1]] = bounds[1]
+            B -= db*learning_rate * B_update
+            W[W <= bounds[0]] = bounds[0]
+            W[W >= bounds[1]] = bounds[1]
         elif len(bounds)==0:
             dw, db, cost_temp = backpropagate0(Y_test, A, W, B)
             W -= dw*learning_rate
             W[W < 0] = 0
-            B -= db * learning_rate
+            B -= db * learning_rate * B_update
         cost.append(cost_temp)
     if len(bounds) == 2:
         W[W <= bounds[0]] = bounds[0]
@@ -232,13 +232,13 @@ def soft_threshold(rho, lamda):
             theta = (rho + lamda)
         elif rho >  lamda:
             theta = (rho - lamda)
-        else:
+        else: 
             theta = 0
     '''
     return y
 
 
-def coordinate_descent_lasso(A, y, lamda=.01, num_iters=10, X_guess=[], intercept=False, bounds=[], print_flag=1):
+def coordinate_descent_lasso(A, y, lamda=.01, num_iters=10, X_guess=[], intercept=False, bounds=[]):
     '''
     Coordinate gradient descent for lasso regression - for normalized data.
     The intercept parameter allows to specify whether or not we regularize theta_0
@@ -257,8 +257,7 @@ def coordinate_descent_lasso(A, y, lamda=.01, num_iters=10, X_guess=[], intercep
         bounds = [-1e16, 1e16]
 
     for i in range(num_iters):
-        if print_flag:
-            print(f'iter = {i}')
+        print(f'iter = {i}')
         # Looping through each coordinate
         for j in range(n_spectra):
             # Vectorized implementation
@@ -385,7 +384,7 @@ def test():
 
     Y_est = np.squeeze(np.dot(W, X))
     plt.figure();plt.subplot(121);plt.plot(cost)
-
+    
 
     plt.subplot(122);plt.plot(t, Y_test, 'r.-');
     # plt.plot(t, Y_true, 'g');
