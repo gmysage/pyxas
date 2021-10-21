@@ -89,7 +89,7 @@ def linear_polar_mapping_3D(polar_img_shape, center):
     return coords
 
 def to_polar_3D(img3D, center=None, radius=None, output_shape=None,**kwargs):
-    if center is None:    
+    if center is None:
         center = (np.array(img3D.shape)[:3] / 2) - 0.5
     if radius is None:
         h, r, c = np.array(img3D.shape)[:3] / 2
@@ -141,7 +141,7 @@ def linear_polar_mapping_2D(output_coords, k_angle, k_radius, center):
     return coords
 
 def to_polar_2D(img, center=None, radius=None, output_shape=None,**kwargs):
-    if center is None:    
+    if center is None:
         center = (np.array(img.shape)[:2] / 2) - 0.5
     if radius is None:
         w, h = np.array(img.shape)[:2] / 2
@@ -151,44 +151,45 @@ def to_polar_2D(img, center=None, radius=None, output_shape=None,**kwargs):
         width = int(np.ceil(radius))
         output_shape = (height, width)
     else:
-        output_shape = safe_as_int(output_shape)
+        #output_shape = np.int(output_shape)
         height = output_shape[0]
         width = output_shape[1]
     k_radius = width / radius
     k_angle = height / (2 * np.pi)
+    #k_angle = np.linspace(0, 2*np.pi, height)
     warp_args = {'k_angle': k_angle, 'k_radius': k_radius, 'center': center}
     warped = warp(img, linear_polar_mapping_2D, map_args=warp_args,
                   output_shape=output_shape)
     return warped
 
 
-def linear_cart_mapping_2D(coords, center):
+def linear_cart_mapping_2D(coords, center, angle_scale=1):
     '''
     coords: [col, row]
     '''
     x = coords[:, 0] - center[0]
     y = coords[:, 1] - center[1]
-    angle = np.arctan2(y, x) / np.pi * 180
-    angle[angle<0] = angle[angle<0] + 360
+    angle = np.arctan2(y, x) / np.pi * 180 * angle_scale -1
+    angle[angle<0] = angle[angle<0] + 360 * angle_scale - 1
 
-    radius = np.sqrt(x**2 + y**2)
-    coords = np.column_stack((radius, angle))     
+    radius = np.sqrt(x**2 + (y)**2)
+    coords = np.column_stack((radius, angle))
     return coords
 
 
-def to_linear_2D(img_p, center_offset=None, output_shape=None, **kwargs):
+def to_linear_2D(img_p, center_offset=None, output_shape=None, angle_scale=1, **kwargs):
     s = img_p.shape
     if output_shape is None:
         w = floor(s[1]/np.sqrt(2))
-        output_shape = (2*w, 2*w)  
+        output_shape = (2*w, 2*w)
     else:
-        w = min(output_shape)/2  
+        w = min(output_shape)/2
     if center_offset is None:
         center = (w-0.5, w-0.5)
     else:
-        center = (w-0.5+center_offset[0], w-0.5+center_offset[1])    
-    warp_args = {'center':center}
-    warped = warp(img_p, linear_cart_mapping_2D, map_args=warp_args,         output_shape=output_shape)
+        center = (w-0.5+center_offset[0], w-0.5+center_offset[1])
+    warp_args = {'center':center, 'angle_scale':angle_scale}
+    warped = warp(img_p, linear_cart_mapping_2D, map_args=warp_args,output_shape=output_shape)
     return warped
 
 
@@ -207,7 +208,7 @@ def topolar(img, order=5):
 def tocart(img, order=5):
     max_radius = 0.5*np.linalg.norm( img.shape )
     def transform(coords):
-        
+
         r = coords[1]
         theta = coords[0] / 360 * 2 * np.pi
 
@@ -264,7 +265,7 @@ def rotate_2D(img2D, theta, center=None):
         center = np.array(s) / 2 - 0.5
     theta_r = -theta / 180 * np.pi
     m1 = [[cos(theta_r), -sin(theta_r)],
-          [sin(theta_r),  cos(theta_r)],]    
+          [sin(theta_r),  cos(theta_r)],]
     m1 = np.array(m1)
     y, x = np.mgrid[:s[0], :s[1]] # y has "0" at up-left corner
     ymax = np.max(y)
@@ -309,7 +310,7 @@ def transform_3D(img3D, m, center=None, order=1):
     img3D_t = img3D_t.reshape(img3D.shape)
     return img3D_t
 
-    
+
 
 def get_rotation_matrix(theta_x=0, theta_y=0, theta_z=0):
     t_x = theta_x / 180 * np.pi
@@ -317,7 +318,7 @@ def get_rotation_matrix(theta_x=0, theta_y=0, theta_z=0):
     t_z = theta_z / 180 * np.pi
     m_z = [[cos(t_z), -sin(t_z), 0],
           [sin(t_z),  cos(t_z), 0],
-          [0, 0, 1]]    
+          [0, 0, 1]]
     m_y = [[cos(t_y), 0, -sin(t_y)],
           [0, 1, 0],
           [sin(t_y), 0, cos(t_y)]]
@@ -333,7 +334,7 @@ def get_rotation_matrix1(theta_x=0, theta_y=0, theta_z=0):
     t_z = theta_z / 180 * np.pi
     m_z = [[cos(t_z), -sin(t_z), 0],
           [sin(t_z),  cos(t_z), 0],
-          [0, 0, 1]]    
+          [0, 0, 1]]
     m_y = [[cos(t_y), 0, -sin(t_y)],
           [0, 1, 0],
           [sin(t_y), 0, cos(t_y)]]
@@ -359,7 +360,7 @@ def rotate_3D_new(img3D, theta_x=0, theta_y=0, theta_z=0, center=None):
         center = np.array(s) / 2 - 0.5
     '''
     mm = get_rotation_matrix1(theta_x, theta_y, theta_z)
-    img3D_r = transform_3D(img3D, mm, center)   
+    img3D_r = transform_3D(img3D, mm, center)
     '''
     m3 = get_rotation_matrix(0, 0, -theta_z)
     m2 = get_rotation_matrix(0, -theta_y, 0)
@@ -408,7 +409,7 @@ def img_to_spherical(img3D, radius=None, radius_scale=1, phi_scale=1, theta_scal
     img3D has a shape of (height, row, column)
     we define the theta as the in-plane angle, in which theta =0 means the points lie on the x-axis, equavelent to the column of the 3D image
 
-    phi is defined as the angle away from the x-y plane. It is different from conventional definition. Here, phi=0 means points lie on the x-y plane, equavelent to row-column plane. 
+    phi is defined as the angle away from the x-y plane. It is different from conventional definition. Here, phi=0 means points lie on the x-y plane, equavelent to row-column plane.
     '''
     s = img3D.shape
     center = np.array(s) / 2 - 0.5
@@ -489,7 +490,7 @@ def noisy(noise_typ,image):
     elif noise_typ =="speckle":
         row,col = image.shape
         gauss = np.random.randn(row,col)
-        gauss = gauss.reshape(row,col)        
+        gauss = gauss.reshape(row,col)
         noisy = image + image * gauss
         return noisy
 
@@ -508,7 +509,7 @@ def find_rotation_angle_2D(img1, img2):
 
 
 def find_rotation_angle_3D(img3D, img3D_r, use_fft=False):
-    if use_fft:    
+    if use_fft:
         img1 = np.log(np.abs(np.fft.fftshift(np.fft.fftn(img3D))))
         img2 = np.log(np.abs(np.fft.fftshift(np.fft.fftn(img3D_r))))
     else:
@@ -549,7 +550,7 @@ u20_ = u20 / u00
 u02_ = u02 / u00
 u11_ = u11 / u00
 
-cov2D = np.array([[u20_, u11_], 
+cov2D = np.array([[u20_, u11_],
                   [u11_, u02_]])
 
 w, v = np.linalg.eig(cov2D)
@@ -577,7 +578,7 @@ def find_img_angle(img, thresh=None):
     coords = np.vstack([x1, y1])
     if not thresh is None:
         img[img<thresh] = 0
-    aweights = img.flatten()    
+    aweights = img.flatten()
     cov = np.cov(coords, aweights=aweights)
     evals, evecs = np.linalg.eig(cov)
     sort_indices = np.argsort(evals)[::-1]
@@ -588,21 +589,21 @@ def find_img_angle(img, thresh=None):
     vecs[:, 0] = evecs[:, sort_indices[0]]
     vecs[:, 1] = evecs[:, sort_indices[1]]
     ang = np.arctan2(y_v1, x_v1)/np.pi * 180
-    return vals, vecs, ang  
+    return vals, vecs, ang
 
-        
+
 def align_2D_rotation(img_ref, img2, n=10, prec=0.1, angle_limit=None):
     '''
     n: num_iter
     prec: angle difference limit
     '''
     im1 = img_ref.copy()
-    im2 = img2.copy()    
+    im2 = img2.copy()
     rot_angle = 0
     for i in range(10):
         im1[im1<0] = 0
         im2[im2<0] = 0
-        
+
         im2_, _, _ = pyxas.align_img(im1, im2)
 
         _, _, ang1 = pyxas.find_img_angle(im1)
@@ -616,14 +617,14 @@ def align_2D_rotation(img_ref, img2, n=10, prec=0.1, angle_limit=None):
         img_ali2 = pyxas.rotate_2D(im2, -d_ang)
         img_ali2, _, _ = pyxas.align_img(im2, img_ali2)
         sum2 = np.sum(im1 * img_ali2)
-        
+
         if sum1 > sum2:
             rot_angle += d_ang
             img_ali = img_ali1
         else:
             rot_angle += -d_ang
             img_ali = img_ali2
-        if d_ang < 0.1:          
+        if d_ang < 0.1:
             break
         else:
             im2 = img_ali
@@ -645,8 +646,8 @@ def find_img_angle3D(img, thresh=None, sort=False):
     coords = np.vstack([x1, y1, z1])
     if not thresh is None:
         img[img<thresh] = 0
-    aweights = img.flatten() 
-    aweights[aweights<0] = 0   
+    aweights = img.flatten()
+    aweights[aweights<0] = 0
     cov = np.cov(coords, aweights=aweights)
     evals, evecs = np.linalg.eig(cov)
     if sort:
@@ -655,7 +656,7 @@ def find_img_angle3D(img, thresh=None, sort=False):
         vecs = np.zeros(evecs.shape)
         for i in range(3):
             vecs[:, i] = evecs[:, sort_indices[i]]
-        return vals, vecs 
+        return vals, vecs
     else:
         return evals, evecs
 
@@ -678,7 +679,7 @@ def angle_between_vec(vec1, vec2):
     a =  np.dot(vec1, vec2) / (r1 * r2)
     theta = np.arccos(a) * 180 / np.pi
     return theta
-    
+
 
 def plot_line(p1, p2, ax=None, c='g'):
     if ax is None:
@@ -696,9 +697,9 @@ def plot_box(ax=None):
 
     plot_line(p1, p2, ax); plot_line(p1, p3, ax)
     plot_line(p2, p4, ax); plot_line(p3, p4, ax)
-    plot_line(p5, p6, ax); plot_line(p5, p7, ax) 
+    plot_line(p5, p6, ax); plot_line(p5, p7, ax)
     plot_line(p6, p8, ax); plot_line(p7, p8, ax)
-    plot_line(p1, p5, ax); plot_line(p2, p6, ax) 
+    plot_line(p1, p5, ax); plot_line(p2, p6, ax)
     plot_line(p3, p7, ax); plot_line(p4, p8, ax)
     ax.set_xlabel('X axis')
     ax.set_ylabel('Y axis')
@@ -747,8 +748,8 @@ def test3D():
             y = [0, vec_rot[1, i]]
             z = [0, vec_rot[2, i]]
             ax.scatter(x, y, z, c='c', marker='>')
-            ax.plot(x, y, z,'c') 
-            ax.text(x[1]+0.1, y[1]+0.1, z[1]+0.1, 'rot_'+str(chr(97+i))) 
+            ax.plot(x, y, z,'c')
+            ax.text(x[1]+0.1, y[1]+0.1, z[1]+0.1, 'rot_'+str(chr(97+i)))
         '''
     except:
         pass
@@ -759,7 +760,7 @@ def align_3D_rotation_not_good(img_ref, img2, plot_flag=0):
 
     val, vec = find_img_angle3D(img_ref, sort=1)
     val_r, vec_r = find_img_angle3D(img2, sort=1)
-            
+
     if plot_flag:
         fig = plt.figure()
         ax = fig.gca(projection='3d')
@@ -772,14 +773,14 @@ def align_3D_rotation_not_good(img_ref, img2, plot_flag=0):
             ax.scatter(x, y, z, c='r', marker='o')
             ax.plot(x, y, z,'r')
             ax.text(x[1], y[1], z[1], 'v1_'+str(chr(97+i)))
-             
+
         for i in range(3):
             x = [0, vec_r[0, i]]
             y = [0, vec_r[1, i]]
             z = [0, vec_r[2, i]]
             ax.scatter(x, y, z, c='b', marker='+')
-            ax.plot(x, y, z,'b') 
-            ax.text(x[1]+0.05, y[1]+0.05, z[1]+0.05, 'v2_'+str(chr(97+i)))  
+            ax.plot(x, y, z,'b')
+            ax.text(x[1]+0.05, y[1]+0.05, z[1]+0.05, 'v2_'+str(chr(97+i)))
 
     v1, v2, v3 = vec_r[:,0], vec_r[:,1], vec_r[:,2]
     if sign(np.linalg.det(vec) * np.linalg.det(vec_r)) < 0:
@@ -816,7 +817,7 @@ def align_3D_rotation_not_good(img_ref, img2, plot_flag=0):
 
     msum = np.zeros(len(mm))
     m_inv = np.linalg.inv(vec)
-    
+
     for i in range(len(mm)):
         m_tmp = mm[f'{i}'] @ m_inv
         img_tmp = pyxas.transform_3D(img_ref, m_tmp, order=2)
@@ -881,8 +882,8 @@ def test3D_2():
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
     ax.scatter3D(xx[::10000], yy[::10000], zz[::10000])
-    ax.set_xlabel('X axis') 
-    ax.set_ylabel('Y axis') 
+    ax.set_xlabel('X axis')
+    ax.set_ylabel('Y axis')
     ax.set_zlabel('Z axis')
 
     for i in range(len(img_values)):
@@ -909,7 +910,7 @@ def rm_image_bkg(img3D, multiply_factor=1, n_jobs=4):
     from scipy.ndimage.filters import gaussian_filter as gf
     import time
 
-    #img = gf(img3D * multiply_factor, 5)   
+    #img = gf(img3D * multiply_factor, 5)
     img = img3D *multiply_factor
     pix = img.flatten()
     ts = time.time()
@@ -938,7 +939,7 @@ def extract_particles_not_work(img_bw, n_comp=3):
     coords = np.vstack((xx,yy,zz))
     kmeans = KMeans(n_clusters = n_comp, random_state=0).fit(coords.T)
     img_labels = kmeans.labels_
-    img_values = kmeans.cluster_centers_ 
+    img_values = kmeans.cluster_centers_
 
     particle = {}
     img_p = np.zeros(s).flatten()
@@ -967,7 +968,7 @@ def extract_particles(img_bw, n_particles=3):
 
 
 def batch_test():
-    from scipy.ndimage import generate_binary_structure 
+    from scipy.ndimage import generate_binary_structure
     from scipy.ndimage.morphology import binary_dilation
     from scipy.ndimage.filters import gaussian_filter as gf
     from scipy.ndimage.filters import median_filter as mf
@@ -985,7 +986,7 @@ def batch_test():
         img_blur[img_blur < 0.0005] = 0
         #res = rm_image_bkg(img_blur, multiply_factor=1, n_jobs=4)
         #mask = extract_particles(res['img_labels'], n_particles=n)
-        t=np.array(img_blur>0, dtype=np.int8) 
+        t=np.array(img_blur>0, dtype=np.int8)
         mask = extract_particles(t, n_particles=n)
         fn1 = fn_root + f'/1/{scan_id}'
         fn2 = fn_root + f'/2/{scan_id}'
@@ -993,31 +994,11 @@ def batch_test():
         coord = {}
         coord['0'], coord['1'], coord['2'] = [], [], []
         for j in range(n):
-            t = mask[f'{j}'].image 
+            t = mask[f'{j}'].image
             s1 = t.shape
             t1 = np.zeros([500, 500])
             t1[:s1[1], :s1[2]] = t[len(t)//2]
             io.imsave(f'{fn_root}/{j}/{scan_id}.tiff',np.array(t1,dtype=np.float32))
             coord[f'{j}'].append(list(mask[f'{j}'].bbox))
         te = time.time()
-        print(f'#{i+1} / {len(file_scan)} takes {te-ts:4.1f} sec')        
-                
-
-
-
-
-        
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+        print(f'#{i+1} / {len(file_scan)} takes {te-ts:4.1f} sec')

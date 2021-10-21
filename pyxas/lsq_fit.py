@@ -296,12 +296,16 @@ def admm_iter(A, y, rho=0.2, num_iters=10, X_guess=[], wgt=[], lasso_lamda=0.01,
         z = X_guess.copy()
 
     if not len(wgt) == n_eng:
-        wgt = np.ones(n_eng)
+        wgt_flag = 0
+        c = A.T @ A + np.eye(n_spectra) * rho
+    else:
+        wgt_flag = 1
+        c = A.T @ np.diag(wgt) @ A + np.eye(n_spectra) * rho
+
 
     if not len(bounds) == 2:
         bounds = [-1e16, 1e16]
     # initialize
-    c = A.T @ np.diag(wgt) @ A + np.eye(n_spectra) * rho
     u = np.zeros(z.shape)
 
     convergency = np.zeros((num_iters, 1))
@@ -309,7 +313,10 @@ def admm_iter(A, y, rho=0.2, num_iters=10, X_guess=[], wgt=[], lasso_lamda=0.01,
     for i in range(num_iters):
         print(f'iter #{i}')
         temp = z.copy()
-        x = inv(c) @ (A.T @ np.diag(wgt) @ y + rho * (z - u))
+        if wgt_flag:
+            x = inv(c) @ (A.T @ np.diag(wgt) @ y + rho * (z - u))
+        else:
+            x = inv(c) @ (A.T @ y + rho * (z - u))
         if np.abs(rho) < 1e-4:
             z = x + u
         else:
