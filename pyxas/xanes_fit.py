@@ -529,7 +529,7 @@ def fit_xanes2D_generate_mask(img_thickness, xanes_fit_cost, thresh_cost=0.1, th
     return mask
 
 
-def assemble_xanes_slice_from_tomo_mpi_sub(sli, file_path, files_recon, attr_img='img', attr_eng='X_eng', align_flag=0, align_ref_index=-1, align_roi_ratio=0.8, ali_sli=[], align_algorithm='stackreg', flag_save_2d_xanes=1, flag_mask=1):
+def assemble_xanes_slice_from_tomo_mpi_sub(sli, file_path, files_recon, attr_img='img', attr_eng='X_eng', align_flag=0, align_ref_index=-1, align_roi_ratio=0.8, roi=[], ali_sli=[], align_algorithm='stackreg', flag_save_2d_xanes=1, flag_mask=1):
 
     time_s = time.time()
     num_file = len(files_recon)
@@ -580,6 +580,14 @@ def assemble_xanes_slice_from_tomo_mpi_sub(sli, file_path, files_recon, attr_img
             else:
                 rs, re = 1-align_roi_ratio, align_roi_ratio
                 img_mask = img_xanes[:, int(s[1]*rs):int(s[1]*re), int(s[2]*rs):int(s[2]*re)]
+            if len(roi) == 4:
+                roi_rs, roi_re, roi_cs, roi_ce = roi
+                roi_rs = max(roi_rs, 0)
+                roi_re = min(roi_re, s[1])
+                roi_cs = max(roi_cs, 0)
+                roi_ce = min(roi_ce, s[2])
+                img_mask = img_mask[:, roi_rs:roi_re, roi_cs:roi_ce]
+
             if align_ref_index == -1:
                 align_ref_index = img_xanes.shape[0] - 1
             if align_algorithm == 'stackreg':
@@ -603,7 +611,7 @@ def assemble_xanes_slice_from_tomo_mpi_sub(sli, file_path, files_recon, attr_img
     return res
 
 
-def assemble_xanes_slice_from_tomo_mpi(file_path='.', file_prefix='ali_recon', file_type='.h5', attr_img='img', attr_eng='X_eng', sli=[], align_flag=0, align_ref_index=-1, align_roi_ratio=0.8, ali_sli=[], align_algorithm='stackreg', flag_save_2d_xanes=1, flag_mask=1, num_cpu=0):
+def assemble_xanes_slice_from_tomo_mpi(file_path='.', file_prefix='ali_recon', file_type='.h5', attr_img='img', attr_eng='X_eng', sli=[], align_flag=0, align_ref_index=-1, align_roi_ratio=0.8, roi=[], ali_sli=[], align_algorithm='stackreg', flag_save_2d_xanes=1, flag_mask=1, num_cpu=0):
 
     # if flag_mask = 1, it will calculate the mask from img_xanes
 
@@ -644,7 +652,7 @@ def assemble_xanes_slice_from_tomo_mpi(file_path='.', file_prefix='ali_recon', f
     mask_3D = np.ones([num_slice, s[0], s[1]])    
     time_s = time.time()
     pool = Pool(num_cpu)
-    res = pool.map(partial(pyxas.assemble_xanes_slice_from_tomo_mpi_sub, file_path=file_path, files_recon=files_recon, attr_img=attr_img, attr_eng=attr_eng, align_flag=align_flag, align_ref_index=align_ref_index, align_roi_ratio=align_roi_ratio, ali_sli=ali_sli, align_algorithm=align_algorithm, flag_save_2d_xanes=flag_save_2d_xanes, flag_mask=flag_mask), sli)
+    res = pool.map(partial(pyxas.assemble_xanes_slice_from_tomo_mpi_sub, file_path=file_path, files_recon=files_recon, attr_img=attr_img, attr_eng=attr_eng, align_flag=align_flag, align_ref_index=align_ref_index, align_roi_ratio=align_roi_ratio, roi=roi, ali_sli=ali_sli, align_algorithm=align_algorithm, flag_save_2d_xanes=flag_save_2d_xanes, flag_mask=flag_mask), sli)
     
     for i in range(len(files_recon)):
         mask_3D[i] = res[i]['mask']

@@ -13,7 +13,7 @@ from pystackreg import StackReg
 
 
 def rm_abnormal(img):
-    tmp = deepcopy(img)
+    tmp = img.copy()
     tmp[np.isnan(tmp)] = 0
     tmp[np.isinf(tmp)] = 0
     tmp[tmp < 0] = 0

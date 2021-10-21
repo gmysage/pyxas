@@ -6,6 +6,7 @@ from skimage.feature import register_translation
 from skimage.transform import warp_polar, rotate
 from skimage.util import img_as_float
 from scipy.ndimage import geometric_transform
+from scipy import ndimage
 '''
 radius = 705
 angle = 35
@@ -238,6 +239,22 @@ from skimage.transform import warp
 #img2D = img3D[100]
 #img = np.repeat(img2D[np.newaxis, :,:], 200, axis=0)
 
+def rot3D(img, rot_angle):
+    img = np.array(img)
+    img = rm_abnormal(img)
+    s = img.shape
+    if len(s) == 2:    # 2D image
+        img_rot = ndimage.rotate(img, rot_angle, order=1, reshape=False)
+    elif len(s) == 3:  # 3D image, rotating along axes=0
+        img_rot = ndimage.rotate(img, rot_angle, axes=[1,2], order=1, reshape=False)
+    elif len(s) == 4:  # a set of 3D image
+        img_rot = np.zeros(img.shape)
+        for i in range(s[0]):
+            img_rot[i] = ndimage.rotate(img[i], rot_angle, axes=[1,2], order=1, reshape=False)
+    else:
+        raise ValueError('Error! Input image has dimension > 4')
+    img_rot[img_rot < 0] = 0
+    return img_rot
 
 def rotate_2D(img2D, theta, center=None):
 
