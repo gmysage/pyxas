@@ -8104,10 +8104,10 @@ class App(QWidget):
         align_ref_index = int(self.tx_3D_assemble_ali_ref.text())
         align_roi_ratio = float(self.tx_3D_assemble_mask.text())
         num_cpu = int(self.tx_3D_assemble_cpu.text())
-        roi_r_s = float(self.tx_3D_ali_roi_rs.text())
-        roi_r_e = float(self.tx_3D_ali_roi_re.text())
-        roi_c_s = float(self.tx_3D_ali_roi_cs.text())
-        roi_c_e = float(self.tx_3D_ali_roi_ce.text())
+        roi_r_s = int(self.tx_3D_ali_roi_rs.text())
+        roi_r_e = int(self.tx_3D_ali_roi_re.text())
+        roi_c_s = int(self.tx_3D_ali_roi_cs.text())
+        roi_c_e = int(self.tx_3D_ali_roi_ce.text())
         roi = [roi_r_s, roi_r_e, roi_c_s, roi_c_e]
 
         try:

@@ -570,7 +570,7 @@ def assemble_xanes_slice_from_tomo_mpi_sub(sli, file_path, files_recon, attr_img
         img_xanes[j] = tmp
         xanes_eng[j] = tmp_eng
     # align xanes stack
-    if align_flag:          
+    if align_flag:
         if len(ali_sli) == 0:
             ali_sli = [0, num_slice-1]        
         ali_sli = np.array(ali_sli)
@@ -579,23 +579,19 @@ def assemble_xanes_slice_from_tomo_mpi_sub(sli, file_path, files_recon, attr_img
                 img_mask = img_xanes
             else:
                 rs, re = 1-align_roi_ratio, align_roi_ratio
-                img_mask = img_xanes[:, int(s[1]*rs):int(s[1]*re), int(s[2]*rs):int(s[2]*re)]
+                img_mask = img_xanes[:, int(s[0]*rs):int(s[0]*re), int(s[1]*rs):int(s[1]*re)]
             if len(roi) == 4:
-                roi_rs, roi_re, roi_cs, roi_ce = roi
-                roi_rs = max(roi_rs, 0)
-                roi_re = min(roi_re, s[1])
-                roi_cs = max(roi_cs, 0)
-                roi_ce = min(roi_ce, s[2])
+                roi_rs = max(roi[0], 0)
+                roi_re = min(roi[1], s[0])
+                roi_cs = max(roi[2], 0)
+                roi_ce = min(roi[3], s[1])
                 img_mask = img_mask[:, roi_rs:roi_re, roi_cs:roi_ce]
-
             if align_ref_index == -1:
                 align_ref_index = img_xanes.shape[0] - 1
             if align_algorithm == 'stackreg':
-                #print('hi')
-                img_xanes = pyxas.align_img_stack_stackreg(img_xanes, img_mask, select_image_index=align_ref_index, print_flag=0) 
-                #print('oh')
+                img_xanes = pyxas.align_img_stack_stackreg(img_xanes, img_mask, select_image_index=align_ref_index, print_flag=0)
             else:
-                img_xanes = pyxas.align_img_stack(img_xanes, img_mask, select_image_index=align_ref_index, print_flag=0) 
+                img_xanes = pyxas.align_img_stack(img_xanes, img_mask, select_image_index=align_ref_index, print_flag=0)
             # apply mask        
             if flag_mask:
                 try:
@@ -669,7 +665,7 @@ def assemble_xanes_slice_from_tomo(file_path='.', file_prefix='ali_recon', file_
     file_path = os.path.abspath(file_path)
     files_recon = pyxas.retrieve_file_type(file_path, file_prefix=file_prefix, file_type=file_type)
     num_file = len(files_recon)
-    
+
 
     if 'tif' in file_type:
         img_tmp = io.imread(files_recon[0])
@@ -724,6 +720,7 @@ def assemble_xanes_slice_from_tomo(file_path='.', file_prefix='ali_recon', file_
                 else:
                     rs, re = 1-align_roi_ratio, align_roi_ratio
                     img_mask = img_xanes[:, int(s[1]*rs):int(s[1]*re), int(s[2]*rs):int(s[2]*re)]
+
                 if align_ref_index == -1:
                     align_ref_index = img_xanes.shape[0] - 1
                 if align_algorithm == 'stackreg':
