@@ -8424,8 +8424,8 @@ class App(QWidget):
         # xanes fitting
         self.chkbox_fit_pre_edge.setEnabled(flag)
         self.chkbox_fit_post_edge.setEnabled(flag)
-        self.tx_param_fit_range_s.setEnabled(flag)
-        self.tx_param_fit_range_e.setEnabled(flag)
+        self.tx_param_fit_range_s.setEnabled(True)
+        self.tx_param_fit_range_e.setEnabled(True)
         #self.rd_param_fit_iter_yes.setEnabled(flag)
         #self.rd_param_fit_iter_no.setEnabled(flag)
         self.chkbox_fit_iter.setEnabled(flag)
