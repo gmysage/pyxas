@@ -748,3 +748,14 @@ def normalize_2D_xanes2(img_stack, xanes_eng, pre_edge, post_edge, pre_edge_only
     img_thickness[img_thickness<0] = 0
     img_norm = rm_abnormal(img_norm)
     return img_norm, img_thickness
+
+
+def rm_duplicate(my_list):
+    id_list = []
+    new_list = []
+    n = len(my_list)
+    for i in range(n):
+        if not my_list[i, 0] in id_list:
+            new_list.append(my_list[i])
+            id_list.append(my_list[i, 0])
+    return np.array(new_list)

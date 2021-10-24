@@ -2588,7 +2588,9 @@ class App(QWidget):
                 self.lb_param_ref_info.setText(self.lb_param_ref_info.text() + '\n' + f'ref #{self.num_ref}: ' + fn_ref)
                 QApplication.processEvents()
 
-                self.spectrum_ref[f'ref{self.num_ref}'] = np.loadtxt(fn)
+                ref = np.loadtxt(fn)
+                ref = pyxas.rm_duplicate(ref)
+                self.spectrum_ref[f'ref{self.num_ref}'] = ref
                 self.num_ref += 1
             except Exception as err:
                 self.msg = str(err)
@@ -5261,7 +5263,7 @@ class App(QWidget):
                     finally:
                         self.img_update = deepcopy(self.img_xanes)
                         self.update_canvas_img()
-                        self.xanes_eng = np.array([])
+                        #self.xanes_eng = np.array([])
                         if not xeng_load_exist:
                             self.lb_eng1.setText('No energy data ...')
                         self.lb_eng2.setVisible(True)
@@ -6669,7 +6671,7 @@ class App(QWidget):
         self.param_txm_norm_group.addButton(self.rd_param_txm_norm_yes)
         self.param_txm_norm_group.addButton(self.rd_param_txm_norm_no)
         self.param_txm_norm_group.setExclusive(True)
-        self.rd_param_txm_norm_yes.setChecked(True)
+        self.rd_param_txm_norm_no.setChecked(True)
 
         hbox_param_txm_norm = QHBoxLayout()
         hbox_param_txm_norm.addWidget(lb_param_txm_norm)
@@ -6824,7 +6826,7 @@ class App(QWidget):
 
         lb_param_reg_edge0 = QLabel()
         lb_param_reg_edge0.setFont(self.font1)
-        lb_param_reg_edge0.setText('Peak regulation')
+        lb_param_reg_edge0.setText('Peak regularization')
         lb_param_reg_edge0.setFixedWidth(140)
         # normalize or not
         lb_param_reg_edge = QLabel()
@@ -7147,12 +7149,12 @@ class App(QWidget):
         # gpbox.setFont(self.font1)
         lb_param_smart_mask0 = QLabel()
         lb_param_smart_mask0.setFont(self.font1)
-        lb_param_smart_mask0.setText('Cluster Mask comp.')
-        lb_param_smart_mask0.setFixedWidth(140)
+        lb_param_smart_mask0.setText('Cluster / Threshold Mask')
+        lb_param_smart_mask0.setFixedWidth(180)
         # smart mask
         lb_param_smart_mask = QLabel()
         lb_param_smart_mask.setFont(self.font2)
-        lb_param_smart_mask.setText('Cluster Mask comp.')
+        lb_param_smart_mask.setText('Cluster mask comp.')
         lb_param_smart_mask.setFixedWidth(140)
 
         self.tx_param_smart_mask_comp = QLineEdit()
@@ -7309,6 +7311,29 @@ class App(QWidget):
         # self.pb_param_batch_fit.clicked.connect(self.run_command)
         self.pb_param_batch_fit.setFixedWidth(120)
 
+        self.batch_fit_group = QButtonGroup()
+        self.batch_fit_group.setExclusive(True)
+        self.rd_batch_fit_edge_norm = QRadioButton('w/ Edge Norm.')
+        self.rd_batch_fit_edge_norm.setFixedWidth(160)
+        self.rd_batch_fit_edge_norm.setFont(self.font2)
+        self.rd_batch_fit_edge_norm.setChecked(True)
+        self.rd_batch_fit_edge_norm.toggled.connect(self.select_3D_batch_fitting_method)
+
+        self.rd_batch_fit_no_edge_norm = QRadioButton('w/o edge Norm.')
+        self.rd_batch_fit_no_edge_norm.setFixedWidth(160)
+        self.rd_batch_fit_no_edge_norm.setFont(self.font2)
+        self.rd_batch_fit_no_edge_norm.toggled.connect(self.select_3D_batch_fitting_method)
+
+        self.batch_fit_group.addButton(self.rd_batch_fit_edge_norm)
+        self.batch_fit_group.addButton(self.rd_batch_fit_no_edge_norm)
+        self.batch_fit_group = QButtonGroup()
+        self.batch_fit_group.setExclusive(True)
+        '''
+        self.pb_param_batch_fit_bkg = QPushButton('Fitting w/o edge Normalization')
+        self.pb_param_batch_fit_bkg.setFont(self.font2)
+        self.pb_param_batch_fit_bkg.clicked.connect(self.batch_fitting_with_bkg)
+        self.pb_param_batch_fit_bkg.setFixedWidth(245)
+        '''
         self.tx_param_output = QPlainTextEdit()
         self.tx_param_output.resize(6, 200)
 
@@ -7319,11 +7344,19 @@ class App(QWidget):
         hbox_param_execute = QHBoxLayout()
         hbox_param_execute.addWidget(self.pb_param_save_param)
         hbox_param_execute.addWidget(self.pb_param_load_param)
-        hbox_param_execute.addWidget(self.pb_param_batch_fit)
+        #hbox_param_execute.addWidget(self.pb_param_batch_fit)
         hbox_param_execute.setAlignment(QtCore.Qt.AlignLeft)
+
+        hbox_param_edge_norm = QHBoxLayout()
+        hbox_param_edge_norm.addWidget(self.pb_param_batch_fit)
+        hbox_param_edge_norm.addWidget(self.rd_batch_fit_edge_norm)
+        hbox_param_edge_norm.addWidget(self.rd_batch_fit_no_edge_norm)
+        hbox_param_edge_norm.setAlignment(QtCore.Qt.AlignLeft)
 
         vbox_param_execute = QVBoxLayout()
         vbox_param_execute.addLayout(hbox_param_execute)
+        #vbox_param_execute.addWidget(self.pb_param_batch_fit_bkg)
+        vbox_param_execute.addLayout(hbox_param_edge_norm)
         vbox_param_execute.addWidget(self.lb_execute_output)
         # vbox_param_execute.addWidget(self.tx_param_output)
         vbox_param_execute.setAlignment(QtCore.Qt.AlignTop)
@@ -7611,10 +7644,7 @@ class App(QWidget):
         '''
         self.reset_xanes_ref()
 
-
-    def save_3D_fit_param(self):
-        self.save_fit_param_successful = 0
-        save_successful = 1
+    def collect_3D_fit_param(self):
         self.fit_param = {}
         try:
             self.fit_param['align_flag'] = 1 if self.rd_param_align_yes.isChecked() else 0
@@ -7711,6 +7741,116 @@ class App(QWidget):
 
             self.fit_param['color'] = self.tx_param_color.text()
 
+        except Exception as err:
+            print(err)
+
+
+    def save_3D_fit_param(self):
+        self.save_fit_param_successful = 0
+        save_successful = 1
+        '''
+        self.fit_param = {}
+        try:
+            self.fit_param['align_flag'] = 1 if self.rd_param_align_yes.isChecked() else 0
+            self.fit_param['align_ref_index'] = int(self.tx_param_align_ref.text())
+
+            roi_ratio = self.tx_param_align_roi.text()
+            roi_ratio = float(roi_ratio) if roi_ratio else 1
+            self.fit_param['roi_ratio'] = roi_ratio
+            self.tx_param_align_roi.setText(str(roi_ratio))
+
+            # fit_eng
+            try:
+                fit_eng_s = self.tx_param_fit_range_s.text()
+                fit_eng_e = self.tx_param_fit_range_e.text()
+                fit_eng_s = float(fit_eng_s) if fit_eng_s else self.eng[0]
+                fit_eng_e = float(fit_eng_e) if fit_eng_e else self.eng[-1]
+                self.fit_param['fit_eng'] = [fit_eng_s, fit_eng_e]
+                self.tx_param_fit_range_s.setText(f'{fit_eng_s:2.4f}')
+                self.tx_param_fit_range_e.setText(f'{fit_eng_e:2.4f}')
+            except Exception as err:
+                print(f'errors in saving "fitting energy range". Error: {str(err)}')
+                print(err)
+                save_successful = 0
+
+            # fit_iter_bound
+            fit_bound_s = self.tx_param_iter_bounds_low.text()
+            fit_bound_e = self.tx_param_iter_bounds_high.text()
+            fit_bound_s = float(fit_bound_s) if fit_bound_s else 0
+            fit_bound_e = float(fit_bound_e) if fit_bound_e else 100
+            self.fit_param['fit_iter_bound'] = [fit_bound_s, fit_bound_e]
+            self.tx_param_iter_bounds_low.setText(str(fit_bound_s))
+            self.tx_param_iter_bounds_high.setText(str(fit_bound_e))
+
+            self.fit_param['fit_iter_flag'] = 1 if self.chkbox_fit_iter.isChecked() else 0
+            self.fit_param['fit_iter_learning_rate'] = float(self.tx_param_iter_rate.text())
+            self.fit_param['fit_iter_num'] = int(self.tx_param_iter_num.text())
+            self.fit_param['fit_iter_lambda'] = float(self.tx_param_iter_lambda.text())
+            self.fit_param['fit_pre_edge_flag'] = 1 if self.chkbox_fit_pre_edge.isChecked() else 0
+            self.fit_param['fit_post_edge_flag'] = 1 if self.chkbox_fit_post_edge.isChecked() else 0
+            self.fit_param['fit_mask_thickness_threshold'] = float(self.tx_param_threshold_thick.text())
+            self.fit_param['fit_mask_cost_threshold'] = float(self.tx_param_threshold_error.text())
+
+            cluster_comp = int(self.tx_param_smart_mask_comp.text())
+            self.fit_param['mask_xanes_flag'] = 1 if cluster_comp else 0
+            self.fit_param['n_comp'] = cluster_comp
+
+            self.fit_param['norm_edge_method'] = 'new' if self.chkbox_param_fit_edge_method.isChecked() else 'old'
+            self.fit_param['norm_txm_flag'] = 1 if self.rd_param_txm_norm_yes.isChecked() else 0
+
+            #if self.rd_param_fit_edge_yes.isChecked():
+            try:
+                pre_edge_s = self.tx_param_pre_s.text()
+                pre_edge_s = float(pre_edge_s) if pre_edge_s else self.eng[0]
+                pre_edge_e = self.tx_param_pre_e.text()
+                pre_edge_e = float(pre_edge_e) if pre_edge_e else pre_edge_s + 0.02
+                self.fit_param['pre_edge'] = [pre_edge_s, pre_edge_e]
+                self.tx_param_pre_s.setText(f'{pre_edge_s:2.4f}')
+                self.tx_param_pre_e.setText(f'{pre_edge_e:2.4f}')
+            except Exception as err:
+                print(f'fails in save pre-edge energy.  Error: {str(err)}')
+                save_successful = 0
+            try:
+                post_edge_e = self.tx_param_post_e.text()
+                post_edge_e = float(post_edge_e) if post_edge_e else self.eng[-1]
+                post_edge_s = self.tx_param_post_s.text()
+                post_edge_s = float(post_edge_s) if post_edge_s else post_edge_e - 0.4
+                self.fit_param['post_edge'] = [post_edge_s, post_edge_e]
+                self.tx_param_post_s.setText(f'{post_edge_s:2.4f}')
+                self.tx_param_post_e.setText(f'{post_edge_e:2.4f}')
+            except Exception as err:
+                print(f'fails in save post-edge energy.  Error: {str(err)}')
+                save_successful = 0
+
+            self.fit_param['regulation_flag'] = 1 if self.rd_param_reg_edge_yes.isChecked() else 0
+            peak_max = self.tx_param_reg_peak.text()
+            peak_max = float(peak_max) if peak_max else 1.6
+            self.fit_param['regulation_designed_max'] = peak_max
+            self.tx_param_reg_peak.setText(f'{peak_max:2.4f}')
+
+            peak_width = self.tx_param_reg_gamma.text()
+            peak_width = float(peak_width) if peak_width else 0.05
+            self.fit_param['regulation_gamma'] = peak_width
+            self.tx_param_reg_gamma.setText(f'{peak_width:2.4f}')
+
+            self.num_cpu = min(int(self.tx_param_cpu.text()), round(cpu_count() * 0.8))
+            self.tx_param_cpu.setText(str(self.num_cpu))
+
+            if self.rd_3D_tif.isChecked():
+                self.fit_param['file_type'] = 'tiff'
+            else:
+                self.fit_param['file_type'] = 'h5'
+            self.fit_param['hdf_attr'] = self.tx_param_hdf.text()
+            self.fit_param['num_cpu'] = self.num_cpu
+
+            self.fit_param['color'] = self.tx_param_color.text()
+
+        except Exception as err:
+            print(err)
+            save_successful = 0
+        '''
+        try:
+            self.collect_3D_fit_param()
         except Exception as err:
             print(err)
             save_successful = 0
@@ -7867,53 +8007,79 @@ class App(QWidget):
         stdouterr = os.popen4(self.batch_fitting())[1].read()
         self.self.lb_execute_output.setText(stdouterr)
 
+
     def batch_fitting(self):
-        self.lb_execute_output.setText('Fitting in progress ... ')
+        self.lb_execute_output.setText('Fitting is running, check terminal for progress ...')
+        QApplication.processEvents()
         if self.load_eng_successful and self.load_file_successful and self.load_reference_successful:
-            if self.save_fit_param_successful or self.load_fit_param_successful:
-                fit_param = self.fit_param
-                xanes_eng = self.eng
-                file_path = self.file_path
-                file_type = self.file_type
-                file_prefix = self.file_prefix
-                spectrum_ref = self.spectrum_ref
-                try:
-                    num_cpu = int(self.tx_param_cpu.text())
-                except Exception:
-                    num_cpu = self.fit_param['num_cpu']
-                try:
-                    if num_cpu == 1:
-                        pyxas.fit_2D_xanes_file(file_path, file_prefix,
-                                                file_type, fit_param,
-                                                xanes_eng, spectrum_ref,
-                                                file_range=[], save_hdf=0)
-                    else:
-                        pyxas.fit_2D_xanes_file_mpi(file_path, file_prefix,
-                                                    file_type, fit_param,
-                                                    xanes_eng, spectrum_ref,
-                                                    file_range=[], save_hdf=0, num_cpu=num_cpu)
-                except Exception as err:
-                    txt = f'something wrong in fitting. Error: {str(err)}'
-                    self.lb_execute_output.setText(txt)
-                    print(txt)
-                    return 0
-            self.lb_execute_output.setText('Fitting finished !')
-            return 1
+            self.collect_3D_fit_param()
+            fit_param = self.fit_param
+            xanes_eng = self.eng
+            file_path = self.file_path
+            file_type = self.file_type
+            file_prefix = self.file_prefix
+            spectrum_ref = self.spectrum_ref
+            try:
+                num_cpu = int(self.tx_param_cpu.text())
+            except Exception:
+                num_cpu = self.fit_param['num_cpu']
         else:
             txt = ''
             if not self.load_eng_successful:
-                txt += 'fail to load x-ray energy;   '
+                txt += 'Fail to load x-ray energy;      '
             if not self.load_file_successful:
-                txt += 'fail to load xanes files;    '
+                txt += 'Fail to load xanes files;       '
             if not self.load_reference_successful:
-                txt += 'fail to load refernece spectrum;   '
+                txt += 'Fail to load refernece spectrum;    '
             self.lb_execute_output.setText(txt)
-            print(txt)
-            return 0
+            QApplication.processEvents()
+            return print(txt)
 
-    '''
-    Align 3D and
-    '''
+        if self.rd_batch_fit_edge_norm.isChecked():
+            txt = self.batch_fitting_with_edge_norm(file_path, file_prefix,
+                                                file_type, fit_param,
+                                                xanes_eng, spectrum_ref, num_cpu)
+        else:
+            txt = self.batch_fitting_without_edge_norm(file_path, file_prefix,
+                                                file_type, fit_param,
+                                                xanes_eng, spectrum_ref)
+        self.lb_execute_output.setText(txt)
+        QApplication.processEvents()
+
+    def batch_fitting_with_edge_norm(self, file_path, file_prefix,
+                                            file_type, fit_param,
+                                            xanes_eng, spectrum_ref):
+        try:
+            if num_cpu == 1:
+                pyxas.fit_2D_xanes_file(file_path, file_prefix,
+                                            file_type, fit_param,
+                                            xanes_eng, spectrum_ref,
+                                            file_range=[], save_hdf=0)
+            else:
+                pyxas.fit_2D_xanes_file_mpi(file_path, file_prefix,
+                                                file_type, fit_param,
+                                                xanes_eng, spectrum_ref,
+                                                file_range=[], save_hdf=0, num_cpu=num_cpu)
+            txt = 'Fitting finished'
+        except Exception as err:
+            txt = f'Something wrong in fitting. Error: {str(err)}'
+        print(txt)
+        return txt
+
+
+    def batch_fitting_without_edge_norm(self, file_path, file_prefix,
+                                            file_type, fit_param,
+                                            xanes_eng, spectrum_ref):
+        try:
+            pyxas.fit_2D_xanes_with_bkg_file(file_path, file_prefix,
+                                            file_type, fit_param,
+                                            xanes_eng, spectrum_ref,
+                                            file_range=[])
+            txt = 'Fitting finished'
+        except Exception as err:
+            txt = f'Something wrong in fitting. Error: {str(err)}'
+        print(txt)
+        return txt
 
     def show_3D_h5_attr(self):
         item = self.lst_3D_tomo.selectedItems()
@@ -8218,6 +8384,63 @@ class App(QWidget):
                 io.imsave(fn_save_err, fit_error.astype(np.float32))
         self.pb_3D_find_peak_img.setText('Find peak')
     '''
+
+
+    def select_3D_batch_fitting_method(self):
+        if self.rd_batch_fit_edge_norm.isChecked():
+            self.enable_3D_fit_param(True)
+        else:
+            self.enable_3D_fit_param(False)
+
+
+    def enable_3D_fit_param(self, edge_norm_flag):
+        flag = edge_norm_flag
+        self.tx_param_cpu.setEnabled(flag)
+        # TXM -log()
+        self.rd_param_txm_norm_yes.setEnabled(True)
+        self.rd_param_txm_norm_no.setEnabled(True)
+        # edge normalization
+        self.chkbox_param_fit_edge_method.setEnabled(flag)
+        self.rd_param_fit_edge_yes.setEnabled(flag)
+        self.rd_param_fit_edge_no.setEnabled(flag)
+        self.tx_param_pre_s.setEnabled(flag)
+        self.tx_param_pre_e.setEnabled(flag)
+        self.tx_param_post_s.setEnabled(flag)
+        self.tx_param_post_e.setEnabled(flag)
+        # peak regularization
+        self.rd_param_reg_edge_yes.setEnabled(flag)
+        self.rd_param_reg_edge_no.setEnabled(flag)
+        self.tx_param_reg_peak.setEnabled(flag)
+        self.tx_param_reg_gamma.setEnabled(flag)
+        # alignment
+        self.rd_param_align_yes.setEnabled(True)
+        self.rd_param_align_no.setEnabled(True)
+        self.tx_param_align_ref.setEnabled(True)
+        self.tx_param_align_roi.setEnabled(True)
+        # cluster mask
+        self.tx_param_smart_mask_comp.setEnabled(flag)
+        self.tx_param_threshold_thick.setEnabled(flag)
+        self.tx_param_threshold_error.setEnabled(flag)
+        # xanes fitting
+        self.chkbox_fit_pre_edge.setEnabled(flag)
+        self.chkbox_fit_post_edge.setEnabled(flag)
+        self.tx_param_fit_range_s.setEnabled(flag)
+        self.tx_param_fit_range_e.setEnabled(flag)
+        #self.rd_param_fit_iter_yes.setEnabled(flag)
+        #self.rd_param_fit_iter_no.setEnabled(flag)
+        self.chkbox_fit_iter.setEnabled(flag)
+        self.tx_param_iter_rate.setEnabled(flag)
+        self.tx_param_iter_num.setEnabled(flag)
+        self.tx_param_iter_bounds_low.setEnabled(flag)
+        self.tx_param_iter_bounds_high.setEnabled(flag)
+        self.tx_param_iter_lambda.setEnabled(flag)
+        # cluster mask
+        self.tx_param_smart_mask_comp.setEnabled(flag)
+        self.tx_param_threshold_thick.setEnabled(True)
+        self.tx_param_threshold_error.setEnabled(True)
+        #colormix
+        self.tx_param_color.setEnabled(True)
+
 
     def find_3D_peak_image_poly(self):
         if self.load_file_successful:

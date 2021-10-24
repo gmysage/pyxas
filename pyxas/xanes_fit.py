@@ -22,6 +22,26 @@ def load_xanes_ref_file(*args):
         spectrum_ref[f'ref{i}'] = np.loadtxt(args[i])
     return spectrum_ref
 
+def check_if_need_align(img_xanes, fit_param):
+    align_flag = fit_param['align_flag']
+    roi_ratio = fit_param['roi_ratio']
+    align_ref_index = fit_param['align_ref_index']
+    img = img_xanes.copy()
+    s = img.shape
+    if roi_ratio >= 1:
+        img_mask = None
+    else:
+        rs, re = 1 - roi_ratio, roi_ratio
+        img_mask = img_xanes[:, int(s[1] * rs):int(s[1] * re), int(s[2] * rs):int(s[2] * re)]
+    if align_ref_index == -1:
+        align_ref_index = img.shape[0] - 1
+    if align_flag == 1:  # using stackreg method
+        img = pyxas.align_img_stack_stackreg(img_xanes, img_mask, select_image_index=align_ref_index)
+    elif align_flag == 2:
+        img = pyxas.align_img_stack(img_xanes, img_mask, select_image_index=align_ref_index)
+    else:
+        img = img_xanes
+    return img
 
 
 def fit_2D_xanes(img_xanes, xanes_eng, spectrum_ref, fit_param):
@@ -43,10 +63,6 @@ def fit_2D_xanes(img_xanes, xanes_eng, spectrum_ref, fit_param):
     else:
         post_edge = []
     
-    align_flag = fit_param['align_flag']
-    roi_ratio = fit_param['roi_ratio'] 
-    align_ref_index = fit_param['align_ref_index']
- 
     fit_iter_flag = fit_param['fit_iter_flag']
     if fit_iter_flag:
         fit_iter_learning_rate = fit_param['fit_iter_learning_rate']
@@ -68,21 +84,8 @@ def fit_2D_xanes(img_xanes, xanes_eng, spectrum_ref, fit_param):
 
 
     # optional: aligning xanes_image_stack
-    img = img_xanes.copy()
-    s = img.shape
-    if roi_ratio >= 1:
-        img_mask = None
-    else:
-        rs, re = 1-roi_ratio, roi_ratio
-        img_mask = img_xanes[:, int(s[1]*rs):int(s[1]*re), int(s[2]*rs):int(s[2]*re)]
-    if align_ref_index == -1:
-        align_ref_index = img.shape[0] - 1
-    if align_flag == 1: # using stackreg method
-        img = pyxas.align_img_stack_stackreg(img_xanes, img_mask, select_image_index=align_ref_index)  
-    elif align_flag == 2:
-        img = pyxas.align_img_stack(img_xanes, img_mask, select_image_index=align_ref_index)
-    else:
-        img = img_xanes
+    img = pyxas.check_if_need_align(img_xanes, fit_param)
+
     #tmp_mask = np.ones([img.shape[1], img.shape[2]])
     #mask_comp = {}
     #mask_comp['0'] = tmp_mask
@@ -201,7 +204,7 @@ def save_xanes_fitting_image(res, file_save_path, fn, color='r,g,b'):
     for n in range(res['n_comp']):
         fn_save = f'{file_save_mask}/mask_{n}/mask{0}_{fn}.tiff'
         io.imsave(fn_save, np.array(res[f'mask_{n}'], dtype=np.int16))
-    # sae ftting results
+    # save fitting results
     fn_save = f'{file_save_fit}/fit_{fn}.tiff'
     io.imsave(fn_save, np.array(res['xanes_2d_fit'], dtype=np.float32))
     fn_save = f'{file_save_fit_norm}/fit_norm_{fn}.tiff'
@@ -320,7 +323,6 @@ def fit_2D_xanes_file(file_path, file_prefix, file_type, fit_param, xanes_eng, s
                     hf.create_dataset(f'xanes_fit_comp{j}', data=np.array(fitted_xanes_3D[j], dtype=np.float32))
                     hf.create_dataset(f'xanes_fit_comp{j}_norm', data=np.array(fitted_xanes_3D_norm[j], dtype=np.float32))
                     hf.create_dataset(f'ref{j}', data=np.array(fitted_xanes_3D[j], dtype=np.float32))
-
 
 
 def fit_2D_xanes_file_mpi(file_path, file_prefix, file_type, fit_param, xanes_eng, spectrum_ref, file_range=[], save_hdf=0, num_cpu=8):
@@ -454,6 +456,107 @@ def fit_2D_xanes_file_mpi_sub(files_scan, fit_param, xanes_eng, spectrum_ref, fi
         res[f'fitted_xanes_3D_ch{j}_norm'] = np.squeeze(res['xanes_2d_fit_norm'][j])
     print(f'{files_scan_short} taking time: {time.time() - time_start:05.1f}\n')
     return res
+
+############################
+
+## working on this part
+############################
+def fit_2D_xanes_with_bkg_file(file_path, file_prefix, file_type, fit_param, xanes_eng, spectrum_ref, file_range=[]):
+    '''
+    batch processing xanes using linear background
+    '''
+    time_start = time.time()
+    n_comp = max(int(fit_param['n_comp']), 1);
+    norm_txm_flag = fit_param['norm_txm_flag']
+
+    file_save_path = f'{file_path}/fitted_xanes'
+    pyxas.create_directory(file_save_path)
+
+    files_scan = pyxas.retrieve_file_type(file_path, file_prefix=file_prefix, file_type=file_type)
+    try:
+        true_file_type = fit_param['file_type']
+    except:
+        true_file_type = 'tiff'
+    if true_file_type == 'tiff' or true_file_type == 'tif':
+        tmp = pyxas.get_img_from_tif_file(files_scan[0])
+    elif true_file_type == 'h5' or files_scan[0].split('.')[-1] == 'h5':
+        hdf_attr = fit_param['hdf_attr']
+        tmp = pyxas.get_img_from_hdf_file(files_scan[0], hdf_attr)[hdf_attr]
+    s = tmp.shape
+    num_file = len(files_scan)
+    num_channel = len(spectrum_ref)
+
+    # initialization
+    thresh_thick = fit_param['fit_mask_thickness_threshold']  # thickness < thick_thresh will be 0
+    thresh_cost = fit_param['fit_mask_cost_threshold']  # fit_error > cost_thresh will be 0
+    fs, fe = 0, num_file
+    if len(file_range):
+        fs = int(np.max([fs, np.min(file_range)]))
+        fe = int(np.min([fe, np.max(file_range)]))
+
+    #### start file loop ####
+    for i in range(num_file):
+        if i < fs or i >= fe:
+            print(f'skipping slice #{i + 1}/{num_file}')
+            continue
+        time_s_sub = time.time()
+        #fn = files_scan[i].split('.')[0]
+        print(f'fitting slice #{i + 1}/{num_file} ...')
+        try:
+            true_file_type = fit_param['file_type']
+        except:
+            true_file_type = 'tiff'
+        if true_file_type == 'tiff' or true_file_type == 'tif':
+            img_xanes = pyxas.get_img_from_tif_file(files_scan[i])
+        elif true_file_type == 'h5' or files_scan[0].split('.')[-1] == 'h5':
+            hdf_attr = fit_param['hdf_attr']
+            img_xanes = pyxas.get_img_from_hdf_file(files_scan[i], hdf_attr)[hdf_attr]
+
+        # exclude un-wanted energy region
+        fit_eng_s = fit_param['fit_eng'][0]
+        fit_eng_e = fit_param['fit_eng'][1]
+        id_s = pyxas.find_nearest(xanes_eng, fit_eng_s)
+        id_e = pyxas.find_nearest(xanes_eng, fit_eng_e)
+
+        # norm txm -log()
+        img = img_xanes.copy()
+        if norm_txm_flag:
+            img = pyxas.norm_txm(img_xanes)
+
+        # align image stack
+        img = pyxas.check_if_need_align(img_xanes, fit_param)
+
+        xanes_2d_fit, fit_offset, xanes_fit_cost, img_thickness, y_fit_with_bkg, it_slope_with_bkg = pyxas.fit_2D_xanes_with_bkg(xanes_eng[id_s:id_e], img[id_s:id_e], [], 0, spectrum_ref)
+
+        xanes_2d_fit_norm = pyxas.rm_abnormal(xanes_2d_fit / np.sum(xanes_2d_fit, axis=0))
+        xanes_2d_fit_norm[xanes_2d_fit_norm > 1] = 1
+        xanes_2d_fit_norm[xanes_2d_fit_norm < 0] = 0
+        res = {}
+        res['xanes_fit_thickness'] = img_thickness
+        res['xanes_2d_fit'] = xanes_2d_fit
+        res['xanes_2d_fit_norm'] = xanes_2d_fit_norm
+        res['xanes_fit_cost'] = xanes_fit_cost
+        res['xanes_2d_fit_offset'] = fit_offset
+        res['n_comp'] = 0
+        ## mask
+        mask = pyxas.fit_xanes2D_generate_mask(res['xanes_fit_thickness'], res['xanes_fit_cost'], thresh_cost,
+                                               thresh_thick, num_iter=0)
+        res['mask'] = np.squeeze(mask)
+
+        # save to jpg image
+        try:
+            color = fit_param['color']
+        except:
+            color = 'r, g, b'
+        pyxas.save_xanes_fitting_image(res, file_save_path, files_scan[i], color)
+
+    ###### end of file loop ####
+    print(f'time elapsed: {time.time() - time_start:6.1f}')
+
+
+################
+
+
 
 
 def fit_xanes2D_norm_edge(img_xanes, xanes_eng, pre_edge, post_edge, fit_eng=[], norm_txm_flag=1, fit_pre_edge_flag=1, fit_post_edge_flag=0, norm_method='new'):
