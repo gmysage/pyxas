@@ -434,8 +434,8 @@ def align_3D_tomo_file_mpi_specific(file_save_path, files_recon=[], files_ref=''
     if align_method == 1: 
         img_ref = pyxas.move_3D_to_center(img_ref, circle_mask_ratio=circle_mask_ratio)
         
-    fn_save = f'{file_save_path}/ali_recon_{scan_id}_bin_{binning}.h5'
-    pyxas.save_hdf_file(fn_save, 'img', img_ref.astype(np.float32), 'scan_id', scan_id, 'X_eng', X_eng)
+    #fn_save = f'{file_save_path}/ali_recon_{scan_id}_bin_{binning}.h5'
+    #pyxas.save_hdf_file(fn_save, 'img', img_ref.astype(np.float32), 'scan_id', scan_id, 'X_eng', X_eng)
     # start align
     pool = Pool(num_cpu)
     pool.map(partial(align_3D_tomo_file_mpi_sub, 

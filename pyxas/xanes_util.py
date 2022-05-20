@@ -15,7 +15,7 @@ def find_nearest(data, value):
     return np.abs(data - value).argmin()
 
 
-def fit1D(x_raw, y_raw, x_fit, order=2, smooth=0.001):
+def fit1D(x_raw, y_raw, x_fit, order=3, smooth=0.01):
     spl = UnivariateSpline(x_raw, y_raw, k=order, s=smooth)
     y_fit = spl(x_fit)
     return y_fit

@@ -6,6 +6,7 @@ import h5py
 import pyxas
 import scipy
 import time
+from tqdm import trange
 from scipy import ndimage
 from skimage import io
 from copy import deepcopy
@@ -633,7 +634,7 @@ def fit_xanes2D_generate_mask(img_thickness, xanes_fit_cost, thresh_cost=0.1, th
 
 
 def assemble_xanes_slice_from_tomo_mpi_sub(sli, file_path, files_recon, attr_img='img', attr_eng='X_eng', align_flag=0, align_ref_index=-1, align_roi_ratio=0.8, roi=[], ali_sli=[], align_algorithm='stackreg', flag_save_2d_xanes=1, flag_mask=1):
-
+    from PIL import Image
     time_s = time.time()
     num_file = len(files_recon)
 
@@ -657,10 +658,13 @@ def assemble_xanes_slice_from_tomo_mpi_sub(sli, file_path, files_recon, attr_img
     mask = np.ones([s[0], s[1]])
     res = {}    
     print(f'processing slice: {sli}')
-    for j in range(num_file):
+    for j in trange(num_file):
         fn = files_recon[j]
         if 'tif' in file_type:
-            tmp = io.imread(fn)[sli]
+            #tmp = io.imread(fn)[sli]
+            dataset = Image.open(fn)
+            dataset.seek(sli)
+            tmp = np.array(dataset)
             tmp_eng = 0
         elif 'h5' in file_type:
             f = h5py.File(fn, 'r')
@@ -748,11 +752,24 @@ def assemble_xanes_slice_from_tomo_mpi(file_path='.', file_prefix='ali_recon', f
         sli = [sli[0], sli[0]+1]
     sli = np.arange(sli[0], sli[1])
 
-    mask_3D = np.ones([num_slice, s[0], s[1]])    
+    mask_3D = np.ones([num_slice, s[0], s[1]])
     time_s = time.time()
-    pool = Pool(num_cpu)
-    res = pool.map(partial(pyxas.assemble_xanes_slice_from_tomo_mpi_sub, file_path=file_path, files_recon=files_recon, attr_img=attr_img, attr_eng=attr_eng, align_flag=align_flag, align_ref_index=align_ref_index, align_roi_ratio=align_roi_ratio, roi=roi, ali_sli=ali_sli, align_algorithm=align_algorithm, flag_save_2d_xanes=flag_save_2d_xanes, flag_mask=flag_mask), sli)
-    
+    if num_cpu == 1:
+        for i in trange(len(sli)):
+            assemble_xanes_slice_from_tomo_mpi_sub(sli[i], file_path, files_recon, attr_img=attr_img, attr_eng=attr_eng,
+                                                   align_flag=align_flag, align_ref_index=align_ref_index, align_roi_ratio=align_roi_ratio,
+                                                   roi=roi, ali_sli=ali_sli, align_algorithm=align_algorithm,
+                                                   flag_save_2d_xanes=flag_save_2d_xanes, flag_mask=flag_mask)
+
+    else:
+        pool = Pool(num_cpu)
+        res = pool.map(partial(pyxas.assemble_xanes_slice_from_tomo_mpi_sub,
+                               file_path=file_path, files_recon=files_recon,
+                               attr_img=attr_img, attr_eng=attr_eng, align_flag=align_flag,
+                               align_ref_index=align_ref_index, align_roi_ratio=align_roi_ratio,
+                               roi=roi, ali_sli=ali_sli, align_algorithm=align_algorithm,
+                               flag_save_2d_xanes=flag_save_2d_xanes, flag_mask=flag_mask), sli)
+
     for i in range(len(files_recon)):
         mask_3D[i] = res[i]['mask']
 

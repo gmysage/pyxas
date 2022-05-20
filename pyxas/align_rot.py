@@ -263,10 +263,11 @@ def rotate_2D(img2D, theta, center=None):
     s = img2D.shape
     if center is None:
         center = np.array(s) / 2 - 0.5
-    theta_r = -theta / 180 * np.pi
+    theta_r = -float(theta) / 180 * np.pi
     m1 = [[cos(theta_r), -sin(theta_r)],
           [sin(theta_r),  cos(theta_r)],]
     m1 = np.array(m1)
+
     y, x = np.mgrid[:s[0], :s[1]] # y has "0" at up-left corner
     ymax = np.max(y)
     y = ymax - y # change y =0 to low-left cornor
@@ -282,7 +283,7 @@ def rotate_2D(img2D, theta, center=None):
     return img2D_r
 
 
-def transform_3D(img3D, m, center=None, order=1):
+def transform_3D(img3D, m, center=None, order=1, shifts=[0,0,0]):
     '''
     m is the transform matrix [3x3]
     img_transformed = m*img3D
@@ -300,9 +301,9 @@ def transform_3D(img3D, m, center=None, order=1):
     x, y, z = x.flatten(), y.flatten(), z.flatten()
     t = np.vstack((x-center[2], y-center[1], z-center[0]))
     r = m_t @ np.array(t)
-    r[0] += center[2] # x --> column
-    r[1] += center[1] # y --> row
-    r[2] += center[0] # z --> height
+    r[0] += (center[2] - shifts[2]) # x --> column
+    r[1] += (center[1] - shifts[1]) # y --> row
+    r[2] += (center[0] - shifts[0]) # z --> height
     r[1] = ymax - r[1]
     r[2] = zmax - r[2]
     coords = r[::-1]
@@ -310,6 +311,60 @@ def transform_3D(img3D, m, center=None, order=1):
     img3D_t = img3D_t.reshape(img3D.shape)
     return img3D_t
 
+def transform_4D(img3D, m_4D, center=None, order=1):
+    '''
+    m is the transform matrix [4x4], the last column is [shift_x, shift_y, shift_z, 1].T
+    img_transformed = m*img3D
+    '''
+    m_t = np.linalg.inv(m_4D)
+    s = img3D.shape
+    if center is None:
+        center = np.array(s) / 2 - 0.5
+    z, y, x = np.mgrid[:s[0], :s[1], :s[2]]
+    ymax, zmax = np.max(y), np.max(z)
+    # y = ymax - y
+    # z = zmax - z
+    y = y[:,::-1]
+    z = z[::-1]
+    x, y, z = x.flatten(), y.flatten(), z.flatten()
+    n = len(x)
+    t = np.vstack((x-center[2], y-center[1], z-center[0], np.ones(n)))
+    r = m_t @ np.array(t)
+    r[0] += center[2]  # x --> column
+    r[1] += center[1]  # y --> row
+    r[2] += center[0]  # z --> height
+    r[1] = ymax - r[1]
+    r[2] = zmax - r[2]
+    r = r[:-1] # remove the last row
+    coords = r[::-1]
+    img3D_t = ndimage.map_coordinates(img3D, coords, order=order)
+    img3D_t = img3D_t.reshape(img3D.shape)
+    return img3D_t
+
+
+
+def rotate_shift_2D(img2D, theta, center=None, shifts=[0,0]):
+    from numpy import sin, cos
+    s = img2D.shape
+    if center is None:
+        center = np.array(s) / 2 - 0.5
+    theta_r = -theta / 180 * np.pi
+    m1 = [[cos(theta_r), -sin(theta_r)],
+          [sin(theta_r),  cos(theta_r)],]
+    m1 = np.array(m1)
+    y, x = np.mgrid[:s[0], :s[1]] # y has "0" at up-left corner
+    ymax = np.max(y)
+    y = ymax - y # change y =0 to low-left cornor
+    x, y = x.flatten(), y.flatten()
+    t = np.vstack((x-center[1], y-center[0]))
+    r = m1 @ np.array(t)
+    r[0] = r[0] + center[1] + shifts[1] # x --> column
+    r[1] = r[1] + center[0] + shifts[0] # y --> row
+    r[1] = ymax - r[1] # change back y = 0 to up-left corner
+    coords = r[::-1]
+    img2D_r = ndimage.map_coordinates(img2D, coords, order=1)
+    img2D_r = img2D_r.reshape(img2D.shape)
+    return img2D_r
 
 
 def get_rotation_matrix(theta_x=0, theta_y=0, theta_z=0):
@@ -344,6 +399,16 @@ def get_rotation_matrix1(theta_x=0, theta_y=0, theta_z=0):
     m = np.array(m_z) @ np.array(m_y) @ np.array(m_x)
     return m
 
+
+def get_rotation_shift_matrix1(theta_x, theta_y, theta_z, sx, sy, sz):
+    m = get_rotation_matrix1(theta_x, theta_y, theta_z)
+    mm = np.zeros((4, 4))
+    mm[:-1, :-1] = m
+    mm[0, 3] = sx
+    mm[1, 3] = sy
+    mm[2, 3] = sz
+    mm[3:, 3] = 1
+    return mm
 
 #mm = get_rotation_matrix1(theta_x, theta_y, theta_z)
 #mm_inv = np.linalg.inv(mm)
@@ -388,6 +453,21 @@ def rotate_3D_new(img3D, theta_x=0, theta_y=0, theta_z=0, center=None):
     img3D_r = img3D_r.reshape(img3D.shape)
     '''
     return img3D_r
+
+def rotate_shift_3D_new(img3D, theta_x=0, theta_y=0, theta_z=0, center=None, shifts=[0,0,0]):
+    '''
+    first rotate along x, then rotate along y, then rotate along z
+    '''
+    '''
+    from numpy import sin, cos
+    s = img3D.shape
+    if center is None:
+        center = np.array(s) / 2 - 0.5
+    '''
+    mm = get_rotation_matrix1(theta_x, theta_y, theta_z)
+    img3D_r = transform_3D(img3D, mm, center, shifts)
+    return img3D_r
+
 
 def to_spherical(output_shape, center, radius_scale=1):
     s = output_shape
@@ -606,15 +686,15 @@ def align_2D_rotation(img_ref, img2, n=10, prec=0.1, angle_limit=None):
 
         im2_, _, _ = pyxas.align_img(im1, im2)
 
-        _, _, ang1 = pyxas.find_img_angle(im1)
-        _, _, ang2 = pyxas.find_img_angle(im2)
+        _, _, ang1 = find_img_angle(im1)
+        _, _, ang2 = find_img_angle(im2)
         d_ang = np.abs(ang1 - ang2)
-                
-        img_ali1 = pyxas.rotate_2D(im2, d_ang)
+
+        img_ali1 = rotate_2D(im2, d_ang)
         img_ali1, _, _ = pyxas.align_img(im1, img_ali1)
         sum1 = np.sum(im1 * img_ali1)
 
-        img_ali2 = pyxas.rotate_2D(im2, -d_ang)
+        img_ali2 = rotate_2D(im2, -d_ang)
         img_ali2, _, _ = pyxas.align_img(im2, img_ali2)
         sum2 = np.sum(im1 * img_ali2)
 

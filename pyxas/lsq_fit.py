@@ -4,7 +4,9 @@ from copy import deepcopy
 from scipy.interpolate import UnivariateSpline
 
 
-def fit_peak_curve_spline(x, y, fit_order=3, smooth=0.002, weight=1):
+def fit_peak_curve_spline(x, y, fit_order=3, smooth=0.002, weight=[1]):
+    if not len(weight) == len(x):
+        weight = np.ones((len(x)))
     spl = UnivariateSpline(x, y, k=fit_order, s=smooth, w=weight)
     xx = np.linspace(x[0], x[-1], 1001)
     yy = spl(xx)
@@ -232,7 +234,7 @@ def soft_threshold(rho, lamda):
             theta = (rho + lamda)
         elif rho >  lamda:
             theta = (rho - lamda)
-        else: 
+        else:
             theta = 0
     '''
     return y
@@ -384,7 +386,7 @@ def test():
 
     Y_est = np.squeeze(np.dot(W, X))
     plt.figure();plt.subplot(121);plt.plot(cost)
-    
+
 
     plt.subplot(122);plt.plot(t, Y_test, 'r.-');
     # plt.plot(t, Y_true, 'g');

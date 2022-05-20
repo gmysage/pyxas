@@ -65,7 +65,7 @@ def img_dilation(img, binary_threshold=0.5, iterations=2):
     mask = ndimage.binary_dilation(img_b, structure=struct, iterations=iterations).astype(img.dtype)
     img_dilated = img * mask
     return mask, img_dilated
-    
+
 
 def img_erosion(img, binary_threshold=0.5, iterations=2):
     img_b = img.copy()
@@ -130,10 +130,10 @@ def circ_mask(img, axis, ratio=1, val=0):
         dx, dy, dz = im.shape
         m = _get_mask(dy, dz, ratio)
         m_out = (1 - m) * val
-        im_m = np.array(m, dtype=np.int) * im + m_out
+        im_m = np.array(m, dtype=np.int16) * im + m_out
         im_m = im_m.swapaxes(0, axis)
     return im_m
-        
+
 
 def pad(img, thick, direction):
 
@@ -142,16 +142,16 @@ def pad(img, thick, direction):
 
     Parameters:
     -----------
-    img: 2d or 3d array 
+    img: 2d or 3d array
         2D or 3D images
     thick: int
         padding thickness for all directions
         if thick == odd, automatically increase it to thick+1
     direction: int
-        0: padding in axes = 0 (2D or 3D image) 
+        0: padding in axes = 0 (2D or 3D image)
         1: padding in axes = 1 (2D or 3D image)
         2: padding in axes = 2 (3D image)
- 
+
     Return:
     -------
     2d or 3d array
@@ -179,7 +179,7 @@ def pad(img, thick, direction):
             else:  # direction == 1, padding colume
                 pad_image = np.zeros([s[0], s[1]+thick])
                 pad_image[:, hf:(s[1]+hf)] = img
-        
+
         else:  # s.size ==3, 3D image
             if direction == 0:  # padding slice
                 pad_image = np.zeros([s[0]+thick, s[1], s[2]])
@@ -192,23 +192,23 @@ def pad(img, thick, direction):
             else:  # padding colume
                 pad_image = np.zeros([s[0],s[1],s[2]+thick])
                 pad_image[:, :, hf:(s[2]+hf)] = img
-    
+
     else: # thick < 0: shrink the image
         if s.size < 3:  # 2D image
             if direction == 0:  # shrink row
                 pad_image = img[hf:(s[0]-hf), :]
 
             else:  pad_image = img[:, hf:(s[1]-hf)]    # shrink colume
-    
+
         else:  # s.size == 3, 3D image
             if direction == 0:  # shrink slice
                 pad_image = img[hf:(s[0]-hf), :, :]
 
-            elif direction == 1:  # shrink row 
-                pad_image = img[:, hf:(s[1]-hf),:] 
+            elif direction == 1:  # shrink row
+                pad_image = img[:, hf:(s[1]-hf),:]
 
             else:  # shrik colume
-                pad_image = img[:, :, hf:(s[2]-hf)] 
+                pad_image = img[:, :, hf:(s[2]-hf)]
     return pad_image
 
 
@@ -279,7 +279,7 @@ def bin_ndarray(ndarray, new_shape=None, operation='mean'):
     Bins an ndarray in all axes based on the target shape, by summing or
         averaging.
 
-    Number of output dimensions must match number of input dimensions and 
+    Number of output dimensions must match number of input dimensions and
         new axes must divide old ones.
 
     Example
@@ -322,7 +322,7 @@ def draw_circle(cen, r, theta=[0, 360.0]):
     plt.plot(x,y,'r')
 
 def get_circle_line_from_img(img, cen, r, pix_size=17.1, theta=[0, 360.0], f_out='circle_profile_with_fft.txt'):
-    d_th = 1 / 10.0 / r    
+    d_th = 1 / 10.0 / r
     th = np.arange(theta[0]/180.*np.pi, theta[1]/180.0*np.pi+d_th, d_th)
     num_data = len(th)
     x = r * np.sin(th) + cen[1]
@@ -341,13 +341,13 @@ def get_circle_line_from_img(img, cen, r, pix_size=17.1, theta=[0, 360.0], f_out
         t = t1 + t2 + t3 + t4
         data.append(t)
 
-    line = th * r * pix_size    
+    line = th * r * pix_size
 
     plt.figure()
     plt.subplot(221)
     plt.imshow(img)
-    draw_circle(cen, r, theta)       
-    
+    draw_circle(cen, r, theta)
+
     plt.subplot(223);plt.plot(line, data)
     plt.title('line_profile: r={} pixels'.format(r))
 
@@ -368,8 +368,8 @@ def get_circle_line_from_img(img, cen, r, pix_size=17.1, theta=[0, 360.0], f_out
 
     np.savetxt(f_out, data_comb, fmt='%3.4e')
     return data_comb
-    
-        
+
+
 
 class IndexTracker(object):
     def __init__(self, ax, X):
@@ -787,14 +787,14 @@ are used to
           Greg = Greg*np.exp(1j*diffphase)
        elif (nargout > 1) and (usfac == 0):
           Greg = np.dot(buf2ft,np.exp(1j*diffphase))
-          
+
        #plt.figure(3)
        image_reg = sf.ifft2(Greg) * np.sqrt(nr*nc)
        #imgplot = plt.imshow(np.abs(image_reg))
 
        #a_ini = np.zeros((100,100))
        #a_ini[40:59,40:59] = 1.
-       #a = a_ini * np.exp(1j*15.) 
+       #a = a_ini * np.exp(1j*15.)
        #plt.figure(6)
        #imgplot = plt.imshow(np.abs(a))
        #plt.figure(3)
@@ -895,7 +895,7 @@ def flip_conj(tmp):
     #return tmp_twin
 
     tmp_fft = sf.ifftshift(sf.ifftn(sf.fftshift(tmp)))
-    return sf.ifftshift(sf.fftn(sf.fftshift(np.conj(tmp_fft)))) 
+    return sf.ifftshift(sf.fftn(sf.fftshift(np.conj(tmp_fft))))
 
 def check_conj(ref, tmp,threshold_flag, threshold,subpixel_flag):
     ndims = np.shape(ref)
@@ -915,7 +915,7 @@ def check_conj(ref, tmp,threshold_flag, threshold,subpixel_flag):
        ref_tmp = ref
        tmp_tmp = tmp
        tmp_conj = flip_conj(tmp)
-       
+
     tmp_tmp = subpixel_align(ref_tmp,tmp_tmp,threshold_flag,threshold,subpixel_flag)
     tmp_conj = subpixel_align(ref_tmp,tmp_conj,threshold_flag,threshold,subpixel_flag)
 
@@ -962,7 +962,7 @@ def subpixel_align(ref,tmp,threshold_flag,threshold, subpixel_flag):
        e, p, cl, r, array_shift = result
        x_shift_2 = cl
        y_shift_2 = r
-    
+
        result = dftregistration(ref_fft[:,0,:],tmp_fft[:,0,:],usfac=100)
        e, p, cl, r, array_shift = result
        x_shift_3 = cl
@@ -971,7 +971,7 @@ def subpixel_align(ref,tmp,threshold_flag,threshold, subpixel_flag):
        e, p, cl, r, array_shift = result
        x_shift_4 = cl
        z_shift_2 = r
-       
+
        result = dftregistration(ref_fft[0,:,:],tmp_fft[0,:,:],usfac=100)
        e, p, cl, r, array_shift = result
        y_shift_3 = cl
@@ -1009,7 +1009,7 @@ def subpixel_align(ref,tmp,threshold_flag,threshold, subpixel_flag):
           tmp_tmp = np.zeros((nx,ny))
           index = np.where(np.abs(tmp) >= threshold*np.max(np.abs(tmp)))
           tmp_tmp[index] = 1.
-          
+
           ref_fft = sf.ifftn(sf.fftshift(ref_tmp))
           mp_fft = sf.ifftn(sf.fftshift(tmp_tmp))
           real_fft = sf.ifftn(sf.fftshift(tmp))
@@ -1040,9 +1040,9 @@ def subpixel_align(ref,tmp,threshold_flag,threshold, subpixel_flag):
 
     return sf.ifftshift(sf.fftn(sf.fftshift(tmp_fft_new))),x_shift,y_shift
 
-    
+
 def remove_phase_ramp(tmp,threshold_flag, threshold,subpixel_flag):
-   tmp_tmp,x_shift,y_shift = subpixel_align(sf.ifftshift(sf.ifftn(sf.fftshift(np.abs(tmp)))), sf.ifftshift(sf.ifftn(sf.fftshift(tmp))), threshold_flag, threshold,subpixel_flag) 
+   tmp_tmp,x_shift,y_shift = subpixel_align(sf.ifftshift(sf.ifftn(sf.fftshift(np.abs(tmp)))), sf.ifftshift(sf.ifftn(sf.fftshift(tmp))), threshold_flag, threshold,subpixel_flag)
    tmp_new = sf.ifftshift(sf.fftn(sf.fftshift(tmp_tmp)))
    phase_tmp = np.angle(tmp_new)
    ph_offset = np.mean(phase_tmp[np.where(np.abs(tmp) >= threshold)])

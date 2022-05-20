@@ -7612,6 +7612,9 @@ class App(QWidget):
                 self.tx_param_fit_range_e.setText(f'{self.eng[-1]:2.4f}')
             self.tx_3D_edge_s.setText(f'{self.eng[0]:2.4f}')
             self.tx_3D_edge_e.setText(f'{self.eng[-1]:2.4f}')
+            self.tx_param_fit_range_s.setText(f'{self.eng[0]:2.4f}')
+            self.tx_param_fit_range_e.setText(f'{self.eng[-1]:2.4f}')
+
 
         except Exception as err:
             self.lb_param_eng_info = 'Energy load fails'
@@ -8048,7 +8051,7 @@ class App(QWidget):
 
     def batch_fitting_with_edge_norm(self, file_path, file_prefix,
                                             file_type, fit_param,
-                                            xanes_eng, spectrum_ref):
+                                            xanes_eng, spectrum_ref, num_cpu):
         try:
             if num_cpu == 1:
                 pyxas.fit_2D_xanes_file(file_path, file_prefix,
