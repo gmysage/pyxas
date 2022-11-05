@@ -84,6 +84,8 @@ def img_erosion(img, binary_threshold=0.5, iterations=2):
 
 def rm_noise(img, noise_level=2e-3, filter_size=3):
     img_s = medfilt2d(img, filter_size)
+    id0 = img_s==0
+    img_s[id0] = img[id0]
     img_diff = np.abs(img - img_s)
     index = img_diff > noise_level
     img_m = img.copy()

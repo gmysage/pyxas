@@ -4391,11 +4391,11 @@ class App(QWidget):
             self.update_msg()
         else:
             if tmp[0] == '<':
-                mask = self.roi_spec_dif > np.float(glitch_thresh[1:])
+                mask = self.roi_spec_dif > np.float32(glitch_thresh[1:])
             elif tmp[0] == '>':
-                mask = self.roi_spec_dif < np.float(glitch_thresh[1:])
+                mask = self.roi_spec_dif < np.float32(glitch_thresh[1:])
             else:
-                mask = self.roi_spec_dif < np.float(glitch_thresh)
+                mask = self.roi_spec_dif < np.float32(glitch_thresh)
             msg = QMessageBox()
             msg.setText('This will delete the image in \"raw data\", and \"image_update\" ')
             msg.setWindowTitle('Delete multiple image')
@@ -4432,8 +4432,8 @@ class App(QWidget):
         mask = canvas.mask
         s = current_img.shape
         type_index = self.cb1.currentText()
-        cmax = np.float(self.tx_cmax.text())
-        cmin = np.float(self.tx_cmin.text())
+        cmax = np.float32(self.tx_cmax.text())
+        cmin = np.float32(self.tx_cmin.text())
         if type_index == 'Color mix':
             current_img = self.img_colormix
             for i in range(current_img.shape[2]):
@@ -4818,8 +4818,8 @@ class App(QWidget):
             self.pb_save_img_single.setEnabled(False)
             QApplication.processEvents()
             canvas = self.canvas1
-            cmax = np.float(self.tx_cmax.text())
-            cmin = np.float(self.tx_cmin.text())
+            cmax = np.float32(self.tx_cmax.text())
+            cmin = np.float32(self.tx_cmin.text())
             if self.cb1.currentText() == 'Color mix':
                 img = self.img_colormix
                 for i in range(img.shape[2]):
@@ -5874,8 +5874,8 @@ class App(QWidget):
                 img = self.smooth(img, axis=2)
                 self.img_colormix = deepcopy(img)
                 canvas.rgb_flag = 1
-                cmax = np.float(self.tx_cmax.text())
-                cmin = np.float(self.tx_cmin.text())
+                cmax = np.float32(self.tx_cmax.text())
+                cmin = np.float32(self.tx_cmin.text())
                 # img = (img - cmin) / (cmax - cmin)
                 canvas.img_stack = img
                 canvas.cmin = cmin
@@ -5920,8 +5920,8 @@ class App(QWidget):
 
     def set_contrast(self):
         canvas = self.canvas1
-        cmax = np.float(self.tx_cmax.text())
-        cmin = np.float(self.tx_cmin.text())
+        cmax = np.float32(self.tx_cmax.text())
+        cmin = np.float32(self.tx_cmin.text())
         canvas.set_contrast(cmin, cmax)
 
 
@@ -8114,7 +8114,7 @@ class App(QWidget):
                 elif 'tif' in file_type:
                     img = pyxas.get_img_from_tif_file(fn)
                 s = img.shape
-                circle_mask_ratio = np.float(self.tx_3D_mask.text())
+                circle_mask_ratio = np.float32(self.tx_3D_mask.text())
                 if circle_mask_ratio < 1:
                     img = pyxas.circ_mask(img, axis=0, ratio=circle_mask_ratio)
                 '''
