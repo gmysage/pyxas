@@ -39,7 +39,8 @@ def string_to_list(string):
         b = []
     elif string[0] == '[' and string[-1] == ']':
         a = string[1:-1].split(',')
-        b = [float(a[0]), float(a[1])]
+        #b = [float(a[0]), float(a[1])]
+        b = [float(k) for k in a]
     else:
         try:
             b = np.float32(string)
@@ -49,8 +50,7 @@ def string_to_list(string):
             b = string
     return b
 
-        
-   
+
 
 def load_xanes_fit_param_file(fn='xanes_fit_param.csv', num_items=0):
     import csv

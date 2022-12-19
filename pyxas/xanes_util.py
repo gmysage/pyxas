@@ -1,12 +1,17 @@
 from scipy.signal import medfilt
 import numpy as np
 import matplotlib.pyplot as plt
-from pyxas.lsq_fit import lsq_fit_iter, lsq_fit_iter2, coordinate_descent_lasso, admm_iter
+import scipy
+from pyxas.lsq_fit import *
 from scipy.interpolate import InterpolatedUnivariateSpline, interp1d, UnivariateSpline
 from copy import deepcopy
 from numpy.polynomial.polynomial import polyfit, polyval
 from pyxas.image_util import rm_abnormal, bin_ndarray, img_smooth
-import scipy
+from scipy.optimize import nnls, lsq_linear
+from tqdm import trange, tqdm
+from multiprocessing import Pool, cpu_count
+from functools import partial
+
 
 
 
@@ -14,6 +19,14 @@ def find_nearest(data, value):
     data = np.array(data)
     return np.abs(data - value).argmin()
 
+
+def fit_using_nnls(y, A, bounds, method='lsq'):
+    if method == 'lsq':
+        res = lsq_linear(A, y, bounds)
+        return res['x']
+    else:
+        res = nnls(A, y)
+        return res[0]
 
 def fit1D(x_raw, y_raw, x_fit, order=3, smooth=0.01):
     spl = UnivariateSpline(x_raw, y_raw, k=order, s=smooth)
@@ -162,8 +175,53 @@ def norm_txm(img):
     tmp[tmp<0] = 0
     return tmp
 
+def fit_2D_xanes_basic(img_xanes, eng, spectrum_ref, bkg_polynomial_order):
+    '''
+    Solve equation of Ax=b, where:
 
+    Inputs:
+    ----------
+    A: reference spectrum (2-colume array: xray_energy vs. absorption_spectrum)
+    X: fitted coefficient of each ref spectrum
+    b: experimental 2D XANES data
 
+    Outputs:
+    ----------
+    fit_coef: the 'x' in the equation 'Ax=b': fitted coefficient of each ref spectrum
+    cost: cost between fitted spectrum and raw data
+    '''
+    # Y = bX + b0: X is the reference spectrum
+    bkg_polynomial_order = list(np.sort(bkg_polynomial_order))
+    s = img_xanes.shape
+    num_ref = len(spectrum_ref)
+    num_eng = len(eng)
+    num_order = len(bkg_polynomial_order)
+
+    A = np.ones((num_eng, num_ref+num_order))
+    A[:, :num_ref] = interp_spec0(spectrum_ref, eng)
+
+    for i in range(num_order):
+        A[:, i + num_ref] = eng ** (bkg_polynomial_order[i])
+
+    At = A.T
+    AtA_inv = np.linalg.inv(At @ A)
+    Y = img_xanes.reshape((s[0], s[1]*s[2]))
+    AtY = At @ Y
+    X = AtA_inv @ AtY
+
+    Y_hat = A @ X
+    dy = Y - Y_hat
+    cost = np.sum(dy**2, axis=0) / num_eng
+    cost = cost.reshape((s[1], s[2]))
+    fit_coef = X[:num_ref].reshape((num_ref, s[1], s[2]))
+
+    X_offset = X.copy()
+    X_offset[:num_ref] = 0
+    Y_offset = A @ X_offset
+    Y_offset = Y_offset.reshape((num_eng, s[1], s[2]))
+    return fit_coef, cost, X, Y_hat, Y_offset
+
+"""
 def fit_2D_xanes_non_iter(img_xanes, eng, spectrum_ref):
     '''
     Solve equation of Ax=b, where:
@@ -202,9 +260,115 @@ def fit_2D_xanes_non_iter(img_xanes, eng, spectrum_ref):
     cost = cost.reshape(1, s[1], s[2])
 
     return x, offset, cost
+"""
+
+def interp_spec(ref_spec, ref_eng, xanes_eng):
+    s = ref_spec.shape
+    n_ref = s[1]
+    n_eng = len(xanes_eng)
+    ref_spec_interp = np.zeros((n_eng, n_ref))
+    for i in range(n_ref):
+        f = InterpolatedUnivariateSpline(ref_eng, ref_spec[:, i], k=3)
+        ref_spec_interp[:, i] = f(xanes_eng)
+    return ref_spec_interp
 
 
+def interp_spec0(spectrum_ref, xanes_eng):
+    n_ref = len(spectrum_ref)
+    n_eng = len(xanes_eng)
+    ref_spec_interp = np.zeros((n_eng, n_ref))
+    for i in range(n_ref):
+        f = InterpolatedUnivariateSpline(spectrum_ref[f'ref{i}'][:, 0], spectrum_ref[f'ref{i}'][:, 1], k=3)
+        ref_spec_interp[:, i] = f(xanes_eng)
+    return ref_spec_interp
 
+
+def fit_2D_xanes_admm(img_xanes, eng, spectrum_ref, learning_rate=0.2, n_iter=50, bounds=[0,1e10], bkg_polynomial_order=[0]):
+    bkg_polynomial_order = list(np.sort(bkg_polynomial_order))
+    s = img_xanes.shape
+    num_ref = len(spectrum_ref)
+    num_eng = len(eng)
+    num_order = len(bkg_polynomial_order)
+
+    low_bounds = [bounds[0]] * num_ref
+    high_bounds = [bounds[1]] * num_ref
+
+    A = np.ones((num_eng, num_ref+num_order))
+    A[:, :num_ref] = interp_spec0(spectrum_ref, eng)
+
+    for i in range(num_order):
+        A[:, i + num_ref] = eng ** (bkg_polynomial_order[i])
+        if bkg_polynomial_order[i] == 0:
+            low_bounds.append(0)
+        else:
+            low_bounds.append(-1e12)
+        high_bounds.append(1e12)
+
+    Y = img_xanes.reshape((s[0], s[1]*s[2]))
+    X = admm_iter2(A, Y, learning_rate, n_iter, low_bounds, high_bounds)
+    Y_hat = A @ X
+    dy = Y - Y_hat
+    cost = np.sum(dy**2, axis=0) / num_eng
+    cost = cost.reshape((s[1], s[2]))
+    fit_coef = X[:num_ref].reshape((num_ref, s[1], s[2]))
+
+    X_offset = X.copy()
+    X_offset[:num_ref] = 0
+    Y_offset = A @ X_offset
+    Y_offset = Y_offset.reshape((num_eng, s[1], s[2]))
+
+    return fit_coef, cost, X, Y_hat, Y_offset
+
+def fit_2D_xanes_nnls(img_xanes, eng, spectrum_ref, n_iter=50, bkg_polynomial_order=[-3]):
+    bkg_polynomial_order = list(np.sort(bkg_polynomial_order))
+    s = img_xanes.shape
+    num_ref = len(spectrum_ref)
+    num_eng = len(eng)
+    num_order = len(bkg_polynomial_order)
+
+    if num_order == 1 and bkg_polynomial_order[0] == 0:
+        method = 'nnls'
+    else:
+        method = 'lsq'
+
+    low_bounds = [0] * num_ref
+    high_bounds = [1e12] * num_ref
+
+    A = np.ones((num_eng, num_ref+num_order))
+    A[:, :num_ref] = interp_spec0(spectrum_ref, eng)
+
+    for i in range(num_order):
+        A[:, i + num_ref] = eng ** (bkg_polynomial_order[i])
+        low_bounds.append(-np.inf)
+        high_bounds.append(np.inf)
+
+    Y = img_xanes.reshape((s[0], s[1]*s[2])) # e.g., (101, 120000)
+    Yt = Y.T # (120000, 101)
+    bounds = (low_bounds, high_bounds)
+
+    partial_fun = partial(fit_using_nnls, A=A, bounds=bounds, method=method)
+    num_cpu = 4 # int(cpu_count() * 0.8)
+    pool = Pool(num_cpu)
+    res = []
+    for result in tqdm(pool.imap(func=partial_fun, iterable=Yt), total=len(Yt)):
+        res.append(result)
+    pool.close()
+    pool.join()
+    X = np.array(res).T # (5, 120000)
+
+    Y_hat = A @ X
+    dy = Y - Y_hat
+    cost = np.sum(dy ** 2, axis=0) / num_eng
+    cost = cost.reshape((s[1], s[2]))
+
+    fit_coef = X[:num_ref].reshape((num_ref, s[1], s[2]))
+    X_offset = X.copy()
+    X_offset[:num_ref] = 0
+    Y_offset = A @ X_offset
+    Y_offset = Y_offset.reshape((num_eng, s[1], s[2]))
+    return fit_coef, cost, X, Y_hat, Y_offset
+
+"""
 def fit_2D_xanes_iter(img_xanes, eng, spectrum_ref, coef0=None, offset=None, learning_rate=0.005, n_iter=10, bounds=[0,1], fit_iter_lambda=0):
     '''
     Solve the equation A*x = b iteratively
@@ -312,8 +476,8 @@ def fit_2D_xanes_iter2(img_xanes, eng, spectrum_ref, coef0=None, offset=None, la
 
     return w, b, cost
 
-
-
+"""
+"""
 def compute_xanes_fit_cost(img_xanes, fit_coef, fit_offset, spec_interp):
     # compute the cost
     num_ref = len(spec_interp)
@@ -325,32 +489,13 @@ def compute_xanes_fit_cost(img_xanes, fit_coef, fit_offset, spec_interp):
     y_dif = np.power(y_fit - img_xanes, 2)
     cost = np.sum(y_dif, axis=0) / img_xanes.shape[0]
     return cost
-
-
+"""
+"""
 def compute_xanes_fit_mask(cost, error_thresh=0.1):
     mask = np.ones(cost.shape)
     mask[cost > error_thresh] = 0
     return mask
-
-
-def xanes_fit_demo():
-    import h5py
-    f = h5py.File('img_xanes_normed.h5', 'r')
-    img_xanes = np.array(f['img'])
-    eng = np.array(f['X_eng'])
-    f.close()
-    img_xanes= bin_ndarray(img_xanes, (img_xanes.shape[0], int(img_xanes.shape[1]/2), int(img_xanes.shape[2]/2)))
-
-    Ni = np.loadtxt('/NSLS2/xf18id1/users/2018Q1/MING_Proposal_000/xanes_ref/Ni_xanes_norm.txt')
-    Ni2 = np.loadtxt('/NSLS2/xf18id1/users/2018Q1/MING_Proposal_000/xanes_ref/NiO_xanes_norm.txt')
-    Ni3 = np.loadtxt('/NSLS2/xf18id1/users/2018Q1/MING_Proposal_000/xanes_ref/LiNiO2_xanes_norm.txt')
-
-    spectrum_ref = load_xanes_ref(Ni2, Ni3)
-    w1, c1 = fit_2D_xanes_non_iter(img_xanes, eng, spectrum_ref, error_thresh=0.1)
-    plt.figure()
-    plt.subplot(121); plt.imshow(w1[0])
-    plt.subplot(122); plt.imshow(w1[1])
-
+"""
 
 
 def normalize_2D_xanes_pre_edge(img_stack, xanes_eng, pre_edge):
@@ -544,29 +689,10 @@ def normalize_2D_xanes(img_stack, xanes_eng, pre_edge, post_edge, pre_edge_only_
     img_pre_edge_sub_mean = normalize_2D_xanes_pre_edge_sub_mean(img_stack, xanes_eng, pre_edge, post_edge)
     '''
 
-    '''
-    # re-scale using the end point of post edge first
-
-    xs = find_nearest(x_eng, post_s)
-    xe = find_nearest(x_eng, post_e)
-    tmp = np.mean(img_norm[xs:max(xe, xs+1)], axis=0, keepdims=True)
-    tmp = img_smooth(tmp, 5)
-    tmp = rm_abnormal(tmp)
-    img_norm = img_norm / tmp
-    img_norm = rm_abnormal(img_norm)
-    img_norm[np.abs(img_norm)>10] = 0
-    '''
-    '''
-    img_norm = normalize_2D_xanes_pre_edge(img_norm, x_eng, pre_edge)
-    img_norm = normalize_2D_xanes_post_edge(img_norm, x_eng, post_edge)
-    img_norm = normalize_2D_xanes_rescale(img_norm, xanes_eng, pre_edge, post_edge)
-    return img_norm, img_pre_edge_sub_mean
-    '''
     if method == 'new':
         img_norm, img_pre_edge_sub_mean = normalize_2D_xanes2(img_stack, xanes_eng, pre_edge, post_edge, pre_edge_only_flag)
     else:
         img_norm, img_pre_edge_sub_mean = normalize_2D_xanes_old(img_stack, xanes_eng, pre_edge, post_edge, pre_edge_only_flag)
-    #img_norm = normalize_2D_xanes_rm_abornmal(img_norm)
     return img_norm, img_pre_edge_sub_mean
 
 
@@ -578,29 +704,14 @@ def normalize_2D_xanes_old(img_stack, xanes_eng, pre_edge, post_edge, pre_edge_o
     x_eng = xanes_eng
 
     '''
-
-    '''
-    # re-scale using the end point of post edge first
-
-    xs = find_nearest(x_eng, post_s)
-    xe = find_nearest(x_eng, post_e)
-    tmp = np.mean(img_norm[xs:max(xe, xs+1)], axis=0, keepdims=True)
-    tmp = img_smooth(tmp, 5)
-    tmp = rm_abnormal(tmp)
-    img_norm = img_norm / tmp
-    img_norm = rm_abnormal(img_norm)
-    img_norm[np.abs(img_norm)>10] = 0
-    '''
     img_pre_edge_sub_mean = normalize_2D_xanes_pre_edge_sub_mean(img_stack, xanes_eng, pre_edge, post_edge)
     img_norm = normalize_2D_xanes_pre_edge(img_stack, xanes_eng, pre_edge)
     if not pre_edge_only_flag: # normalizing pre-edge only
         img_norm = normalize_2D_xanes_post_edge(img_norm, xanes_eng, post_edge)
-    #img_norm = normalize_2D_xanes_rescale(img_norm, xanes_eng, pre_edge, post_edge)
     return img_norm, img_pre_edge_sub_mean
 
 
 def normalize_1D_xanes(xanes_spec, xanes_eng, pre_edge, post_edge):
-
     pre_s, pre_e = pre_edge
     post_s, post_e = post_edge
     x_eng = xanes_eng

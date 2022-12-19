@@ -1,15 +1,8 @@
 import numpy as np
-from copy import deepcopy
-
 from scipy import ndimage
-from scipy.ndimage.interpolation import shift
 import scipy.fftpack as sf
-import math
 import matplotlib.pyplot as plt
-from scipy.signal import medfilt2d, medfilt
-from pystackreg import StackReg
-#import scipy.ndimage as sn
-#from scipy.ndimage.filters import median_filter as medfilt
+from scipy.signal import medfilt2d
 
 
 def rm_abnormal(img):
@@ -437,24 +430,7 @@ def bytescale(data, cmin=None, cmax=None, high=255, low=0):
     -------
     img_array : uint8 ndarray
         The byte-scaled array.
-    Examples
-    --------
-    >>> from scipy.misc import bytescale
-    >>> img = np.array([[ 91.06794177,   3.39058326,  84.4221549 ],
-    ...                 [ 73.88003259,  80.91433048,   4.88878881],
-    ...                 [ 51.53875334,  34.45808177,  27.5873488 ]])
-    >>> bytescale(img)
-    array([[255,   0, 236],
-           [205, 225,   4],
-           [140,  90,  70]], dtype=uint8)
-    >>> bytescale(img, high=200, low=100)
-    array([[200, 100, 192],
-           [180, 188, 102],
-           [155, 135, 128]], dtype=uint8)
-    >>> bytescale(img, cmin=0, cmax=255)
-    array([[91,  3, 84],
-           [74, 81,  5],
-           [52, 34, 28]], dtype=uint8)
+
     """
     if data.dtype == np.uint8:
         return data
@@ -787,7 +763,8 @@ are used to
           Nc,Nr = np.meshgrid(Nc,Nr)
           Greg = buf2ft*np.exp(1j*2*np.pi*(-1.*row_shift*Nr/nr-1.*col_shift*Nc/nc))
           Greg = Greg*np.exp(1j*diffphase)
-       elif (nargout > 1) and (usfac == 0):
+       #elif (nargout > 1) and (usfac == 0):
+       if usfac == 0:
           Greg = np.dot(buf2ft,np.exp(1j*diffphase))
 
        #plt.figure(3)

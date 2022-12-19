@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from copy import deepcopy
+from tqdm import trange
 from scipy.interpolate import UnivariateSpline
 
 
@@ -328,6 +329,65 @@ def admm_iter(A, y, rho=0.2, num_iters=10, X_guess=[], wgt=[], lasso_lamda=0.01,
         u = u + x - z
         convergency[i] = (norm(z.flatten()) - norm(temp.flatten())) / norm(z.flatten())
     return x
+
+def admm_iter2(A, y, rate=0.2, maxiter=100, low_bounds=[0], high_bounds=[1e12], epsilon=1e-16):
+    At = A.T
+    z = At @ y
+    c = At @ A
+
+    n_ref = A.shape[1]
+    n_pix = y.shape[1]
+
+    # initialize variables
+    w = np.ones((n_ref, n_pix))
+    u = np.zeros((n_ref, n_pix))
+
+    convergence = np.zeros(maxiter)
+
+    dg = np.eye(n_ref) * rate
+    m1 = np.linalg.inv((c + dg))
+
+    n_iter = 0
+
+    # lower bounds
+    lb = list(low_bounds) + [-1e12] * n_ref
+    lb = lb[:n_ref]
+
+    # high bounds
+    hb = list(high_bounds) + [1e12] * n_ref
+    hb = hb[:n_ref]
+
+    for i in trange(maxiter):
+        m2 = z + (w - u) * rate
+        x = np.matmul(m1, m2)
+        w_updated = x + u
+
+        # apply bounds
+        w_updated = clip_with_bounds(w_updated, lb, hb)
+        u = u + x - w_updated
+
+        conv = np.linalg.norm(w_updated - w) / np.linalg.norm(w_updated)
+        convergence[i] = conv
+        w = w_updated
+        if conv < epsilon:
+            n_iter = i + 1
+            break
+    convergence = convergence[:n_iter]
+    return w
+
+
+def clip_with_bounds(m, lb, hb):
+    m_clip = m.copy()
+    n = m_clip.shape[0]
+    try:
+        for i in range(n):
+            id1 = m_clip[i] < lb[i]
+            m_clip[i][id1] = lb[i]
+            id2 = m_clip[i] > hb[i]
+            m_clip[i][id2] = hb[i]
+    except:
+        print('fail to clip matrix')
+    return m_clip
 
 ########################################
 class f_gaussian():

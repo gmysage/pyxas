@@ -1,5 +1,5 @@
 import numpy as np
-
+from matplotlib.colors import ListedColormap
 
 def colormix(img, color='r, g, b', scale=[1], clim=[0,1], plot_flag=0):
     s = img.shape
@@ -45,7 +45,7 @@ def convert_rgb_vector(color):
 def convert_rgb_img(img, color_vec):
     s = img.shape
     assert len(s) >= 2, 'need 3D image to convert rgb'
-    img_color = np.zeros([s[1], s[2], 3])
+    img_color = np.ones((s[1], s[2], 4))
     cR, cG, cB = 0, 0, 0
     for i in range(s[0]):
         cR += img[i] * color_vec[i][0]
@@ -57,8 +57,42 @@ def convert_rgb_img(img, color_vec):
     return img_color
 
 
+def convert_color_string(color_string=''):
+    color = color_string.replace(' ', '')
+    color = color.replace(';', ',')
+    color = color.split(',')
+    if color[0] == '':
+        color = ['r', 'g', 'b', 'c', 'p', 'y']
+    return color
 
 
+def binary_colorbar(color='r,g', plot_flag=1):
+    color = convert_color_string(color)
+    color_vec = convert_rgb_vector(color)
+    img = np.ones((2, 1000, 80))
+    t = np.linspace(0, 1, 1000)
+    t = t.reshape((1000, 1))
+    img[0] = img[0] * t
+    img[1] = 1 - img[0]
+    img_color = convert_rgb_img(img, color_vec)
+    if plot_flag:
+        plt.figure()
+        plt.imshow(img_color)
+        plt.axis('off')
+
+def create_binary_color_cmp(color='r, g'):
+
+    if isinstance(color, str):
+        color = convert_color_string(color)
+    color_vec = convert_rgb_vector(color)
+    img = np.ones((2, 1000, 1))
+    t = np.linspace(0, 1, 1000)
+    t = t.reshape((1000, 1))
+    img[0] = img[0] * t
+    img[1] = 1 - img[0]
+    img_color = convert_rgb_img(img, color_vec)
+    newcmp = ListedColormap(img_color[:,0])
+    return newcmp
 
 
 
