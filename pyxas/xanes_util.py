@@ -632,7 +632,6 @@ def normalize_2D_xanes_rescale(img_stack, xanes_eng, pre_edge, post_edge):
     return img_norm
 
 
-
 def normalize_2D_xanes_regulation(img_norm, x_eng, pre_edge, post_edge, designed_max=1.65, gamma=0.01):
     # using Lorentzian profile to re-scale
     #designed_max = 1.65
@@ -680,7 +679,6 @@ def normalize_2D_xanes_regulation_version2(img_norm, x_eng, peak_pos, peak_width
     return img_norm
 
 
-
 def normalize_2D_xanes(img_stack, xanes_eng, pre_edge, post_edge, pre_edge_only_flag, method='new'):
     '''
     post_s, post_e = post_edge
@@ -694,7 +692,6 @@ def normalize_2D_xanes(img_stack, xanes_eng, pre_edge, post_edge, pre_edge_only_
     else:
         img_norm, img_pre_edge_sub_mean = normalize_2D_xanes_old(img_stack, xanes_eng, pre_edge, post_edge, pre_edge_only_flag)
     return img_norm, img_pre_edge_sub_mean
-
 
 
 def normalize_2D_xanes_old(img_stack, xanes_eng, pre_edge, post_edge, pre_edge_only_flag=0):
@@ -859,6 +856,39 @@ def normalize_2D_xanes2(img_stack, xanes_eng, pre_edge, post_edge, pre_edge_only
     img_thickness[img_thickness<0] = 0
     img_norm = rm_abnormal(img_norm)
     return img_norm, img_thickness
+
+
+def fit_peak_2D_xanes_poly(img_xanes, xanes_eng, eng_range=[],fit_order=3, fit_max=1):
+    # from multiprocessing import Pool
+    # from functools import partial
+    img = img_xanes.copy()
+    try:
+        xs_id = find_nearest(xanes_eng, eng_range[0])
+        xe_id = find_nearest(xanes_eng, eng_range[1])
+        img = img[xs_id:xe_id]
+        if len(xanes_eng):
+            x = xanes_eng[xs_id:xe_id]
+        else:
+            x = np.arange(len(img))
+    except Exception as err:
+        print(err)
+        img = img_xanes.copy()
+    try:
+        x = xanes_eng[xs_id:xe_id]
+    except Exception as err:
+        print(err)
+        x = np.arange(len(img))
+    s0 = img.shape
+    img_f = img.reshape([s0[0], -1])
+    if fit_max:
+        y = img_f
+    else:
+        y = 1 - img_f
+    res = fit_peak_curve_poly(x, y, fit_order)
+    peak_pos = res['peak_pos'].reshape([1, s0[1], s0[2]])
+    fit_error = res['fit_error'].reshape([1, s0[1], s0[2]])
+    peak_val = res['peak_val'].reshape([1, s0[1], s0[2]])
+    return peak_pos, peak_val, fit_error
 
 
 def rm_duplicate(my_list):

@@ -21,6 +21,14 @@ def create_directory(fn):
     except:
         print(f'fails to create {fn}')
 
+def longest_commonPrefix(strs):
+    if not strs:
+        return ''
+    for i, lett in enumerate(zip(*strs)):
+        if len(set(lett)) > 1:
+            return strs[0][:i]
+        else:
+            return min(strs)
 
 def save_xanes_fit_param_file(fit_param, fn='xanes_fit_param.csv'):
     import csv

@@ -376,8 +376,6 @@ def fit_2D_xanes_file_mpi(file_path, file_prefix, fit_param, xanes_eng, spectrum
     print(f'total time elapsed: {time.time()-time_start:6.1f}')
 
 
-
-
 def plot_fitting_results(res, color='', file_save_path='', display_flag=1, save_flag=0):
     '''
     res = {'xanes_fit_thickness', 'xanes_2d_fit', 'xanes_2d_fit_norm',

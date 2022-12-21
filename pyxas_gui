@@ -7286,8 +7286,6 @@ class App(QWidget):
         gpbox.setLayout(vbox_3D_find_peak)
         return gpbox
 
-
-
     def open_3D_folder(self):
         options = QFileDialog.Option()
         options |= QFileDialog.DontUseNativeDialog
@@ -7390,10 +7388,8 @@ class App(QWidget):
             print(err)
             self.lb_param_ref_info = 'un-recognized reference spectrum format'
 
-
     def reset_3D_reference(self):
         self.reset_xanes_ref()
-
 
     def collect_3D_fit_param(self):
         self.lb_3D_msg.setText('')
@@ -7896,8 +7892,6 @@ class App(QWidget):
                 tmp = self.tomo_file['files'][i].split('/')[-1]
                 self.lst_3D_tomo.addItem(tmp)
 
-
-
     def align_3D_tomo_file(self):
         try:
             self.pb_align_tomo_file.setText('Aligning ...')
@@ -8155,7 +8149,7 @@ class App(QWidget):
                 img_xanes *= scale * fit_max
 
                 time_s = time.time()
-                peak_pos, peak_val, fit_error = fit_peak_2D_xanes_poly(img_xanes, xanes_eng,
+                peak_pos, peak_val, fit_error = pyxas.fit_peak_2D_xanes_poly(img_xanes, xanes_eng,
                                                              eng_range, fit_order, fit_max)
 
                 time_e = time.time()
@@ -8473,49 +8467,6 @@ class MyCanvas(FigureCanvas):
             self.cb = self.fig.colorbar(self.im, cax=self.cax, orientation='vertical')
             self.cb.ax.tick_params(labelsize=10)
             self.draw()
-
-
-def fit_peak_2D_xanes_poly(img_xanes, xanes_eng, eng_range=[],fit_order=3, fit_max=1):
-    # from multiprocessing import Pool
-    # from functools import partial
-    img = img_xanes.copy()
-    try:
-        xs_id = pyxas.find_nearest(xanes_eng, eng_range[0])
-        xe_id = pyxas.find_nearest(xanes_eng, eng_range[1])
-        img = img[xs_id:xe_id]
-        if len(xanes_eng):
-            x = xanes_eng[xs_id:xe_id]
-        else:
-            x = np.arange(len(img))
-    except Exception as err:
-        print(err)
-        img = img_xanes.copy()
-    try:
-        x = xanes_eng[xs_id:xe_id]
-    except Exception as err:
-        print(err)
-        x = np.arange(len(img))
-    s0 = img.shape
-    img_f = img.reshape([s0[0], -1])
-    if fit_max:
-        y = img_f
-    else:
-        y = 1 - img_f
-    res = pyxas.fit_peak_curve_poly(x, y, fit_order)
-    peak_pos = res['peak_pos'].reshape([1, s0[1], s0[2]])
-    fit_error = res['fit_error'].reshape([1, s0[1], s0[2]])
-    peak_val = res['peak_val'].reshape([1, s0[1], s0[2]])
-    return peak_pos, peak_val, fit_error
-
-
-def longest_commonPrefix(strs):
-    if not strs:
-        return ''
-    for i, lett in enumerate(zip(*strs)):
-        if len(set(lett)) > 1:
-            return strs[0][:i]
-        else:
-            return min(strs)
 
 
 if __name__ == '__main__':
