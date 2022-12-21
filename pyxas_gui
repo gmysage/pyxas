@@ -2721,6 +2721,7 @@ class App(QWidget):
                 self.xanes_2d_fit = fit_coef
                 self.xanes_fit_cost = cost
                 self.xanes_2d_fit_offset = y_offset
+                #self.xanes_img_minus_offset = img_stack - y_offset
 
             self.save_2D_fitting_to_summary()
             self.postprocess_2D_fitting()
@@ -2796,6 +2797,8 @@ class App(QWidget):
             self.cb1.addItem('XANES Fit error')
         if self.cb1.findText('XANES Fit offset') < 0:
             self.cb1.addItem('XANES Fit offset')
+        #if self.cb1.findText('Image Minus Offset') < 0:
+        #    self.cb1.addItem('Image Minus Offset')
 
         self.data_summary['XANES Fit (ratio, summed to 1)'] = self.smooth(img) * self.mask
         # 2: xanes_fit concentration:
@@ -3492,10 +3495,14 @@ class App(QWidget):
     def noise_removal(self):
         try:
             canvas = self.canvas1
-            img = canvas.current_img.copy()
+            #img = canvas.current_img.copy()
+            img = canvas.img_stack.copy()
             noise_level = float(self.tx_rm_noise_level.text())
             filter_size = int(self.tx_rm_noise_size.text())
-            self.img_rm_noise = pyxas.rm_noise(img, noise_level, filter_size)
+            n = img.shape[0]
+            self.img_rm_noise = np.zeros(img.shape)
+            for i in range(n):
+                self.img_rm_noise[i] = pyxas.rm_noise(img[i], noise_level, filter_size)
             if self.cb1.findText('Noise removal') < 0:
                 self.cb1.addItem('Noise removal')
             self.cb1.setCurrentText('Noise removal')
@@ -3913,7 +3920,9 @@ class App(QWidget):
             scale = float(self.tx_color_scale.text())
             selected_channel = int(self.cb_color_channel.currentText())
             img[selected_channel] *= scale
-            #img_color = self.convert_rgb_img(img, color_vec)
+            cmax = np.float32(self.tx_cmax.text())
+            cmin = np.float32(self.tx_cmin.text())
+            img = (img-cmin) / (cmax-cmin)
             img_color = pyxas.convert_rgb_img(img, color_vec)
             self.img_colormix = deepcopy(img_color)
             if len(self.spectrum_ref) == 2:
@@ -3924,6 +3933,8 @@ class App(QWidget):
                 plt.axis('off')
                 plt.show()
             print('plot the colormix ')
+            self.img_colormix = pyxas.convert_rgb_img(self.img_colormix_raw, color_vec)
+            #self.img_colormix = self.img_colormix_raw.copy()
 
             if self.cb1.findText('Color mix') < 0:
                 self.cb1.addItem('Color mix')
@@ -5485,6 +5496,24 @@ class App(QWidget):
                 slide.setMaximum(max(sh[0] - 1, 0))
                 self.current_image = img[0]
                 self.data_summary[type_index] = self.canvas1.img_stack
+            elif type_index == 'Image Minus Offset':
+                self.img_colormix_raw = np.array([])
+                canvas.rgb_flag = 0
+                img = self.xanes_img_minus_offset
+                sh = img.shape
+                self.pb_roi_draw.setEnabled(True)
+                canvas.x, canvas.y = [], []
+                canvas.axes.clear()  # this is important, to clear the current image before another imshow()
+                canvas.img_stack = self.smooth(img)
+                canvas.special_info = None
+                # canvas.current_img_index = 0
+                canvas.current_img_index = self.sl1.value()
+                canvas.title = []
+                canvas.update_img_stack()
+                # slide.setMaximum(0)
+                slide.setMaximum(max(sh[0] - 1, 0))
+                self.current_image = img[0]
+                self.data_summary[type_index] = self.canvas1.img_stack
             elif type_index == 'Image regulation':
                 self.img_colormix_raw = np.array([])
                 canvas.rgb_flag = 0
@@ -5576,11 +5605,10 @@ class App(QWidget):
                 canvas.axes.clear()  # this is important, to clear the current image before another imshow()
                 canvas.img_stack = self.smooth(img)
                 canvas.special_info = None
-                # canvas.current_img_index = 0
                 canvas.current_img_index = self.sl1.value()
-                canvas.title = []
+                canvas.title = ['noise removed']
                 canvas.update_img_stack()
-                slide.setMaximum(0)
+                slide.setMaximum(img.shape[0]-1)
                 self.data_summary[type_index] = self.canvas1.img_stack
             elif type_index == 'XANES Edge Fit':
                 self.img_colormix_raw = np.array([])
@@ -5714,7 +5742,10 @@ class App(QWidget):
         canvas = self.canvas1
         cmax = np.float32(self.tx_cmax.text())
         cmin = np.float32(self.tx_cmin.text())
+        assert cmax >= cmin, "cmax should > cmin"
         canvas.set_contrast(cmin, cmax)
+        if canvas.rgb_flag:
+            self.xanes_colormix()
 
     '''
     batch process/ 3D xanes
@@ -8411,7 +8442,7 @@ class MyCanvas(FigureCanvas):
             if len(mask.shape) == 2:
                 mask = np.expand_dims(mask,axis=2)
                 mask = np.repeat(mask, repeats=3, axis=2)
-            self.update_img_one(img * mask)
+            self.update_img_one(img[:,:,:3] * mask)
         else:
             self.update_img_one(self.current_img*self.mask, self.current_img_index)
 

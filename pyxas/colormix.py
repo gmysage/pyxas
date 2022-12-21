@@ -88,8 +88,8 @@ def create_binary_color_cmp(color='r, g'):
     img = np.ones((2, 1000, 1))
     t = np.linspace(0, 1, 1000)
     t = t.reshape((1000, 1))
-    img[0] = img[0] * t
-    img[1] = 1 - img[0]
+    img[1] = img[1] * t
+    img[0] = 1 - img[1]
     img_color = convert_rgb_img(img, color_vec)
     newcmp = ListedColormap(img_color[:,0])
     return newcmp
