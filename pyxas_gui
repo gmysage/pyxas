@@ -384,24 +384,24 @@ class App(QWidget):
         self.lb_eng2.setFixedWidth(245)
 
         self.tx_eng = QLineEdit()
-        self.tx_eng.setFixedWidth(280)
+        self.tx_eng.setFixedWidth(285)
         self.tx_eng.setFont(self.font2)
         # self.tx_eng.setVisible(False)
 
         self.pb_eng = QPushButton('Execute')
         self.pb_eng.setFont(self.font2)
         self.pb_eng.clicked.connect(self.manu_energy_input)
-        self.pb_eng.setFixedWidth(80)
+        self.pb_eng.setFixedWidth(140)
 
         self.pb_fiji = QPushButton('ImageJ')
         self.pb_fiji.setFont(self.font2)
         self.pb_fiji.clicked.connect(self.open_imagej)
         self.pb_fiji.setFixedWidth(80)
 
-        self.pb_closeImg = QPushButton('Close Fig.')
+        self.pb_closeImg = QPushButton('Close Figure')
         self.pb_closeImg.setFont(self.font2)
         self.pb_closeImg.clicked.connect(self.close_all_figures)
-        self.pb_closeImg.setFixedWidth(80)
+        self.pb_closeImg.setFixedWidth(140)
 
         lb_mod = QLabel()
         lb_mod.setFont(self.font2)
@@ -590,7 +590,7 @@ class App(QWidget):
         hbox3.addWidget(lb_hdf_eng)
         hbox3.addWidget(self.tx_hdf_eng)
         hbox3.addWidget(self.pb_ld_eng)
-        hbox3.addWidget(self.pb_ld_fitted)
+        #hbox3.addWidget(self.pb_ld_fitted)
         hbox3.addWidget(lb_empty)
         hbox3.setAlignment(QtCore.Qt.AlignLeft)
 
