@@ -4701,6 +4701,10 @@ class App(QWidget):
                 self.lb_param_eng_info.setText(
                     f'Energy: {n_eng} energies: {self.eng[0]:2.4f}, {self.eng[1]:2.4f},   ...   '
                     f'{self.eng[-1]:2.4f} keV')
+                if (len(self.xanes_eng) != self.img_xanes.shape[0]):
+                    self.msg = 'number of energy does not match number of images, try manual input ...'
+                else:
+                    self.msg = 'energy load succesfully'
             except Exception as err:
                 self.xanes_eng = np.array([0])
                 self.lb_eng1.setText('No energy data ...')
@@ -4956,7 +4960,7 @@ class App(QWidget):
                     f = h5py.File(fn, 'r')
                     # read energy
                     try:
-                        self.xanes_eng = np.array(f[dataset_eng])  # Generally, it is in unit of keV
+                        self.xanes_eng = np.round(np.array(f[dataset_eng]), 8)  # Generally, it is in unit of keV
                         # if min(self.xanes_eng) < 4000:  # make sure it is in unit of KeV
                         #     self.xanes_eng = self.xanes_eng * 1000
                         st = '{0:2.4f}, {1:2.4f}, ..., {2:2.4f} keV (totally, {3} energies)'.format(self.xanes_eng[0], self.xanes_eng[1], self.xanes_eng[-1], len(self.xanes_eng))
