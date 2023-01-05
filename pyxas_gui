@@ -217,7 +217,8 @@ class App(QWidget):
         self.canvas1.mask = np.array([1])
         self.canvas1.rgb_mask = np.array([1])
         self.canvas1.colorbar_on_flag = True
-        self.canvas1.colormap = 'viridis'
+        #self.canvas1.colormap = 'viridis'
+        #self.cb_cmap.setCurrentText('viridis')
         self.canvas1.title = []
         self.canvas1.draw_line = False
         self.canvas1.overlay_flag = True
@@ -597,7 +598,7 @@ class App(QWidget):
         hbox_manul_input.addWidget(self.lb_eng2)
         hbox_manul_input.addWidget(self.tx_eng)
         hbox_manul_input.addWidget(self.pb_eng)
-        hbox_manul_input.addWidget(self.pb_fiji)
+        #hbox_manul_input.addWidget(self.pb_fiji)
         hbox_manul_input.addWidget(self.pb_closeImg)
         hbox_manul_input.setAlignment(QtCore.Qt.AlignLeft)
 
@@ -8310,7 +8311,7 @@ class MyCanvas(FigureCanvas):
                 self.obj.lb_z_l.setText('')
 
     def update_img_stack(self):
-        self.axes = self.fig.add_subplot(111)
+        #self.axes = self.fig.add_subplot(111)
         if self.rgb_flag:  # RGB image
             return self.update_img_one(self.img_stack)
         elif self.img_stack.shape[0] == 0:
