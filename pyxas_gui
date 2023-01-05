@@ -54,6 +54,12 @@ class App(QWidget):
         self.default_layout()
 
 
+    def closeEvent(self, *args, **kwargs):
+        super().closeEvent(*args, **kwargs)
+        print('close window')
+        plt.close('all')
+
+
     def bkg_memory_check(self):
         thread = threading.Thread(target=self.bkg_memory_check_run, args=())
         thread.daemon = True
