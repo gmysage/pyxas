@@ -16,6 +16,7 @@ import os
 import threading
 import time
 import textwrap
+import json
 from multiprocessing import cpu_count
 from PyQt5 import QtGui
 from PyQt5.QtWidgets import (QMainWindow, QFileDialog, QRadioButton, QApplication,QWidget, QPlainTextEdit,
@@ -749,6 +750,8 @@ class App(QWidget):
     @property
     def layout_plot_spec(self):
         lb_empty = QLabel()
+        lb_empty1 = QLabel()
+        lb_empty1.setFixedHeight(10)
         lb_roi = QLabel()
         lb_roi.setFont(self.font1)
         lb_roi.setText('ROI for Spec.')
@@ -863,12 +866,22 @@ class App(QWidget):
         self.lst_roi.setFont(self.font2)
         self.lst_roi.setSelectionMode(QAbstractItemView.MultiSelection)
         self.lst_roi.setFixedWidth(90)
-        self.lst_roi.setFixedHeight(140)
+        self.lst_roi.setFixedHeight(180)
 
         lb_lst_roi = QLabel()
         lb_lst_roi.setFont(self.font2)
         lb_lst_roi.setText('ROI list:')
         lb_lst_roi.setFixedWidth(80)
+
+        self.pb_roi_save = QPushButton('Save ROI')
+        self.pb_roi_save.setFont(self.font2)
+        self.pb_roi_save.clicked.connect(self.save_roi)
+        self.pb_roi_save.setFixedWidth(105)
+
+        self.pb_roi_load = QPushButton('Load ROI')
+        self.pb_roi_load.setFont(self.font2)
+        self.pb_roi_load.clicked.connect(self.load_roi)
+        self.pb_roi_load.setFixedWidth(105)
 
         hbox_roi_button1 = QHBoxLayout()
         hbox_roi_button1.addWidget(self.pb_roi_draw)
@@ -881,33 +894,40 @@ class App(QWidget):
         hbox_roi_button2.setAlignment(QtCore.Qt.AlignLeft)
 
         hbox_roi_button3 = QHBoxLayout()
-        hbox_roi_button3.addWidget(self.pb_roi_plot)
-        hbox_roi_button3.addWidget(self.pb_roi_export)
+        hbox_roi_button3.addWidget(self.pb_roi_save)
+        hbox_roi_button3.addWidget(self.pb_roi_load)
         hbox_roi_button3.setAlignment(QtCore.Qt.AlignLeft)
 
         hbox_roi_button4 = QHBoxLayout()
-        hbox_roi_button4.addWidget(self.pb_eval_glitch)
-        hbox_roi_button4.addWidget(self.pb_rm_glitch)
+        hbox_roi_button4.addWidget(self.pb_roi_plot)
+        hbox_roi_button4.addWidget(self.pb_roi_export)
         hbox_roi_button4.setAlignment(QtCore.Qt.AlignLeft)
 
         hbox_roi_button5 = QHBoxLayout()
-        hbox_roi_button5.addWidget(lb_glitch_thresh)
-        hbox_roi_button5.addWidget(self.tx_glitch_thresh)
+        hbox_roi_button5.addWidget(self.pb_eval_glitch)
+        hbox_roi_button5.addWidget(self.pb_rm_glitch)
         hbox_roi_button5.setAlignment(QtCore.Qt.AlignLeft)
 
         hbox_roi_button6 = QHBoxLayout()
-        hbox_roi_button6.addWidget(lb_file_index)
-        hbox_roi_button6.addWidget(self.tx_file_index)
+        hbox_roi_button6.addWidget(lb_glitch_thresh)
+        hbox_roi_button6.addWidget(self.tx_glitch_thresh)
         hbox_roi_button6.setAlignment(QtCore.Qt.AlignLeft)
+
+        hbox_roi_button7 = QHBoxLayout()
+        hbox_roi_button7.addWidget(lb_file_index)
+        hbox_roi_button7.addWidget(self.tx_file_index)
+        hbox_roi_button7.setAlignment(QtCore.Qt.AlignLeft)
 
         vbox_roi = QVBoxLayout()
         vbox_roi.setContentsMargins(0, 0, 0, 0)
         vbox_roi.addLayout(hbox_roi_button1)
         vbox_roi.addLayout(hbox_roi_button2)
         vbox_roi.addLayout(hbox_roi_button3)
+        vbox_roi.addWidget(lb_empty1)
         vbox_roi.addLayout(hbox_roi_button4)
         vbox_roi.addLayout(hbox_roi_button5)
         vbox_roi.addLayout(hbox_roi_button6)
+        vbox_roi.addLayout(hbox_roi_button7)
         vbox_roi.setAlignment(QtCore.Qt.AlignLeft)
 
         vbox_lst = QVBoxLayout()
@@ -4259,6 +4279,48 @@ class App(QWidget):
         self.update_canvas_img()
 
 
+    def save_roi(self):
+        try:
+            canvas = self.canvas1
+            roi_list = canvas.roi_list
+            if len(roi_list):
+                options = QFileDialog.Option()
+                options |= QFileDialog.DontUseNativeDialog
+                file_type = 'json files (*.json)'
+                fn, _ = QFileDialog.getSaveFileName(self, 'Save ROI list', "", file_type, options=options)
+                if fn[-5:] == '.json':
+                    fn = fn[:-5]
+                fn_roi = f'{fn}.json'
+                with open(fn_roi, "w") as outfile:
+                    json.dump(roi_list, outfile)
+            self.msg = f'roi list saved to {fn_roi}'
+        except Exception as err:
+            self.msg = 'fails to save roi_list'
+            print(err)
+        finally:
+            self.update_msg()
+
+
+
+    def load_roi(self):
+        try:
+            canvas = self.canvas1
+            options = QFileDialog.Option()
+            options |= QFileDialog.DontUseNativeDialog              # self.rd_txt_eng.isChecked() == True:
+            file_type = 'json files (*.json)'
+            fn, _ = QFileDialog.getOpenFileName(xanes, "QFileDialog.getOpenFileName()", "", file_type, options=options)
+            if fn:
+                with open(fn) as json_file:
+                    roi_list = json.load(json_file)
+                canvas.roi_count = 0
+                canvas.roi_list = {}
+                for roi_name in roi_list.keys():
+                    canvas.current_roi = roi_list[roi_name]
+                    canvas.roi_add_to_list(roi_name)
+                    canvas.roi_display(roi_list[roi_name])
+        except Exception as err:
+            print(err)
+
     def export_spectrum(self):
         self.show_roi()
         make_director_success = 1 # temporay to enable saving anyway
@@ -4295,8 +4357,8 @@ class App(QWidget):
             options |= QFileDialog.DontUseNativeDialog
             file_type = 'txt files (*.txt)'
             fn, _ = QFileDialog.getSaveFileName(self, 'Save Spectrum', "", file_type, options=options)
-            if fn[-3:] == 'txt':
-                fn = fn[:-3]
+            if fn[-4:] == '.txt':
+                fn = fn[:-4]
             fn_spec = f'{fn}.txt'
             with open(fn_spec, 'w') as f:
                 df_spec.to_csv(f, float_format='%.9f', sep=' ', index=False)
