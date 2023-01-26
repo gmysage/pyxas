@@ -739,3 +739,33 @@ def assemble_xanes_from_files(files_recon, sli=[], align_flag=0, align_ref_index
     io.imsave(f'{file_path}/xanes_assemble/mask3D.tiff', np.array(mask3D, dtype=np.float32))
     if return_flag:
         return img_xanes, xanes_eng
+
+
+def fit_2D_multi_elem_thick(img_xanes, xanes_eng, elem, eng_exclude, bkg_polynomial_order):
+    s = img_xanes.shape
+    n_elem = len(elem)
+    X, A, A_all, x_eng, Y, Y_fit, Y_diff, x_eng_all, Y_all, Y_fit_all = fit_multi_element_mu(img_xanes,
+                                                                                             xanes_eng,
+                                                                                             elem,
+                                                                                             eng_exclude,
+                                                                                             bkg_polynomial_order)
+    thickness = X[:n_elem].reshape((n_elem, s[1], s[2]))
+    y_diff = np.sum(Y_diff, axis=0).reshape((s[1], s[2]))
+    y_fit_err = np.abs(y_diff)
+    res = {}
+    res['X'] = X
+    res['A'] = A
+    res['A_all'] = A_all
+    res['x_eng'] = x_eng
+    res['Y'] = Y
+    res['Y_fit'] = Y_fit
+    res['x_eng_all'] = x_eng_all
+    res['Y_all'] = Y_all
+    res['Y_fit_all'] = Y_fit_all
+
+    res['y_diff_sum'] = y_diff
+    res['thickness'] = thickness
+    res['y_fit_err'] = y_fit_err
+    return res
+    #return thickness, y_fit_err
+

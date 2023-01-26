@@ -191,6 +191,9 @@ class App(QWidget):
         self.pb_smart_mask.setStyleSheet('color: rgb(0, 0, 0);')
         self.save_fit_param_successful = 0
         self.load_fit_param_successful = 0
+        self.multi_elem_fit_result = {}
+        self.multi_elem_fit_result_roi = {}
+        self.multi_elem_fit_roi_success = 0
         try:
             self.num_ref = self.num_ref
         except Exception as err:
@@ -633,6 +636,9 @@ class App(QWidget):
         lb_empty2 = QLabel()
         lb_empty2.setFixedWidth(5)
 
+        h = 600
+        w = 430
+
         gpbox = QGroupBox('XANES fitting')
         gpbox.setFont(self.font1)
 
@@ -642,37 +648,44 @@ class App(QWidget):
         tab3 = QWidget()
         tab4 = QWidget()
         tab5 = QWidget()
+        tab6 = QWidget()
 
         lay1 = QVBoxLayout()
         lay2 = QVBoxLayout()
         lay3 = QVBoxLayout()
         lay4 = QVBoxLayout()
         lay5 = QVBoxLayout()
+        lay6 = QVBoxLayout()
 
         scroll1 = QScrollArea()
         scroll1.setWidgetResizable(True)
-        scroll1.setFixedHeight(600)
-        scroll1.setFixedWidth(400)
+        scroll1.setFixedHeight(h)
+        scroll1.setFixedWidth(w)
 
         scroll2 = QScrollArea()
         scroll2.setWidgetResizable(True)
-        scroll2.setFixedHeight(600)
-        scroll2.setFixedWidth(400)
+        scroll2.setFixedHeight(h)
+        scroll2.setFixedWidth(w)
 
         scroll3 = QScrollArea()
         scroll3.setWidgetResizable(True)
-        scroll3.setFixedHeight(600)
-        scroll3.setFixedWidth(400)
+        scroll3.setFixedHeight(h)
+        scroll3.setFixedWidth(w)
 
         scroll4 = QScrollArea()
         scroll4.setWidgetResizable(True)
-        scroll4.setFixedHeight(600)
-        scroll4.setFixedWidth(400)
+        scroll4.setFixedHeight(h)
+        scroll4.setFixedWidth(w)
 
         scroll5 = QScrollArea()
         scroll5.setWidgetResizable(True)
-        scroll5.setFixedHeight(600)
-        scroll5.setFixedWidth(400)
+        scroll5.setFixedHeight(h)
+        scroll5.setFixedWidth(w)
+
+        scroll6 = QScrollArea()
+        scroll6.setWidgetResizable(True)
+        scroll6.setFixedHeight(h)
+        scroll6.setFixedWidth(w)
 
         xanes_prep_layout = self.layout_xanes_prep()
         xanes_roi_layout = self.layout_plot_spec
@@ -681,12 +694,14 @@ class App(QWidget):
         img_tools_layout = self.layout_img_tools()
         canvas_layout = self.layout_canvas()
         analysis_layout = self.layout_find_edge()
+        multi_elem_layout = self.layout_multi_elem()
 
         vbox_lay1 = QVBoxLayout()
         vbox_lay2 = QVBoxLayout()
         vbox_lay3 = QVBoxLayout()
         vbox_lay4 = QVBoxLayout()
         vbox_lay5 = QVBoxLayout()
+        vbox_lay6 = QVBoxLayout()
 
         vbox_lay1.addLayout(xanes_prep_layout)
         vbox_lay1.setAlignment(QtCore.Qt.AlignTop)
@@ -704,41 +719,50 @@ class App(QWidget):
         vbox_lay5.addLayout(analysis_layout)
         vbox_lay5.setAlignment(QtCore.Qt.AlignTop)
 
+        vbox_lay6.addLayout(multi_elem_layout)
+        vbox_lay6.setAlignment(QtCore.Qt.AlignTop)
+
         gp_box1 = QGroupBox()
         gp_box2 = QGroupBox()
         gp_box3 = QGroupBox()
         gp_box4 = QGroupBox()
         gp_box5 = QGroupBox()
+        gp_box6 = QGroupBox()
 
         gp_box1.setLayout(vbox_lay1)
         gp_box2.setLayout(vbox_lay2)
         gp_box3.setLayout(vbox_lay3)
         gp_box4.setLayout(vbox_lay4)
         gp_box5.setLayout(vbox_lay5)
+        gp_box6.setLayout(vbox_lay6)
 
         scroll1.setWidget(gp_box1)
         scroll2.setWidget(gp_box2)
         scroll3.setWidget(gp_box3)
         scroll4.setWidget(gp_box4)
         scroll5.setWidget(gp_box5)
+        scroll6.setWidget(gp_box6)
 
         lay1.addWidget(scroll1)
         lay2.addWidget(scroll2)
         lay3.addWidget(scroll3)
         lay4.addWidget(scroll4)
         lay5.addWidget(scroll5)
+        lay6.addWidget(scroll6)
 
         tab1.setLayout(lay1)
         tab2.setLayout(lay2)
         tab3.setLayout(lay3)
         tab4.setLayout(lay4)
         tab5.setLayout(lay5)
+        tab6.setLayout(lay6)
 
         tabs.addTab(tab1, 'Prep.')
         tabs.addTab(tab2, 'Norm.')
         tabs.addTab(tab3, 'Fit Spec.')
         tabs.addTab(tab4, 'Img. Tools')
         tabs.addTab(tab5, 'Others')
+        tabs.addTab(tab6, 'Multi Elem')
 
         hbox = QHBoxLayout()
         hbox.addWidget(tabs)
@@ -750,8 +774,16 @@ class App(QWidget):
     @property
     def layout_plot_spec(self):
         lb_empty = QLabel()
+        lb_empty01 = QLabel()
+        lb_empty02 = QLabel()
+        lb_empty03 = QLabel()
+        lb_empty04 = QLabel()
+        w = 100
+
         lb_empty1 = QLabel()
         lb_empty1.setFixedHeight(10)
+        lb_empty2 = QLabel()
+        lb_empty2.setFixedWidth(105)
         lb_roi = QLabel()
         lb_roi.setFont(self.font1)
         lb_roi.setText('ROI for Spec.')
@@ -805,47 +837,47 @@ class App(QWidget):
         self.pb_roi_draw = QPushButton('Draw ROI')
         self.pb_roi_draw.setFont(self.font2)
         self.pb_roi_draw.clicked.connect(self.draw_roi)
-        self.pb_roi_draw.setFixedWidth(105)
+        self.pb_roi_draw.setFixedWidth(w)
 
         self.pb_roi_plot = QPushButton('Plot Spec.')
         self.pb_roi_plot.setFont(self.font2)
         self.pb_roi_plot.clicked.connect(self.plot_spectrum)
-        self.pb_roi_plot.setFixedWidth(105)
+        self.pb_roi_plot.setFixedWidth(w)
 
         self.pb_roi_hide = QPushButton('Hide ROI')
         self.pb_roi_hide.setFont(self.font2)
         self.pb_roi_hide.clicked.connect(self.hide_roi)
-        self.pb_roi_hide.setFixedWidth(105)
+        self.pb_roi_hide.setFixedWidth(w)
 
         self.pb_roi_show = QPushButton('Show ROI')
         self.pb_roi_show.setFont(self.font2)
         self.pb_roi_show.clicked.connect(self.show_roi)
-        self.pb_roi_show.setFixedWidth(105)
+        self.pb_roi_show.setFixedWidth(w)
 
         self.pb_roi_reset = QPushButton('Reset ROI')
         self.pb_roi_reset.setFont(self.font2)
         self.pb_roi_reset.clicked.connect(self.reset_roi)
-        self.pb_roi_reset.setFixedWidth(105)
+        self.pb_roi_reset.setFixedWidth(w)
 
         self.pb_roi_export = QPushButton('Export Spec.')
         self.pb_roi_export.setFont(self.font2)
         self.pb_roi_export.clicked.connect(self.export_spectrum)
-        self.pb_roi_export.setFixedWidth(105)
+        self.pb_roi_export.setFixedWidth(w)
 
         self.pb_eval_glitch = QPushButton('Eval. Glitch')
         self.pb_eval_glitch.setFont(self.font2)
         self.pb_eval_glitch.clicked.connect(self.evaluate_glitch)
-        self.pb_eval_glitch.setFixedWidth(105)
+        self.pb_eval_glitch.setFixedWidth(w)
 
-        self.pb_rm_glitch = QPushButton('Remov Glitch')
+        self.pb_rm_glitch = QPushButton('Rmv. Glitch')
         self.pb_rm_glitch.setFont(self.font2)
         self.pb_rm_glitch.clicked.connect(self.remove_glitch)
-        self.pb_rm_glitch.setFixedWidth(105)
+        self.pb_rm_glitch.setFixedWidth(w)
 
         lb_glitch_thresh = QLabel()
         lb_glitch_thresh.setFont(self.font2)
         lb_glitch_thresh.setText('  Glitch threshold: ')
-        lb_glitch_thresh.setFixedWidth(155)
+        lb_glitch_thresh.setFixedWidth(145)
 
         self.tx_glitch_thresh = QLineEdit(self)
         self.tx_glitch_thresh.setFont(self.font2)
@@ -855,7 +887,7 @@ class App(QWidget):
         lb_file_index = QLabel()
         lb_file_index.setFont(self.font2)
         lb_file_index.setText('  File index for export:')
-        lb_file_index.setFixedWidth(155)
+        lb_file_index.setFixedWidth(145)
 
         self.tx_file_index = QLineEdit()
         self.tx_file_index.setFixedWidth(50)
@@ -872,16 +904,38 @@ class App(QWidget):
         lb_lst_roi.setFont(self.font2)
         lb_lst_roi.setText('ROI list:')
         lb_lst_roi.setFixedWidth(80)
+        lb_lst_roi.setFixedHeight(28)
 
         self.pb_roi_save = QPushButton('Save ROI')
         self.pb_roi_save.setFont(self.font2)
         self.pb_roi_save.clicked.connect(self.save_roi)
-        self.pb_roi_save.setFixedWidth(105)
+        self.pb_roi_save.setFixedWidth(w)
 
         self.pb_roi_load = QPushButton('Load ROI')
         self.pb_roi_load.setFont(self.font2)
         self.pb_roi_load.clicked.connect(self.load_roi)
-        self.pb_roi_load.setFixedWidth(105)
+        self.pb_roi_load.setFixedWidth(w)
+
+        self.pb_roi_load_last = QPushButton('Load last')
+        self.pb_roi_load_last.setFont(self.font2)
+        self.pb_roi_load_last.clicked.connect(self.load_roi_last)
+        self.pb_roi_load_last.setFixedWidth(w)
+
+        vbox_roi_save_load = QVBoxLayout()
+        vbox_roi_save_load.addWidget(self.pb_roi_save)
+        vbox_roi_save_load.addWidget(self.pb_roi_load)
+        vbox_roi_save_load.addWidget(self.pb_roi_load_last)
+        vbox_roi_save_load.setAlignment(QtCore.Qt.AlignTop)
+
+        hbox_roi_list_save_load = QHBoxLayout()
+        hbox_roi_list_save_load.addWidget(self.lst_roi)
+        hbox_roi_list_save_load.addLayout(vbox_roi_save_load)
+        hbox_roi_list_save_load.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignLeft)
+
+        vbox_roi_list = QVBoxLayout()
+        vbox_roi_list.addWidget(lb_lst_roi)
+        vbox_roi_list.addLayout(hbox_roi_list_save_load)
+        vbox_roi_list.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignLeft)
 
         hbox_roi_button1 = QHBoxLayout()
         hbox_roi_button1.addWidget(self.pb_roi_draw)
@@ -893,11 +947,17 @@ class App(QWidget):
         hbox_roi_button2.addWidget(self.pb_roi_hide)
         hbox_roi_button2.setAlignment(QtCore.Qt.AlignLeft)
 
+        '''
         hbox_roi_button3 = QHBoxLayout()
         hbox_roi_button3.addWidget(self.pb_roi_save)
         hbox_roi_button3.addWidget(self.pb_roi_load)
         hbox_roi_button3.setAlignment(QtCore.Qt.AlignLeft)
 
+        hbox_roi_button31 = QHBoxLayout()
+        hbox_roi_button31.addWidget(lb_empty2)
+        hbox_roi_button31.addWidget(self.pb_roi_load_last)
+        hbox_roi_button31.setAlignment(QtCore.Qt.AlignLeft)
+        '''
         hbox_roi_button4 = QHBoxLayout()
         hbox_roi_button4.addWidget(self.pb_roi_plot)
         hbox_roi_button4.addWidget(self.pb_roi_export)
@@ -922,31 +982,38 @@ class App(QWidget):
         vbox_roi.setContentsMargins(0, 0, 0, 0)
         vbox_roi.addLayout(hbox_roi_button1)
         vbox_roi.addLayout(hbox_roi_button2)
-        vbox_roi.addLayout(hbox_roi_button3)
+        #vbox_roi.addLayout(hbox_roi_button3)
+        #vbox_roi.addLayout(hbox_roi_button31)
         vbox_roi.addWidget(lb_empty1)
         vbox_roi.addLayout(hbox_roi_button4)
+        #vbox_roi.addWidget(lb_empty)
         vbox_roi.addLayout(hbox_roi_button5)
+
         vbox_roi.addLayout(hbox_roi_button6)
         vbox_roi.addLayout(hbox_roi_button7)
-        vbox_roi.setAlignment(QtCore.Qt.AlignLeft)
+        vbox_roi.addWidget(lb_empty03)
+        vbox_roi.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignTop)
 
+        '''
         vbox_lst = QVBoxLayout()
         vbox_lst.addWidget(lb_lst_roi, 0, QtCore.Qt.AlignTop)
         vbox_lst.addWidget(self.lst_roi, 0, QtCore.Qt.AlignTop)
         vbox_lst.addWidget(lb_empty)
-        vbox_lst.setAlignment(QtCore.Qt.AlignLeft)
+        vbox_lst.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignLeft)
+        '''
 
         box_roi = QHBoxLayout()
         box_roi.addLayout(vbox_roi)
-        box_roi.addLayout(vbox_lst)
-        box_roi.addWidget(lb_empty, 0, QtCore.Qt.AlignLeft)
-        box_roi.setAlignment(QtCore.Qt.AlignLeft)
+        #box_roi.addLayout(vbox_lst)
+        box_roi.addLayout(vbox_roi_list)
+        box_roi.addWidget(lb_empty01)
+        box_roi.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignTop)
 
         box_roi_tot = QVBoxLayout()
         box_roi_tot.addWidget(lb_roi)
         box_roi_tot.addWidget(lb_info)
         box_roi_tot.addLayout(box_roi)
-        box_roi_tot.addWidget(lb_empty)
+        box_roi_tot.addWidget(lb_empty02)
         box_roi_tot.setAlignment(QtCore.Qt.AlignLeft)
         return box_roi_tot
 
@@ -2313,6 +2380,192 @@ class App(QWidget):
         return vbox_img_assemble
 
 
+    def layout_multi_elem(self):
+        lb_empty1 = QLabel()
+        lb_empty1.setFixedHeight(15)
+
+        lb_empty2 = QLabel()
+        lb_empty2.setFixedHeight(15)
+
+        lb_empty3 = QLabel()
+        lb_empty3.setFixedHeight(15)
+
+        lb_empty4 = QLabel()
+        lb_empty4.setFixedHeight(15)
+
+        lb_multi_eng = QLabel()
+        lb_multi_eng.setFont(self.font1)
+        lb_multi_eng.setText('Fit thickness')
+        lb_multi_eng.setFixedWidth(300)
+
+        lb_multi_elem = QLabel()
+        lb_multi_elem.setFont(self.font2)
+        lb_multi_elem.setText('Fit elements (e.g., Ni, Co, Mn)')
+        lb_multi_elem.setFixedWidth(300)
+
+        lb_multi_exclude_eng = QLabel()
+        lb_multi_exclude_eng.setFont(self.font2)
+        lb_multi_exclude_eng.setText('Exclude energy (e.g., [6.5, 6.8], [8.3, 8.4])')
+        lb_multi_exclude_eng.setFixedWidth(300)
+
+        self.tx_multi_elem = QLineEdit()
+        self.tx_multi_elem.setFont(self.font2)
+        self.tx_multi_elem.setFixedWidth(300)
+
+        self.tx_multi_exclude_eng = QLineEdit()
+        self.tx_multi_exclude_eng.setFont(self.font2)
+        self.tx_multi_exclude_eng.setFixedWidth(300)
+
+        self.pb_multi_elem_fit = QPushButton('Fit thickness')
+        self.pb_multi_elem_fit.setFont(self.font2)
+        self.pb_multi_elem_fit.setFixedWidth(120)
+        self.pb_multi_elem_fit.clicked.connect(self.fit_multi_elem_thickness)
+
+        self.pb_multi_elem_save = QPushButton('Save fit results')
+        self.pb_multi_elem_save.setFont(self.font2)
+        self.pb_multi_elem_save.setFixedWidth(120)
+        self.pb_multi_elem_save.clicked.connect(self.save_multi_elem_thickness)
+
+        hbox_multi_elem_range = self.layout_multi_elem_eng_range()
+        layout_multi_elem_bkg = self.layout_multi_elem_bkg()
+        layout_multi_elem_roi = self.layout_multi_elem_roi()
+
+        hbox = QHBoxLayout()
+        hbox.addWidget(self.pb_multi_elem_fit)
+        hbox.addWidget(self.pb_multi_elem_save)
+        hbox.setAlignment(QtCore.Qt.AlignLeft)
+
+        vbox_multi_elem = QVBoxLayout()
+        vbox_multi_elem.addWidget(lb_multi_eng)
+        vbox_multi_elem.addLayout(hbox_multi_elem_range)
+        vbox_multi_elem.addWidget(lb_empty1)
+        vbox_multi_elem.addWidget(lb_multi_elem)
+        vbox_multi_elem.addWidget(self.tx_multi_elem)
+        vbox_multi_elem.addWidget(lb_empty2)
+        vbox_multi_elem.addWidget(lb_multi_exclude_eng)
+        vbox_multi_elem.addWidget(self.tx_multi_exclude_eng)
+        vbox_multi_elem.addWidget(lb_empty3)
+        vbox_multi_elem.addLayout(layout_multi_elem_bkg)
+        vbox_multi_elem.addLayout(hbox)
+        vbox_multi_elem.addWidget(lb_empty4)
+        vbox_multi_elem.addLayout(layout_multi_elem_roi)
+        vbox_multi_elem.setAlignment(QtCore.Qt.AlignTop)
+
+        return vbox_multi_elem
+
+    def layout_multi_elem_eng_range(self):
+        lb_eng_s = QLabel()
+        lb_eng_s.setFont(self.font2)
+        lb_eng_s.setText('Energy range  start:')
+        lb_eng_s.setFixedWidth(150)
+
+        lb_eng_e = QLabel()
+        lb_eng_e.setFont(self.font2)
+        lb_eng_e.setText('end:')
+        lb_eng_e.setFixedWidth(40)
+
+        self.tx_multi_elem_s = QLineEdit()
+        self.tx_multi_elem_s.setFont(self.font2)
+        self.tx_multi_elem_s.setFixedWidth(60)
+
+        self.tx_multi_elem_e = QLineEdit()
+        self.tx_multi_elem_e.setFont(self.font2)
+        self.tx_multi_elem_e.setFixedWidth(60)
+
+        hbox_multi_elem_range = QHBoxLayout()
+        hbox_multi_elem_range.addWidget(lb_eng_s)
+        hbox_multi_elem_range.addWidget(self.tx_multi_elem_s)
+        hbox_multi_elem_range.addWidget(lb_eng_e)
+        hbox_multi_elem_range.addWidget(self.tx_multi_elem_e)
+        hbox_multi_elem_range.setAlignment(QtCore.Qt.AlignLeft)
+
+        return hbox_multi_elem_range
+
+
+    def layout_multi_elem_bkg(self):
+        lb_bkg_poly = QLabel()
+        lb_bkg_poly.setFont(self.font2)
+        lb_bkg_poly.setText('Bkg. polynomial:')
+        lb_bkg_poly.setFixedWidth(120)
+
+        self.chkbox_multi_bkg_poly1 = QCheckBox('1')
+        self.chkbox_multi_bkg_poly1.setFixedWidth(45)
+        self.chkbox_multi_bkg_poly1.setFont(self.font2)
+        self.chkbox_multi_bkg_poly1.setChecked(False)
+
+        self.chkbox_multi_bkg_poly2 = QCheckBox('0')
+        self.chkbox_multi_bkg_poly2.setFixedWidth(45)
+        self.chkbox_multi_bkg_poly2.setFont(self.font2)
+        self.chkbox_multi_bkg_poly2.setChecked(True)
+
+        self.chkbox_multi_bkg_poly3 = QCheckBox('-1')
+        self.chkbox_multi_bkg_poly3.setFixedWidth(45)
+        self.chkbox_multi_bkg_poly3.setFont(self.font2)
+        self.chkbox_multi_bkg_poly3.setChecked(False)
+
+        self.chkbox_multi_bkg_poly4 = QCheckBox('-2')
+        self.chkbox_multi_bkg_poly4.setFixedWidth(45)
+        self.chkbox_multi_bkg_poly4.setFont(self.font2)
+        self.chkbox_multi_bkg_poly4.setChecked(False)
+
+        self.chkbox_multi_bkg_poly5 = QCheckBox('-3')
+        self.chkbox_multi_bkg_poly5.setFixedWidth(45)
+        self.chkbox_multi_bkg_poly5.setFont(self.font2)
+        self.chkbox_multi_bkg_poly5.setChecked(True)
+
+        hbox_bkg_multi_poly = QHBoxLayout()
+        hbox_bkg_multi_poly.addWidget(lb_bkg_poly)
+        hbox_bkg_multi_poly.addWidget(self.chkbox_multi_bkg_poly1)
+        hbox_bkg_multi_poly.addWidget(self.chkbox_multi_bkg_poly2)
+        hbox_bkg_multi_poly.addWidget(self.chkbox_multi_bkg_poly3)
+        hbox_bkg_multi_poly.addWidget(self.chkbox_multi_bkg_poly4)
+        hbox_bkg_multi_poly.addWidget(self.chkbox_multi_bkg_poly5)
+        hbox_bkg_multi_poly.setAlignment(QtCore.Qt.AlignLeft)
+        return hbox_bkg_multi_poly
+
+
+    def layout_multi_elem_roi(self):
+        lb_roi = QLabel()
+        lb_roi.setFont(self.font1)
+        lb_roi.setText('ROI profile')
+
+        self.pb_multi_roi = QPushButton()
+        self.pb_multi_roi.setText('ROI Fit')
+        self.pb_multi_roi.setFont(self.font2)
+        self.pb_multi_roi.setFixedWidth(120)
+        self.pb_multi_roi.clicked.connect(self.fit_multi_elem_roi)
+
+        self.pb_multi_roi_save = QPushButton()
+        self.pb_multi_roi_save.setText('Save ROI Fit')
+        self.pb_multi_roi_save.setFont(self.font2)
+        self.pb_multi_roi_save.setFixedWidth(120)
+        self.pb_multi_roi_save.clicked.connect(self.save_multi_elem_roi)
+
+        lb_multi_roi = QLabel()
+        lb_multi_roi.setFont(self.font2)
+        lb_multi_roi.setText(' ROI #: ')
+        lb_multi_roi.setFixedWidth(50)
+
+        self.tx_multi_roi = QLineEdit(self)
+        self.tx_multi_roi.setFont(self.font2)
+        self.tx_multi_roi.setText('-1')
+        # self.tx_fit_roi.setValidator(QIntValidator())
+        self.tx_multi_roi.setFixedWidth(60)
+
+        hbox = QHBoxLayout()
+        hbox.addWidget(self.pb_multi_roi)
+        hbox.addWidget(lb_multi_roi)
+        hbox.addWidget(self.tx_multi_roi)
+        hbox.addWidget(self.pb_multi_roi_save)
+        hbox.setAlignment(QtCore.Qt.AlignLeft)
+
+        vbox = QVBoxLayout()
+        vbox.addWidget(lb_roi)
+        vbox.addLayout(hbox)
+        vbox.setAlignment(QtCore.Qt.AlignTop)
+
+        return vbox
+
     def layout_xanes_prep(self):
         lb_empty = QLabel()
         lb_prep = QLabel()
@@ -2476,7 +2729,7 @@ class App(QWidget):
         self.cb1 = QComboBox()
         self.cb1.setFont(self.font2)
         self.cb1.addItem('Raw image')
-        self.cb1.setFixedWidth(460)
+        self.cb1.setFixedWidth(462)
         self.cb1.currentIndexChanged.connect(self.update_canvas_img)
 
         self.pb_del = QPushButton('Del. single image')
@@ -2553,14 +2806,14 @@ class App(QWidget):
 
         self.tx_cmax = QLineEdit(self)
         self.tx_cmax.setFont(self.font2)
-        self.tx_cmax.setFixedWidth(60)
+        self.tx_cmax.setFixedWidth(80)
         self.tx_cmax.setText('1.')
         self.tx_cmax.setValidator(QDoubleValidator())
         self.tx_cmax.setEnabled(True)
 
         self.tx_cmin = QLineEdit(self)
         self.tx_cmin.setFont(self.font2)
-        self.tx_cmin.setFixedWidth(60)
+        self.tx_cmin.setFixedWidth(80)
         self.tx_cmin.setText('0.')
         self.tx_cmin.setValidator(QDoubleValidator())
         self.tx_cmin.setEnabled(True)
@@ -2772,6 +3025,7 @@ class App(QWidget):
         return fit_coef, cost, X, y_fit, y_offset
 
 
+
     def get_bkg_poly_order(self):
         bkg_polynomial_order = []
         if self.chkbox_bkg_poly1.isChecked():
@@ -2967,6 +3221,240 @@ class App(QWidget):
             plt.show()
         except Exception as err:
             self.msg = f'un-recognized reference spectrum format. Error: {str(err)}'
+            self.update_msg()
+
+    def fit_multi_elem_thickness(self):
+        try:
+            return_flag, img_stack = self.choose_image_for_fittting()
+            img_stack = self.smooth(img_stack * self.mask)
+            fit_eng_range = self._get_multi_elem_eng_range()
+            img_stack = img_stack[fit_eng_range]
+            x_eng = self.xanes_eng[fit_eng_range]
+
+            bkg_polynomial_order = self.get_mulit_elem_bkg_poly_order()
+            fit_elem, eng_exclude = self._get_multi_elem()
+            res = pyxas.fit_2D_multi_elem_thick(img_stack, x_eng, fit_elem, eng_exclude, bkg_polynomial_order)
+            self.multi_elem_fit_result = res.copy()
+            self.multi_elem_thickness = res['thickness']
+            self.multi_elem_fit_err = res['y_fit_err']
+            self.save_multi_elem_to_summary()
+            self.postprocess_multi_elem()
+        except Exception as err:
+            print(err)
+            self.msg = str(err)
+            self.update_msg()
+
+    def get_mulit_elem_bkg_poly_order(self):
+        bkg_polynomial_order = []
+        if self.chkbox_multi_bkg_poly1.isChecked():
+            bkg_polynomial_order.append(1)
+        if self.chkbox_multi_bkg_poly2.isChecked():
+            bkg_polynomial_order.append(0)
+        if self.chkbox_multi_bkg_poly3.isChecked():
+            bkg_polynomial_order.append(-1)
+        if self.chkbox_multi_bkg_poly4.isChecked():
+            bkg_polynomial_order.append(-2)
+        if self.chkbox_multi_bkg_poly5.isChecked():
+            bkg_polynomial_order.append(-3)
+        bkg_polynomial_order = list(np.sort(bkg_polynomial_order))
+        return bkg_polynomial_order
+
+    def _get_multi_elem_eng_range(self):
+        try:
+            eng_s = float(self.tx_multi_elem_s.text())
+            eng_e = float(self.tx_multi_elem_e.text())
+        except:
+            eng_s = self.xanes_eng[0]
+            eng_e = self.xanes_eng[-1]
+        finally:
+            fit_eng_s, fit_eng_e = pyxas.find_nearest(self.xanes_eng, eng_s), pyxas.find_nearest(self.xanes_eng, eng_e)
+            if fit_eng_e == len(self.xanes_eng) - 1:
+                fit_eng_e += 1
+            fit_eng_range = np.arange(fit_eng_s, fit_eng_e)
+        return fit_eng_range
+
+    def _get_multi_elem(self):
+        tx_elem = self.tx_multi_elem.text()
+        tx_elem = tx_elem.split(',')
+        elem = [k.strip() for k in tx_elem]
+
+        tx_exclude = self.tx_multi_exclude_eng.text()
+        tx_exclude = tx_exclude.replace('[', '')
+        tx_exclude = tx_exclude.replace(']', '')
+        try:
+            tmp = tx_exclude.split(',')
+            eng_exclude = [float(k.strip()) for k in tmp]
+        except:
+            eng_exclude = [0, 0]
+            self.tx_multi_exclude_eng.setText('[0, 0]')
+            QApplication.processEvents()
+        return elem, eng_exclude
+
+    def _get_multi_roi_selection(self):
+        try:
+            n = self.tx_multi_roi.text()
+            roi_selected = 'roi_' + n
+        except Exception as err:
+            print(err)
+            print(f'{roi_selected} not exist')
+            n = '-1'
+            roi_selected = 'roi_-1'
+        return roi_selected
+
+    def save_multi_elem_to_summary(self):
+        img_thick = self.smooth(self.multi_elem_thickness) * self.mask
+        img_thick[img_thick<0] = 0
+        img_err = self.multi_elem_fit_err * self.mask
+        img_sum = np.sum(img_thick, axis=0) * self.mask
+        img_ratio = pyxas.rm_abnormal(img_thick / img_sum) * self.mask
+
+        if self.cb1.findText('Multi-elem fit (ratio)') < 0:
+            self.cb1.addItem('Multi-elem fit (ratio)')
+        if self.cb1.findText('Multi-elem fit (concentration)') < 0:
+            self.cb1.addItem('Multi-elem fit (concentration)')
+        if self.cb1.findText('Multi-elem fit error') < 0:
+            self.cb1.addItem('Multi-elem fit error')
+        self.data_summary['Multi-elem fit (ratio)'] = img_ratio
+        self.data_summary['Multi-elem fit (concentration)'] = img_thick
+        self.data_summary['Multi-elem fit error'] = img_err
+
+    def save_multi_elem_thickness(self):
+        if not 'Multi-elem fit (ratio)' in self.data_summary.keys():
+            self.msg = 'Fit results not found'
+            self.update_msg()
+            return 0
+        try:
+            mask = self.canvas1.mask
+            options = QFileDialog.Option()
+            options |= QFileDialog.DontUseNativeDialog
+            file_type = 'h5 File (*.h5)'
+            fn, _ = QFileDialog.getSaveFileName(self, 'Save thickness fit', "", file_type, options=options)
+            if not fn[-3:] == '.h5':
+                fn = fn + '.h5'
+            keys = self.data_summary.keys()
+            hf = h5py.File(fn, 'w')
+            for k in keys:
+                if 'Multi-elem' in k or '':
+                    img = self.data_summary[k] * mask
+                    if len(img.shape) == 2:
+                        img = np.expand_dims(img, 0)
+                    hf.create_dataset(k, data=img.astype(np.float32))
+            hf.close()
+            self.msg = f'file saved to {fn}'
+        except Exception as err:
+            print(err)
+            self.msg = str(err)
+        finally:
+            self.update_msg()
+
+
+    def postprocess_multi_elem(self):
+        self.cb1.setCurrentText('Multi-elem fit (ratio)')
+        fit_elem, eng_exclude = self._get_multi_elem()
+        self.elem_label = fit_elem
+        self.update_canvas_img()
+        self.msg = 'Multi-element fitting finished'
+        self.pb_colormix.setEnabled(True)
+        num_elem = len(fit_elem)
+        self.cb_color_channel.clear()
+        for i in range(num_elem):
+            if self.cb_color_channel.findText(fit_elem[i]) < 0:
+                self.cb_color_channel.addItem(fit_elem[i])
+
+    def fit_multi_elem_roi(self):
+        return_flag, img_stack = self.choose_image_for_fittting()
+        img_stack = self.smooth(img_stack * self.mask)
+        fit_eng_range = self._get_multi_elem_eng_range()
+        img_stack = img_stack[fit_eng_range]
+        x_eng = self.xanes_eng[fit_eng_range]
+
+        bkg_polynomial_order = self.get_mulit_elem_bkg_poly_order()
+        fit_elem, eng_exclude = self._get_multi_elem()
+
+        roi_selected = self._get_multi_roi_selection()
+
+        img_stack = self._get_roi_image(img_stack, roi_selected)
+        img_stack_s = np.mean(np.mean(img_stack, axis=-1), axis=-1)
+        img_stack_s = img_stack_s.reshape((len(x_eng), 1, 1))
+
+        res = pyxas.fit_2D_multi_elem_thick(img_stack_s, x_eng, fit_elem, eng_exclude, bkg_polynomial_order)
+        self.multi_elem_fit_result_roi = res.copy()
+        self.multi_elem_fit_result_roi['elem'] = fit_elem
+        self.multi_elem_fit_result_roi['roi'] = roi_selected
+        x0 = res['x_eng_all']
+        y0 = np.squeeze(res['Y_all'])
+
+        x1 = res['x_eng_all']
+        y1 = np.squeeze(res['Y_fit_all'])
+
+        x2 = res['x_eng']
+        y2 = np.squeeze(res['Y'])
+
+        n = len(fit_elem)
+        fit_avg = np.squeeze(res['X'][:n])
+        fit_avg_r = fit_avg / np.sum(fit_avg)
+        title = ''
+        for i in range(n):
+            title += f'{fit_elem[i]}: {fit_avg_r[i]:2.3f}  '
+        title = title[:-2]
+        plt.figure(figsize=(8, 6))
+        plt.plot(x0, y0, label='Data')
+        plt.plot(x1, y1, color=[1,0.5,0], linewidth=2, alpha=0.8, label='Fitted')
+        plt.plot(x2, y2, 'o', color=[1,0.1,0],  alpha=0.8, markersize=4, label='Selected for Fit')
+        plt.legend()
+        plt.title(title)
+        plt.show()
+        self.multi_elem_fit_roi_success = 1
+        QApplication.processEvents()
+
+
+    def save_multi_elem_roi(self):
+        if not self.multi_elem_fit_roi_success:
+            return 0
+        try:
+            res = self.multi_elem_fit_result_roi.copy()
+            roi_selected = res['roi']
+            x0 = res['x_eng_all']
+            y0 = np.squeeze(res['Y_all'])
+
+            x1 = res['x_eng_all']
+            y1 = np.squeeze(res['Y_fit_all'])
+
+            x2 = res['x_eng']
+            y2 = np.squeeze(res['Y'])
+
+            fit_elem = self.multi_elem_fit_result_roi['elem']
+            n = len(fit_elem)
+            fit_avg = np.squeeze(res['X'][:n])
+            fit_avg_r = fit_avg / np.sum(fit_avg)
+            title = ''
+            for i in range(n):
+                title += f'{fit_elem[i]}: {fit_avg_r[i]:2.3f}  '
+            title = title[:-2]
+            n_eng_all = len(x0)
+            n_eng = len(x2)
+            data = np.ones([n_eng_all+1, 6]) * -1 # fill empty data as -1
+            data[1:, 0] = x0
+            data[1:, 1] = y0
+            data[1:, 2] = x1
+            data[1:, 3] = y1
+            data[1:n_eng+1, 4] = x2
+            data[1:n_eng+1, 5] = y2
+            data[0, :n] = fit_avg_r
+            options = QFileDialog.Option()
+            options |= QFileDialog.DontUseNativeDialog
+            file_type = 'txt File (*.txt)'
+            fn, _ = QFileDialog.getSaveFileName(self, 'Save thickness fit', "", file_type, options=options)
+            if fn[-4:] == '.txt':
+                fn = fn[:-4]
+            fn_elem = '_'.join(i for i in fit_elem)
+            fn = f'{fn}_{fn_elem}.txt'
+            np.savetxt(fn, data, fmt='%2.6f')
+            self.msg = f'ROI saved to {fn}'
+        except Exception as err:
+            print(err)
+            self.msg = str(err)
+        finally:
             self.update_msg()
 
 
@@ -4152,6 +4640,7 @@ class App(QWidget):
 
 
     def evaluate_glitch(self):
+        try:
             canvas = self.canvas1
             img_stack = deepcopy(canvas.img_stack)
             roi_list = canvas.roi_list
@@ -4166,6 +4655,8 @@ class App(QWidget):
             roi_spec = np.mean(np.mean(img_stack[:, y1:y2, x1:x2], axis=1), axis=1)
             roi_spec_median = medfilt(roi_spec, 5)
             self.roi_spec_dif = roi_spec/roi_spec_median
+            if not len(x) == len(roi_spec):
+                return 0
             plt.figure()
             plt.subplot(2, 1, 1)
             plt.plot(x[:-1], self.roi_spec_dif[:-1], 'r.')
@@ -4178,6 +4669,8 @@ class App(QWidget):
             plt.show()
             self.msg = 'no spectrum available for current image stack ...'
             self.update_msg()
+        except Exception as err:
+            print(err)
 
 
     def remove_glitch(self):
@@ -4293,6 +4786,8 @@ class App(QWidget):
                 fn_roi = f'{fn}.json'
                 with open(fn_roi, "w") as outfile:
                     json.dump(roi_list, outfile)
+                with open('/tmp/roi.json', "w") as outfile_1:
+                    json.dump(roi_list, outfile_1)
             self.msg = f'roi list saved to {fn_roi}'
         except Exception as err:
             self.msg = 'fails to save roi_list'
@@ -4301,9 +4796,9 @@ class App(QWidget):
             self.update_msg()
 
 
-
     def load_roi(self):
         try:
+            self.reset_roi()
             canvas = self.canvas1
             options = QFileDialog.Option()
             options |= QFileDialog.DontUseNativeDialog              # self.rd_txt_eng.isChecked() == True:
@@ -4318,6 +4813,22 @@ class App(QWidget):
                     canvas.current_roi = roi_list[roi_name]
                     canvas.roi_add_to_list(roi_name)
                     canvas.roi_display(roi_list[roi_name])
+        except Exception as err:
+            print(err)
+
+    def load_roi_last(self):
+        try:
+            self.reset_roi()
+            canvas = self.canvas1
+            fn = '/tmp/roi.json'
+            with open(fn) as json_file:
+                roi_list = json.load(json_file)
+            canvas.roi_count = 0
+            canvas.roi_list = {}
+            for roi_name in roi_list.keys():
+                canvas.current_roi = roi_list[roi_name]
+                canvas.roi_add_to_list(roi_name)
+                canvas.roi_display(roi_list[roi_name])
         except Exception as err:
             print(err)
 
@@ -4755,7 +5266,8 @@ class App(QWidget):
                 self.lb_eng1.setText(st)
                 self.tx_fit2d_s.setText('{:2.4f}'.format(self.xanes_eng[0]))
                 self.tx_fit2d_e.setText('{:2.4f}'.format(self.xanes_eng[-1]))
-
+                self.tx_multi_elem_s.setText('{:2.4f}'.format(self.xanes_eng[0]))
+                self.tx_multi_elem_e.setText('{:2.4f}'.format(self.xanes_eng[-1]))
                 # update 3D fitting
                 self.eng = self.xanes_eng.copy()
                 n_eng = len(self.eng)
@@ -5033,6 +5545,8 @@ class App(QWidget):
                         self.lb_eng1.setText(st)
                         self.tx_fit2d_s.setText('{:2.4f}'.format(self.xanes_eng[0]))
                         self.tx_fit2d_e.setText('{:2.4f}'.format(self.xanes_eng[-1]))
+                        self.tx_multi_elem_s.setText('{:2.4f}'.format(self.xanes_eng[0]))
+                        self.tx_multi_elem_e.setText('{:2.4f}'.format(self.xanes_eng[-1]))
                     except Exception as err:
                         self.xanes_eng = np.array([0])
                         self.lb_eng1.setText('No energy data ...')
@@ -5606,6 +6120,8 @@ class App(QWidget):
             elif type_index == 'Mask':
                 self.img_colormix_raw = np.array([])
                 canvas.rgb_flag = 0
+                canvas.cmin = 0
+                canvas.cmax = 1
                 img = self.mask
                 if len(img.shape) == 2:
                     img = img.reshape([1, img.shape[0], img.shape[1]])
@@ -5758,6 +6274,60 @@ class App(QWidget):
                 slide.setMaximum(0)
                 self.current_image = img[0]
                 self.data_summary[type_index] = self.canvas1.img_stack
+            elif type_index == 'Multi-elem fit (ratio)':
+                self.img_colormix_raw = np.array([])
+                canvas.rgb_flag = 0
+                img =  self.data_summary['Multi-elem fit (ratio)']
+                self.pb_roi_draw.setEnabled(True)
+                canvas.x, canvas.y = [], []
+                canvas.axes.clear()  # this is important, to clear the current image before another imshow()
+                sh = img.shape
+                canvas.img_stack = self.smooth(img)
+                canvas.special_info = None
+                # canvas.current_img_index = 0
+                canvas.current_img_index = self.sl1.value()
+                canvas.title = self.elem_label
+                canvas.cmin = 0
+                canvas.cmax = 1
+                canvas.update_img_stack()
+                slide.setMaximum(max(sh[0] - 1, 0))
+                self.current_image = img[0]
+                #self.data_summary[type_index] = self.canvas1.img_stack * self.mask
+            elif type_index == 'Multi-elem fit (concentration)':
+                self.img_colormix_raw = np.array([])
+                canvas.rgb_flag = 0
+                img =  self.data_summary['Multi-elem fit (concentration)']
+                self.pb_roi_draw.setEnabled(True)
+                canvas.x, canvas.y = [], []
+                canvas.axes.clear()  # this is important, to clear the current image before another imshow()
+                sh = img.shape
+                canvas.img_stack = self.smooth(img)
+                canvas.special_info = None
+                # canvas.current_img_index = 0
+                canvas.current_img_index = self.sl1.value()
+                canvas.title = self.elem_label
+                canvas.cmin = 0
+                canvas.cmax = 1
+                canvas.update_img_stack()
+                slide.setMaximum(max(sh[0] - 1, 0))
+                self.current_image = img[0]
+            elif type_index == 'Multi-elem fit error':
+                self.img_colormix_raw = np.array([])
+                canvas.rgb_flag = 0
+                img = self.multi_elem_fit_err
+                self.pb_roi_draw.setEnabled(True)
+                canvas.x, canvas.y = [], []
+                canvas.axes.clear()  # this is important, to clear the current image before another imshow()
+                canvas.img_stack = self.smooth(img)
+                canvas.special_info = None
+                # canvas.current_img_index = 0
+                canvas.current_img_index = self.sl1.value()
+                canvas.title = []
+                canvas.update_img_stack()
+                slide.setMaximum(0)
+                self.current_image = img[0]
+                self.data_summary[type_index] = self.canvas1.img_stack
+
             elif type_index == 'Color mix':
                 img = self.img_colormix
                 img = self.smooth(img, axis=2)
@@ -5807,18 +6377,29 @@ class App(QWidget):
     def auto_contrast(self):
         canvas = self.canvas1
         cmin, cmax = canvas.auto_contrast()
-        self.tx_cmax.setText('{:6.3f}'.format(cmax))
-        self.tx_cmin.setText('{:6.3f}'.format(cmin))
+        if np.abs(cmax) > 1e3 or np.abs(cmax)<1e-3:
+            self.tx_cmax.setText('{:1.3e}'.format(cmax))
+        else:
+            self.tx_cmax.setText('{:6.3f}'.format(cmax))
+        if np.abs(cmin) > 1e3 or np.abs(cmin) < 1e-3:
+            self.tx_cmin.setText('{:1.3e}'.format(cmax))
+        else:
+            self.tx_cmin.setText('{:6.3f}'.format(cmin))
 
 
     def set_contrast(self):
-        canvas = self.canvas1
-        cmax = np.float32(self.tx_cmax.text())
-        cmin = np.float32(self.tx_cmin.text())
-        assert cmax >= cmin, "cmax should > cmin"
-        canvas.set_contrast(cmin, cmax)
-        if canvas.rgb_flag:
-            self.xanes_colormix()
+        try:
+            canvas = self.canvas1
+            cmax = np.float32(self.tx_cmax.text())
+            cmin = np.float32(self.tx_cmin.text())
+            assert cmax >= cmin, "cmax should > cmin"
+            canvas.set_contrast(cmin, cmax)
+            if canvas.rgb_flag:
+                self.xanes_colormix()
+        except Exception as err:
+            print(err)
+            self.msg = str(err)
+            self.update_msg()
 
     '''
     batch process/ 3D xanes

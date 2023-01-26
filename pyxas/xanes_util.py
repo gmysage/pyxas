@@ -11,7 +11,7 @@ from scipy.optimize import nnls, lsq_linear
 from tqdm import trange, tqdm
 from multiprocessing import Pool, cpu_count
 from functools import partial
-
+import xraylib
 
 
 
@@ -19,6 +19,16 @@ def find_nearest(data, value):
     data = np.array(data)
     return np.abs(data - value).argmin()
 
+def exclude_eng(img_raw, x_eng_raw, exclude_range=[7.7, 7.8]):
+    id1 = find_nearest(x_eng_raw, exclude_range[0])
+    id2 = find_nearest(x_eng_raw, exclude_range[-1])
+    n = len(x_eng_raw)
+    all_idx = set(list(np.arange(n)))
+    ex_idx = set(list(np.arange(id1, id2)))
+    idx = np.sort(list(all_idx-ex_idx))
+    img = img_raw[idx]
+    x_eng = x_eng_raw[idx]
+    return img, x_eng
 
 def fit_using_nnls(y, A, bounds, method='lsq'):
     if method == 'lsq':
@@ -68,6 +78,61 @@ def fit_element_mu(x_eng, y_spec, mu_raw):
     A_inv = scipy.linalg.inv(A.T @ A)
     X = A_inv @ A.T @ Y
     return X, A
+
+
+def fit_multi_element_mu(img_xanes, xanes_eng, elem, exclude_multi_range, bkg_polynomial_order):
+    order = bkg_polynomial_order
+    img = img_xanes.copy()
+    x_eng = xanes_eng.copy()
+    x_eng_all = xanes_eng.copy()
+    n_exclude = len(exclude_multi_range) // 2
+    idx = 0
+    for i in range(n_exclude):
+        eng_s = exclude_multi_range[idx]
+        eng_e = exclude_multi_range[idx+1]
+        img, x_eng = exclude_eng(img, x_eng, [eng_s, eng_e])
+        idx += 2
+    s = img.shape
+    s_all = img_xanes.shape
+    Y = img.reshape(s[0], s[1]*s[2])
+    Y_all = img_xanes.reshape(s_all[0], s_all[1]*s_all[2])
+
+    n_eng_all = len(x_eng_all)
+    n_eng = len(x_eng)
+    n_elem = len(elem)
+    n_order = len(order)
+
+    cs = {}
+    cs_all = {}
+    for i in range(n_elem):
+        cs[elem[i]] = np.zeros(n_eng)
+        cs_all[elem[i]] = np.zeros(n_eng_all)
+        for j in range(n_eng):
+            cs[elem[i]][j] = xraylib.CS_Energy(xraylib.SymbolToAtomicNumber(elem[i]), x_eng[j])
+        for j in range(n_eng_all):
+            cs_all[elem[i]][j] = xraylib.CS_Energy(xraylib.SymbolToAtomicNumber(elem[i]), x_eng_all[j])
+
+    A = np.zeros((n_eng, n_order+n_elem))
+    for i in range(n_elem):
+        A[:, i] = cs[elem[i]]
+    for i in range(n_order):
+        A[:, i+n_elem] = x_eng ** (order[i])
+
+    A_all = np.zeros((n_eng_all, n_order + n_elem))
+    for i in range(n_elem):
+        A_all[:, i] = cs_all[elem[i]]
+    for i in range(n_order):
+        A_all[:, i + n_elem] = x_eng_all ** (order[i])
+
+    AT = A.T
+    ATA = AT @ A
+    ATA_inv = np.linalg.inv(ATA)
+    X = ATA_inv @ AT @ Y
+    Y_fit = A @ X
+    Y_diff = Y - Y_fit
+
+    Y_fit_all = A_all @ X
+    return X, A, A_all, x_eng, Y, Y_fit, Y_diff, x_eng_all, Y_all, Y_fit_all
 
 
 def fit_xanes_curve_with_bkg(x_eng, y_spec, exclude_eng, plot_flag, spectrum_ref):
