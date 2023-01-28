@@ -2,7 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pyxas
 from skimage import data
-from skimage.feature import register_translation
+# from skimage.feature import phase_cross_correlation  ## deprecated
+from skimage.registration import phase_cross_correlation as register_translation
 from skimage.transform import warp_polar, rotate
 from skimage.util import img_as_float
 from scipy.ndimage import geometric_transform

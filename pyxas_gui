@@ -840,7 +840,7 @@ class App(QWidget):
         self.pb_roi_draw.setFixedWidth(w)
 
         self.pb_roi_plot = QPushButton('Plot Spec.')
-        self.pb_roi_plot.setFont(self.font2)
+        self.pb_roi_plot.setFont(self.font1)
         self.pb_roi_plot.clicked.connect(self.plot_spectrum)
         self.pb_roi_plot.setFixedWidth(w)
 
@@ -898,7 +898,7 @@ class App(QWidget):
         self.lst_roi.setFont(self.font2)
         self.lst_roi.setSelectionMode(QAbstractItemView.MultiSelection)
         self.lst_roi.setFixedWidth(90)
-        self.lst_roi.setFixedHeight(180)
+        self.lst_roi.setFixedHeight(170)
 
         lb_lst_roi = QLabel()
         lb_lst_roi.setFont(self.font2)
@@ -2394,13 +2394,13 @@ class App(QWidget):
         lb_empty4.setFixedHeight(15)
 
         lb_multi_eng = QLabel()
-        lb_multi_eng.setFont(self.font1)
+        lb_multi_eng.setFont(self.font2)
         lb_multi_eng.setText('Fit thickness')
         lb_multi_eng.setFixedWidth(300)
 
         lb_multi_elem = QLabel()
         lb_multi_elem.setFont(self.font2)
-        lb_multi_elem.setText('Fit elements (e.g., Ni, Co, Mn)')
+        lb_multi_elem.setText('Elements to fit (e.g., Ni, Co, Mn)')
         lb_multi_elem.setFixedWidth(300)
 
         lb_multi_exclude_eng = QLabel()
@@ -2410,11 +2410,11 @@ class App(QWidget):
 
         self.tx_multi_elem = QLineEdit()
         self.tx_multi_elem.setFont(self.font2)
-        self.tx_multi_elem.setFixedWidth(300)
+        self.tx_multi_elem.setFixedWidth(340)
 
         self.tx_multi_exclude_eng = QLineEdit()
         self.tx_multi_exclude_eng.setFont(self.font2)
-        self.tx_multi_exclude_eng.setFixedWidth(300)
+        self.tx_multi_exclude_eng.setFixedWidth(340)
 
         self.pb_multi_elem_fit = QPushButton('Fit thickness')
         self.pb_multi_elem_fit.setFont(self.font2)
@@ -2425,6 +2425,61 @@ class App(QWidget):
         self.pb_multi_elem_save.setFont(self.font2)
         self.pb_multi_elem_save.setFixedWidth(120)
         self.pb_multi_elem_save.clicked.connect(self.save_multi_elem_thickness)
+
+        self.pb_multi_elem_ni = QPushButton('Ni')
+        self.pb_multi_elem_ni.setFont(self.font2)
+        self.pb_multi_elem_ni.setFixedWidth(60)
+        self.pb_multi_elem_ni.clicked.connect(lambda: self.add_multi_elem('Ni'))
+
+        self.pb_multi_elem_co = QPushButton('Co')
+        self.pb_multi_elem_co.setFont(self.font2)
+        self.pb_multi_elem_co.setFixedWidth(60)
+        self.pb_multi_elem_co.clicked.connect(lambda: self.add_multi_elem('Co'))
+
+        self.pb_multi_elem_mn = QPushButton('Mn')
+        self.pb_multi_elem_mn.setFont(self.font2)
+        self.pb_multi_elem_mn.setFixedWidth(60)
+        self.pb_multi_elem_mn.clicked.connect(lambda: self.add_multi_elem('Mn'))
+
+        self.pb_multi_elem_fe = QPushButton('Fe')
+        self.pb_multi_elem_fe.setFont(self.font2)
+        self.pb_multi_elem_fe.setFixedWidth(60)
+        self.pb_multi_elem_fe.clicked.connect(lambda: self.add_multi_elem('Fe'))
+
+
+        hbox_fit_elem = QHBoxLayout()
+        hbox_fit_elem.addWidget(self.pb_multi_elem_mn)
+        hbox_fit_elem.addWidget(self.pb_multi_elem_fe)
+        hbox_fit_elem.addWidget(self.pb_multi_elem_co)
+        hbox_fit_elem.addWidget(self.pb_multi_elem_ni)
+        hbox_fit_elem.setAlignment(QtCore.Qt.AlignLeft)
+
+        self.pb_multi_range_ni = QPushButton('[8.3, 8.5]')
+        self.pb_multi_range_ni.setFont(self.font2)
+        self.pb_multi_range_ni.setFixedWidth(80)
+        self.pb_multi_range_ni.clicked.connect(lambda: self.add_multi_range('[8.3, 8.5]'))
+
+        self.pb_multi_range_co = QPushButton('[7.7, 7.9]')
+        self.pb_multi_range_co.setFont(self.font2)
+        self.pb_multi_range_co.setFixedWidth(80)
+        self.pb_multi_range_co.clicked.connect(lambda: self.add_multi_range('[7.7, 7.9]'))
+
+        self.pb_multi_range_fe = QPushButton('[7.1, 7.3]')
+        self.pb_multi_range_fe.setFont(self.font2)
+        self.pb_multi_range_fe.setFixedWidth(80)
+        self.pb_multi_range_fe.clicked.connect(lambda: self.add_multi_range('[7.1, 7.3]'))
+
+        self.pb_multi_range_mn = QPushButton('[6.5, 6.7]')
+        self.pb_multi_range_mn.setFont(self.font2)
+        self.pb_multi_range_mn.setFixedWidth(80)
+        self.pb_multi_range_mn.clicked.connect(lambda: self.add_multi_range('[6.5, 6.7]'))
+
+        hbox_multi_elem_add = QHBoxLayout()
+        hbox_multi_elem_add.addWidget(self.pb_multi_range_mn)
+        hbox_multi_elem_add.addWidget(self.pb_multi_range_fe)
+        hbox_multi_elem_add.addWidget(self.pb_multi_range_co)
+        hbox_multi_elem_add.addWidget(self.pb_multi_range_ni)
+        hbox_multi_elem_add.setAlignment(QtCore.Qt.AlignLeft)
 
         hbox_multi_elem_range = self.layout_multi_elem_eng_range()
         layout_multi_elem_bkg = self.layout_multi_elem_bkg()
@@ -2441,13 +2496,15 @@ class App(QWidget):
         vbox_multi_elem.addWidget(lb_empty1)
         vbox_multi_elem.addWidget(lb_multi_elem)
         vbox_multi_elem.addWidget(self.tx_multi_elem)
+        vbox_multi_elem.addLayout(hbox_fit_elem)
         vbox_multi_elem.addWidget(lb_empty2)
         vbox_multi_elem.addWidget(lb_multi_exclude_eng)
         vbox_multi_elem.addWidget(self.tx_multi_exclude_eng)
+        vbox_multi_elem.addLayout(hbox_multi_elem_add)
         vbox_multi_elem.addWidget(lb_empty3)
         vbox_multi_elem.addLayout(layout_multi_elem_bkg)
-        vbox_multi_elem.addLayout(hbox)
         vbox_multi_elem.addWidget(lb_empty4)
+        vbox_multi_elem.addLayout(hbox)
         vbox_multi_elem.addLayout(layout_multi_elem_roi)
         vbox_multi_elem.setAlignment(QtCore.Qt.AlignTop)
 
@@ -2528,9 +2585,10 @@ class App(QWidget):
         lb_roi = QLabel()
         lb_roi.setFont(self.font1)
         lb_roi.setText('ROI profile')
+        lb_roi.setVisible(False)
 
         self.pb_multi_roi = QPushButton()
-        self.pb_multi_roi.setText('ROI Fit')
+        self.pb_multi_roi.setText('Fit ROI')
         self.pb_multi_roi.setFont(self.font2)
         self.pb_multi_roi.setFixedWidth(120)
         self.pb_multi_roi.clicked.connect(self.fit_multi_elem_roi)
@@ -3244,6 +3302,24 @@ class App(QWidget):
             self.msg = str(err)
             self.update_msg()
 
+    def add_multi_elem(self, elem):
+        txt = self.tx_multi_elem.text()
+        if not elem in txt:
+            txt += f', {elem}'
+        if txt[:2] == ', ':
+            txt = txt[2:]
+        self.tx_multi_elem.setText(txt)
+        QApplication.processEvents()
+
+    def add_multi_range(self, elem):
+        txt = self.tx_multi_exclude_eng.text()
+        if not elem in txt:
+            txt += f', {elem}'
+        if txt[:2] == ', ':
+            txt = txt[2:]
+        self.tx_multi_exclude_eng.setText(txt)
+        QApplication.processEvents()
+
     def get_mulit_elem_bkg_poly_order(self):
         bkg_polynomial_order = []
         if self.chkbox_multi_bkg_poly1.isChecked():
@@ -3362,50 +3438,55 @@ class App(QWidget):
                 self.cb_color_channel.addItem(fit_elem[i])
 
     def fit_multi_elem_roi(self):
-        return_flag, img_stack = self.choose_image_for_fittting()
-        img_stack = self.smooth(img_stack * self.mask)
-        fit_eng_range = self._get_multi_elem_eng_range()
-        img_stack = img_stack[fit_eng_range]
-        x_eng = self.xanes_eng[fit_eng_range]
+        try:
+            return_flag, img_stack = self.choose_image_for_fittting()
+            img_stack = self.smooth(img_stack * self.mask)
+            fit_eng_range = self._get_multi_elem_eng_range()
+            img_stack = img_stack[fit_eng_range]
+            x_eng = self.xanes_eng[fit_eng_range]
 
-        bkg_polynomial_order = self.get_mulit_elem_bkg_poly_order()
-        fit_elem, eng_exclude = self._get_multi_elem()
+            bkg_polynomial_order = self.get_mulit_elem_bkg_poly_order()
+            fit_elem, eng_exclude = self._get_multi_elem()
 
-        roi_selected = self._get_multi_roi_selection()
+            roi_selected = self._get_multi_roi_selection()
 
-        img_stack = self._get_roi_image(img_stack, roi_selected)
-        img_stack_s = np.mean(np.mean(img_stack, axis=-1), axis=-1)
-        img_stack_s = img_stack_s.reshape((len(x_eng), 1, 1))
+            img_stack = self._get_roi_image(img_stack, roi_selected)
+            img_stack_s = np.mean(np.mean(img_stack, axis=-1), axis=-1)
+            img_stack_s = img_stack_s.reshape((len(x_eng), 1, 1))
 
-        res = pyxas.fit_2D_multi_elem_thick(img_stack_s, x_eng, fit_elem, eng_exclude, bkg_polynomial_order)
-        self.multi_elem_fit_result_roi = res.copy()
-        self.multi_elem_fit_result_roi['elem'] = fit_elem
-        self.multi_elem_fit_result_roi['roi'] = roi_selected
-        x0 = res['x_eng_all']
-        y0 = np.squeeze(res['Y_all'])
+            res = pyxas.fit_2D_multi_elem_thick(img_stack_s, x_eng, fit_elem, eng_exclude, bkg_polynomial_order)
+            self.multi_elem_fit_result_roi = res.copy()
+            self.multi_elem_fit_result_roi['elem'] = fit_elem
+            self.multi_elem_fit_result_roi['roi'] = roi_selected
+            x0 = res['x_eng_all']
+            y0 = np.squeeze(res['Y_all'])
 
-        x1 = res['x_eng_all']
-        y1 = np.squeeze(res['Y_fit_all'])
+            x1 = res['x_eng_all']
+            y1 = np.squeeze(res['Y_fit_all'])
 
-        x2 = res['x_eng']
-        y2 = np.squeeze(res['Y'])
+            x2 = res['x_eng']
+            y2 = np.squeeze(res['Y'])
 
-        n = len(fit_elem)
-        fit_avg = np.squeeze(res['X'][:n])
-        fit_avg_r = fit_avg / np.sum(fit_avg)
-        title = ''
-        for i in range(n):
-            title += f'{fit_elem[i]}: {fit_avg_r[i]:2.3f}  '
-        title = title[:-2]
-        plt.figure(figsize=(8, 6))
-        plt.plot(x0, y0, label='Data')
-        plt.plot(x1, y1, color=[1,0.5,0], linewidth=2, alpha=0.8, label='Fitted')
-        plt.plot(x2, y2, 'o', color=[1,0.1,0],  alpha=0.8, markersize=4, label='Selected for Fit')
-        plt.legend()
-        plt.title(title)
-        plt.show()
-        self.multi_elem_fit_roi_success = 1
-        QApplication.processEvents()
+            n = len(fit_elem)
+            fit_avg = np.squeeze(res['X'][:n])
+            fit_avg_r = fit_avg / np.sum(fit_avg)
+            title = ''
+            for i in range(n):
+                title += f'{fit_elem[i]}: {fit_avg_r[i]:2.3f}  '
+            title = title[:-2]
+            plt.figure(figsize=(8, 6))
+            plt.plot(x0, y0, label='Data')
+            plt.plot(x1, y1, color=[1,0.5,0], linewidth=2, alpha=0.8, label='Fitted')
+            plt.plot(x2, y2, 'o', color=[1,0.1,0],  alpha=0.8, markersize=4, label='Selected for Fit')
+            plt.legend()
+            plt.title(title)
+            plt.show()
+            self.multi_elem_fit_roi_success = 1
+            QApplication.processEvents()
+        except Exception as err:
+            print(err)
+            self.msg = str(err)
+            self.update_msg()
 
 
     def save_multi_elem_roi(self):
