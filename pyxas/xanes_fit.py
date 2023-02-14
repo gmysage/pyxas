@@ -96,17 +96,21 @@ def fit_2D_xanes_using_param(img_xanes, xanes_eng, fit_param, spectrum_ref):
     eng_e = pyxas.find_nearest(xanes_eng, fit_eng[-1])
     if eng_e == len(xanes_eng) - 1:
         eng_e += 1
-
+    tmp = np.ones(len(xanes_eng[eng_s:eng_e]))
+    for i in range(len(spectrum_ref)):
+        tmp = np.array(xanes_eng[eng_s: eng_e] >= spectrum_ref[f'ref{i}'][0, 0]) * np.array(
+        xanes_eng[eng_s: eng_e] <= spectrum_ref[f'ref{i}'][-1, 0]) * tmp
+    fit_eng_range = np.arange(eng_s, eng_e)[np.bool8(tmp)]
     # fitting
     if fit_method == 'basic':
-        fit_coef, fit_cost, X, Y_hat, fit_offset = pyxas.fit_2D_xanes_basic(img_xanes_norm[eng_s:eng_e],
-                                                                            xanes_eng[eng_s:eng_e],
+        fit_coef, fit_cost, X, Y_hat, fit_offset = pyxas.fit_2D_xanes_basic(img_xanes_norm[fit_eng_range],
+                                                                            xanes_eng[fit_eng_range],
                                                                             spectrum_ref,
                                                                             bkg_polynomial_order)
     # fit_method == 'admm'
     else:
-        fit_coef, fit_cost, X, Y_hat, fit_offset = pyxas.fit_2D_xanes_admm(img_xanes_norm[eng_s:eng_e],
-                                                                           xanes_eng[eng_s:eng_e],
+        fit_coef, fit_cost, X, Y_hat, fit_offset = pyxas.fit_2D_xanes_admm(img_xanes_norm[fit_eng_range],
+                                                                           xanes_eng[fit_eng_range],
                                                                            spectrum_ref,
                                                                            learning_rate,
                                                                            n_iter,

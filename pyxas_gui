@@ -637,7 +637,7 @@ class App(QWidget):
         lb_empty2.setFixedWidth(5)
 
         h = 600
-        w = 430
+        w = 450
 
         gpbox = QGroupBox('XANES fitting')
         gpbox.setFont(self.font1)
@@ -2394,7 +2394,7 @@ class App(QWidget):
         lb_empty4.setFixedHeight(15)
 
         lb_multi_eng = QLabel()
-        lb_multi_eng.setFont(self.font2)
+        lb_multi_eng.setFont(self.font1)
         lb_multi_eng.setText('Fit thickness')
         lb_multi_eng.setFixedWidth(300)
 
@@ -3111,9 +3111,11 @@ class App(QWidget):
             fit_eng_s, fit_eng_e = pyxas.find_nearest(self.xanes_eng, eng_s), pyxas.find_nearest(self.xanes_eng, eng_e)
             if fit_eng_e == len(self.xanes_eng) - 1:
                 fit_eng_e += 1
-            tmp = np.array(self.xanes_eng[fit_eng_s: fit_eng_e] >= self.spectrum_ref['ref0'][0, 0]) * np.array(
-                self.xanes_eng[fit_eng_s: fit_eng_e] <= self.spectrum_ref['ref0'][-1, 0])
-            fit_eng_range = np.arange(fit_eng_s, fit_eng_e)[tmp]
+            tmp = np.ones(len(self.xanes_eng[fit_eng_s:fit_eng_e]))
+            for i in range(len(self.spectrum_ref)):
+                tmp = np.array(self.xanes_eng[fit_eng_s: fit_eng_e] >= self.spectrum_ref[f'ref{i}'][0, 0]) * np.array(
+                self.xanes_eng[fit_eng_s: fit_eng_e] <= self.spectrum_ref[f'ref{i}'][-1, 0]) * tmp
+            fit_eng_range = np.arange(fit_eng_s, fit_eng_e)[np.bool8(tmp)]
             return fit_eng_range
 
 
@@ -7259,7 +7261,7 @@ class App(QWidget):
         self.fit_edge_group.addButton(self.rd_param_fit_edge_yes)
         self.fit_edge_group.addButton(self.rd_param_fit_edge_no)
         self.fit_edge_group.setExclusive(True)
-        self.rd_param_fit_edge_yes.setChecked(True)
+        self.rd_param_fit_edge_no.setChecked(True)
 
         hbox_param_fit_edge_flag = QHBoxLayout()
         hbox_param_fit_edge_flag.addWidget(lb_param_fit_edge)
