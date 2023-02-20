@@ -3055,10 +3055,11 @@ class App(QWidget):
                 fit_eng_range = self._get_fit_eng_range()
                 img_stack_s = img_stack[fit_eng_range]
                 eng_s = self.xanes_eng[fit_eng_range]
-                fit_coef, cost, X, y_fit, y_offset = self.fit_2d_xanes_core(img_stack_s, eng_s, bkg_polynomial_order, n_iter, learning_rate)
+                fit_coef, cost, X, y_fit, y_offset, var = self.fit_2d_xanes_core(img_stack_s, eng_s, bkg_polynomial_order, n_iter, learning_rate)
                 self.xanes_2d_fit = fit_coef
                 self.xanes_fit_cost = cost
                 self.xanes_2d_fit_offset = y_offset
+                self.xanes_2d_fit_var = var[:num_ref]
                 #self.xanes_img_minus_offset = img_stack - y_offset
 
             self.save_2D_fitting_to_summary()
@@ -3074,13 +3075,13 @@ class App(QWidget):
 
     def fit_2d_xanes_core(self, img_stack_s, eng_s, bkg_polynomial_order, n_iter, learning_rate):
         if self.rd_fit_method1.isChecked():
-            fit_coef, cost, X, y_fit, y_offset = pyxas.fit_2D_xanes_basic(img_stack_s, eng_s, self.spectrum_ref, bkg_polynomial_order)
+            fit_coef, cost, X, y_fit, y_offset, var = pyxas.fit_2D_xanes_basic(img_stack_s, eng_s, self.spectrum_ref, bkg_polynomial_order)
         elif self.rd_fit_method2.isChecked():
-            fit_coef, cost, X, y_fit, y_offset = pyxas.fit_2D_xanes_nnls(img_stack_s, eng_s, self.spectrum_ref, n_iter)
+            fit_coef, cost, X, y_fit, y_offset, var = pyxas.fit_2D_xanes_nnls(img_stack_s, eng_s, self.spectrum_ref, n_iter)
         elif self.rd_fit_method3.isChecked():
-            fit_coef, cost, X, y_fit, y_offset = pyxas.fit_2D_xanes_admm(img_stack_s, eng_s, self.spectrum_ref, learning_rate,
+            fit_coef, cost, X, y_fit, y_offset, var = pyxas.fit_2D_xanes_admm(img_stack_s, eng_s, self.spectrum_ref, learning_rate,
                                                                  n_iter, [0, 1e10], bkg_polynomial_order)
-        return fit_coef, cost, X, y_fit, y_offset
+        return fit_coef, cost, X, y_fit, y_offset, var
 
 
 
@@ -3138,6 +3139,8 @@ class App(QWidget):
             self.cb1.addItem('XANES Fit error')
         if self.cb1.findText('XANES Fit offset') < 0:
             self.cb1.addItem('XANES Fit offset')
+        if self.cb1.findText('XANES Fit variance') < 0:
+            self.cb1.addItem('XANES Fit variance')
         #if self.cb1.findText('Image Minus Offset') < 0:
         #    self.cb1.addItem('Image Minus Offset')
 
@@ -3150,6 +3153,8 @@ class App(QWidget):
         self.data_summary['XANES Fit error'] = self.xanes_fit_cost.copy()
         # 4: xanes_fit offset:
         self.data_summary['XANES Fit offset'] = self.xanes_2d_fit_offset.copy()
+        # 5: fitting variance
+        self.data_summary['XANES Fit variance'] = self.xanes_2d_fit.copy()
         # finish saving to data_summary
 
 
@@ -3998,7 +4003,7 @@ class App(QWidget):
             img_stack_s = np.mean(np.mean(img_stack, axis=-1), axis=-1)
             img_stack_s = img_stack_s.reshape((len(eng), 1, 1))
 
-            fit_coef, cost, X, y_fit, y_offset = self.fit_2d_xanes_core(img_stack_s, eng, bkg_polynomial_order, n_iter, learning_rate)
+            fit_coef, cost, X, y_fit, y_offset, var = self.fit_2d_xanes_core(img_stack_s, eng, bkg_polynomial_order, n_iter, learning_rate)
             fit_coef = np.squeeze(fit_coef)
             cost = np.squeeze(cost)
             y_fit = np.squeeze(y_fit)
@@ -6127,6 +6132,23 @@ class App(QWidget):
                 canvas.special_info = None
                 # canvas.current_img_index = 0
                 canvas.current_img_index = self.sl1.value()
+                canvas.title = self.elem_label
+                canvas.update_img_stack()
+                slide.setMaximum(max(sh[0] - 1, 0))
+                self.current_image = img[0]
+                self.data_summary[type_index] = self.canvas1.img_stack * self.mask
+            elif type_index == 'XANES Fit variance':
+                self.img_colormix_raw = np.array([])
+                canvas.rgb_flag = 0
+                img = self.xanes_2d_fit_var
+
+                self.pb_roi_draw.setEnabled(True)
+                canvas.x, canvas.y = [], []
+                canvas.axes.clear()  # this is important, to clear the current image before another imshow()
+                sh = img.shape
+                canvas.img_stack = self.smooth(img)
+                canvas.special_info = None
+                canvas.current_img_index = 0
                 canvas.title = self.elem_label
                 canvas.update_img_stack()
                 slide.setMaximum(max(sh[0] - 1, 0))
@@ -8493,7 +8515,7 @@ class App(QWidget):
                                                      fit_param, spectrum_ref, file_save_path)
             txt = 'Single file fitting finished'
             file_jpg_save = f'{file_save_path}/fig_{sli_id:04d}.jpg'
-            pyxas.plot_fitting_results(res, fit_param['color'], file_jpg_save, display_flag=0, save_flag=1)
+            pyxas.plot_fitting_results(res, fit_param['color'], file_jpg_save, display_flag=1, save_flag=1)
         except Exception as err:
             txt = str(err)
         finally:

@@ -181,7 +181,7 @@ def linear_cart_mapping_2D(coords, center, angle_scale=1):
 def to_linear_2D(img_p, center_offset=None, output_shape=None, angle_scale=1, **kwargs):
     s = img_p.shape
     if output_shape is None:
-        w = floor(s[1]/np.sqrt(2))
+        w = np.floor(s[1]/np.sqrt(2))
         output_shape = (2*w, 2*w)
     else:
         w = min(output_shape)/2

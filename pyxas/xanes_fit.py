@@ -103,13 +103,13 @@ def fit_2D_xanes_using_param(img_xanes, xanes_eng, fit_param, spectrum_ref):
     fit_eng_range = np.arange(eng_s, eng_e)[np.bool8(tmp)]
     # fitting
     if fit_method == 'basic':
-        fit_coef, fit_cost, X, Y_hat, fit_offset = pyxas.fit_2D_xanes_basic(img_xanes_norm[fit_eng_range],
+        fit_coef, fit_cost, X, Y_hat, fit_offset, var = pyxas.fit_2D_xanes_basic(img_xanes_norm[fit_eng_range],
                                                                             xanes_eng[fit_eng_range],
                                                                             spectrum_ref,
                                                                             bkg_polynomial_order)
     # fit_method == 'admm'
     else:
-        fit_coef, fit_cost, X, Y_hat, fit_offset = pyxas.fit_2D_xanes_admm(img_xanes_norm[fit_eng_range],
+        fit_coef, fit_cost, X, Y_hat, fit_offset, var = pyxas.fit_2D_xanes_admm(img_xanes_norm[fit_eng_range],
                                                                            xanes_eng[fit_eng_range],
                                                                            spectrum_ref,
                                                                            learning_rate,
@@ -130,6 +130,7 @@ def fit_2D_xanes_using_param(img_xanes, xanes_eng, fit_param, spectrum_ref):
     res['xanes_fit_cost'] = fit_cost
     res['img_xanes_norm'] = img_xanes_norm
     res['xanes_2d_fit_offset'] = fit_offset[-1]
+    res['fit_variance'] = var
     res['n_comp'] = n_comp
     for i in range(n_comp):
         res[f'mask_{i}'] = mask_comp[i]
@@ -211,6 +212,8 @@ def save_xanes_fitting_image(res, file_save_path, fn, color='r,g,b'):
     file_save_mask = f'{file_save_path}/fitting_mask'
     file_save_fit = f'{file_save_path}/fitting_result'
     file_save_fit_norm = f'{file_save_path}/fitting_result_norm'
+    file_save_comb = f'{file_save_path}/comb_jpg'
+
 
     create_directory(file_save_path)
     create_directory(file_save_colormix1)
@@ -219,12 +222,14 @@ def save_xanes_fitting_image(res, file_save_path, fn, color='r,g,b'):
     create_directory(file_save_thickness)
     create_directory(file_save_mask)
     create_directory(file_save_fit)    
-    create_directory(file_save_fit_norm)    
+    create_directory(file_save_fit_norm)
+    create_directory(file_save_comb)
     create_directory(f'{file_save_mask}/mask')   
     for n in range(res['n_comp']):
         create_directory(f'{file_save_mask}/mask_{n}')
 
     fn = fn.split('/')[-1].split('.')[0]
+    sli_id = int(fn.split('_')[-1]) # slice id
 
     # save to jpg image
     tmp_concentration = res['xanes_2d_fit_norm'] * res['xanes_fit_thickness']
@@ -268,7 +273,9 @@ def save_xanes_fitting_image(res, file_save_path, fn, color='r,g,b'):
     io.imsave(fn_save, np.array(res['xanes_2d_fit'], dtype=np.float32))
     fn_save = f'{file_save_fit_norm}/fit_norm_{fn}.tiff'
     io.imsave(fn_save, np.array(res['xanes_2d_fit_norm'], dtype=np.float32))
-
+    # save combined RGB
+    file_jpg_save = file_save_comb + f'/fig_sli_{sli_id:04d}.jpg'
+    plot_fitting_results(res, color, file_jpg_save, display_flag=0, save_flag=1)
 
 def fit_2D_xanes_file_mpi(file_path, file_prefix, fit_param, xanes_eng, spectrum_ref, file_range=[], save_hdf=0):
     '''
@@ -320,10 +327,12 @@ def fit_2D_xanes_file_mpi(file_path, file_prefix, fit_param, xanes_eng, spectrum
         res = fit_2D_xanes_series_file(files_scan, xanes_eng, fit_param, spectrum_ref, file_save_path)
 
     else:
+        #create_directory(f'{file_save_path}/fitted_single_xanes')
         pool = Pool(num_cpu)
         #res = pool.map(partial(pyxas.fit_2D_xanes_file_mpi_sub, fit_param=fit_param, xanes_eng=xanes_eng, spectrum_ref=spectrum_ref, file_save_path=file_save_path), files_scan)
         res = pool.map(
-            partial(fit_2D_xanes_single_file, xanes_eng=xanes_eng, fit_param=fit_param,  spectrum_ref=spectrum_ref,
+            partial(fit_2D_xanes_single_file, xanes_eng=xanes_eng,
+                    fit_param=fit_param,  spectrum_ref=spectrum_ref,
                     file_save_path=file_save_path), files_scan)
         #pool.join()
         pool.close()

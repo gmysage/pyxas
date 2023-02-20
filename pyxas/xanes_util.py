@@ -268,11 +268,11 @@ def fit_2D_xanes_basic(img_xanes, eng, spectrum_ref, bkg_polynomial_order):
     for i in range(num_order):
         A[:, i + num_ref] = eng ** (bkg_polynomial_order[i])
 
-    At = A.T
-    AtA_inv = np.linalg.inv(At @ A)
+    AT = A.T
+    ATA_inv = np.linalg.inv(AT @ A)
     Y = img_xanes.reshape((s[0], s[1]*s[2]))
-    AtY = At @ Y
-    X = AtA_inv @ AtY
+    ATY = AT @ Y
+    X = ATA_inv @ ATY
 
     Y_hat = A @ X
     dy = Y - Y_hat
@@ -284,7 +284,18 @@ def fit_2D_xanes_basic(img_xanes, eng, spectrum_ref, bkg_polynomial_order):
     X_offset[:num_ref] = 0
     Y_offset = A @ X_offset
     Y_offset = Y_offset.reshape((num_eng, s[1], s[2]))
-    return fit_coef, cost, X, Y_hat, Y_offset
+
+    err = np.sum(dy**2, axis=0)
+    n_freedim = max(num_eng - (num_ref + num_order), 1)
+    sigma2 = err / n_freedim
+    ATA_inv_diag = np.diag(ATA_inv)
+    nA = len(ATA_inv_diag)
+    var2 = np.ones((nA, len(sigma2)))
+    for i in range(nA):
+        var2[i] = ATA_inv_diag[i] * sigma2
+    var = np.sqrt(var2)
+    var = var.reshape((num_ref+num_order, s[1], s[2]))
+    return fit_coef, cost, X, Y_hat, Y_offset, var
 
 """
 def fit_2D_xanes_non_iter(img_xanes, eng, spectrum_ref):
@@ -382,7 +393,22 @@ def fit_2D_xanes_admm(img_xanes, eng, spectrum_ref, learning_rate=0.2, n_iter=50
     Y_offset = A @ X_offset
     Y_offset = Y_offset.reshape((num_eng, s[1], s[2]))
 
-    return fit_coef, cost, X, Y_hat, Y_offset
+    AT = A.T
+    ATA = AT @ A
+    ATA_inv = np.linalg.inv(ATA)
+
+    err = np.sum(dy ** 2, axis=0)
+    n_freedim = max(num_eng - (num_ref + num_order), 1)
+    sigma2 = err / n_freedim
+    ATA_inv_diag = np.diag(ATA_inv)
+    nA = len(ATA_inv_diag)
+    var2 = np.ones((nA, len(sigma2)))
+    for i in range(nA):
+        var2[i] = ATA_inv_diag[i] * sigma2
+    var = np.sqrt(var2)
+    var = var.reshape((num_ref + num_order, s[1], s[2]))
+
+    return fit_coef, cost, X, Y_hat, Y_offset, var
 
 def fit_2D_xanes_nnls(img_xanes, eng, spectrum_ref, n_iter=50, bkg_polynomial_order=[-3]):
     bkg_polynomial_order = list(np.sort(bkg_polynomial_order))
@@ -431,6 +457,22 @@ def fit_2D_xanes_nnls(img_xanes, eng, spectrum_ref, n_iter=50, bkg_polynomial_or
     X_offset[:num_ref] = 0
     Y_offset = A @ X_offset
     Y_offset = Y_offset.reshape((num_eng, s[1], s[2]))
+
+    AT = A.T
+    ATA = AT @ A
+    ATA_inv = np.linalg.inv(ATA)
+
+    err = np.sum(dy ** 2, axis=0)
+    n_freedim = max(num_eng - (num_ref + num_order), 1)
+    sigma2 = err / n_freedim
+    ATA_inv_diag = np.diag(ATA_inv)
+    nA = len(ATA_inv_diag)
+    var2 = np.ones((nA, len(sigma2)))
+    for i in range(nA):
+        var2[i] = ATA_inv_diag[i] * sigma2
+    var = np.sqrt(var2)
+    var = var.reshape((num_ref + num_order, s[1], s[2]))
+
     return fit_coef, cost, X, Y_hat, Y_offset
 
 """
