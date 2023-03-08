@@ -3084,7 +3084,6 @@ class App(QWidget):
         return fit_coef, cost, X, y_fit, y_offset, var
 
 
-
     def get_bkg_poly_order(self):
         bkg_polynomial_order = []
         if self.chkbox_bkg_poly1.isChecked():
@@ -4321,6 +4320,7 @@ class App(QWidget):
             self.xanes_edge_fit = np.zeros([1, s[1], s[2]])
             self.xanes_peak_fit = np.zeros([1, s[1], s[2]])
             self.xanes_peak_fit_height = np.zeros([1, s[1], s[2]])
+            self.xanes_peak_fit_err = np.zeros([1, s[1], s[2]])
             self.spl = {}
             if self.rd_peak_max.isChecked():
                 factor = 1
@@ -4350,6 +4350,7 @@ class App(QWidget):
                         peak_pos = res['peak_pos']
                         peak_val = res['peak_val'] * factor
                         edge_pos = res['edge_pos']
+
                         # edge_val = res['edge_val'] * factor
                         self.xanes_edge_fit[0, i,j] = edge_pos
                         self.xanes_peak_fit[0, i,j] = peak_pos
@@ -4363,6 +4364,7 @@ class App(QWidget):
                 res = pyxas.fit_peak_curve_poly(x, y * factor, fit_order=fit_order)
                 self.xanes_peak_fit[0] = res['peak_pos'].reshape([s0[1], s0[2]])
                 self.xanes_peak_fit_height[0] = res['peak_val'].reshape([s0[1], s0[2]]) * factor
+                self.xanes_peak_fit_err[0] = res['fit_error'].reshape([s0[1], s0[2]])
                 self.fit_edge_peak_res = res.copy()
                 self.fit_edge_peak_res['method'] = 'poly'
 
@@ -4375,6 +4377,8 @@ class App(QWidget):
                     self.cb1.addItem('XANES Peak Fit')
                 if self.cb1.findText('XANES Peak Fit Height') < 0:
                     self.cb1.addItem('XANES Peak Fit Height')
+                if self.cb1.findText('XANES Peak Fit error') < 0:
+                    self.cb1.addItem('XANES Peak Fit error')
                 self.cb1.setCurrentText('XANES Edge Fit Height')
             self.msg = 'Image fitting finished'
         except Exception as err:
@@ -6347,6 +6351,22 @@ class App(QWidget):
                 self.img_colormix_raw  = np.array([])
                 canvas.rgb_flag = 0
                 img = self.xanes_peak_fit_height
+                self.pb_roi_draw.setEnabled(True)
+                canvas.x, canvas.y = [], []
+                canvas.axes.clear()  # this is important, to clear the current image before another imshow()
+                canvas.img_stack = self.smooth(img)
+                canvas.special_info = None
+                canvas.current_img_index = 0
+                # canvas.current_img_index = self.sl1.value()
+                canvas.title = []
+                canvas.update_img_stack()
+                slide.setMaximum(0)
+                self.current_image = img[0]
+                self.data_summary[type_index] = self.canvas1.img_stack * self.mask
+            elif type_index == 'XANES Peak Fit error':
+                self.img_colormix_raw  = np.array([])
+                canvas.rgb_flag = 0
+                img = self.xanes_peak_fit_err
                 self.pb_roi_draw.setEnabled(True)
                 canvas.x, canvas.y = [], []
                 canvas.axes.clear()  # this is important, to clear the current image before another imshow()
