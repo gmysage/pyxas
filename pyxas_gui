@@ -8880,6 +8880,11 @@ class App(QWidget):
 
 
     def find_3D_peak_image_poly(self):
+        if not self.load_eng_successful:
+            msg = 'XANES energy not loaded'
+            print(msg)
+            self.lb_3D_msg.setText(msg)
+            return 0
         if self.load_file_successful:
             fit_max = 1
             try:
@@ -8915,41 +8920,50 @@ class App(QWidget):
             file_suffix = fs[0].split('.')[-1]
             fit_order = int(self.tx_3D_edge_order.text())
             scale = float(self.tx_3D_scale_img.text())
-            for i in range(len(fs)):
-                fn = fs[i]
-                fn_save = fn.split('/')[-1].split('.')[0]
-                print(f'processing {fn}')
-                self.pb_3D_find_peak_img.setText(f'processing {i + 1}/{len(fs)} ... ')
-                QApplication.processEvents()
-                if 'tif' in file_suffix:  # tiff file
-                    img_xanes = pyxas.get_img_from_tif_file(fn)
-                else:  # h5 file
-                    img_xanes = pyxas.get_img_from_hdf_file(fn, hdf_attr)[hdf_attr]
-                img_xanes *= scale * fit_max
+            try:
+                for i in range(len(fs)):
+                    fn = fs[i]
+                    fn_save = fn.split('/')[-1].split('.')[0]
+                    print(f'processing {fn}')
+                    self.pb_3D_find_peak_img.setText(f'processing {i + 1}/{len(fs)} ... ')
+                    QApplication.processEvents()
+                    if 'tif' in file_suffix:  # tiff file
+                        img_xanes = pyxas.get_img_from_tif_file(fn)
+                    else:  # h5 file
+                        img_xanes = pyxas.get_img_from_hdf_file(fn, hdf_attr)[hdf_attr]
+                    img_xanes *= scale * fit_max
+                    if len(xanes_eng) != len(img_xanes):
+                        print('number of energy does not match image shape')
+                        self.msg = 'number of energy does not match image shape'
+                        self.update_msg()
+                    time_s = time.time()
+                    peak_pos, peak_val, fit_error = pyxas.fit_peak_2D_xanes_poly(img_xanes, xanes_eng,
+                                                                 eng_range, fit_order, fit_max)
 
-                time_s = time.time()
-                peak_pos, peak_val, fit_error = pyxas.fit_peak_2D_xanes_poly(img_xanes, xanes_eng,
-                                                             eng_range, fit_order, fit_max)
+                    time_e = time.time()
+                    print(f'fitting using {time_e - time_s:5.1f} sec\n')
+                    fn_save_pos = f'{file_save_peak_fit_pos}/{fn_save}_peak_pos.tiff'
+                    fn_save_err = f'{file_save_peak_fit_err}/{fn_save}_fit_error.tiff'
+                    fn_save_val = f'{file_save_peak_fit_val}/{fn_save}_peak_val.tiff'
 
-                time_e = time.time()
-                print(f'fitting using {time_e - time_s:5.1f} sec\n')
-                fn_save_pos = f'{file_save_peak_fit_pos}/{fn_save}_peak_pos.tiff'
-                fn_save_err = f'{file_save_peak_fit_err}/{fn_save}_fit_error.tiff'
-                fn_save_val = f'{file_save_peak_fit_val}/{fn_save}_peak_val.tiff'
+                    io.imsave(fn_save_pos, peak_pos.astype(np.float32))
+                    io.imsave(fn_save_err, fit_error.astype(np.float32))
+                    io.imsave(fn_save_val, peak_val.astype(np.float32))
 
-                io.imsave(fn_save_pos, peak_pos.astype(np.float32))
-                io.imsave(fn_save_err, fit_error.astype(np.float32))
-                io.imsave(fn_save_val, peak_val.astype(np.float32))
-
-                if self.chkbox_3D_gen_th_mask.isChecked():
-                    pyxas.create_directory(file_save_peak_fit_th_mask)
-                    fn_save_th_mask = f'{file_save_peak_fit_th_mask}/{fn_save}_threshold_mask.tiff'
-                    thresh_thick = float(self.tx_param_threshold_thick.text())
-                    thresh_cost = float(self.tx_param_threshold_error.text())
-                    mask = pyxas.fit_xanes2D_generate_mask(peak_val, fit_error,
-                                                     thresh_cost=thresh_cost,
-                                                     thresh_thick=thresh_thick)
-                    io.imsave(fn_save_th_mask, mask.astype(np.float32))
+                    if self.chkbox_3D_gen_th_mask.isChecked():
+                        pyxas.create_directory(file_save_peak_fit_th_mask)
+                        fn_save_th_mask = f'{file_save_peak_fit_th_mask}/{fn_save}_threshold_mask.tiff'
+                        thresh_thick = float(self.tx_param_threshold_thick.text())
+                        thresh_cost = float(self.tx_param_threshold_error.text())
+                        mask = pyxas.fit_xanes2D_generate_mask(peak_val, fit_error,
+                                                         thresh_cost=thresh_cost,
+                                                         thresh_thick=thresh_thick)
+                        io.imsave(fn_save_th_mask, mask.astype(np.float32))
+            except Exception as err:
+                msg = str(err)
+                print(msg)
+                self.lb_3D_msg.setText(msg)
+                return 0
             self.pb_3D_find_peak_img.setText('Find peak')
             msg = 'Find peak finished'
             print(msg)
