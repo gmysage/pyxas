@@ -8891,6 +8891,7 @@ class App(QWidget):
                 xanes_eng = self.eng
             except Exception:
                 xanes_eng = []
+
             file_path = self.file_path
             file_type = self.file_type
             file_prefix = self.file_prefix
@@ -8921,6 +8922,8 @@ class App(QWidget):
             fit_order = int(self.tx_3D_edge_order.text())
             scale = float(self.tx_3D_scale_img.text())
             try:
+                self.collect_3D_fit_param()
+                fit_param = self.fit_param
                 for i in range(len(fs)):
                     fn = fs[i]
                     fn_save = fn.split('/')[-1].split('.')[0]
@@ -8937,6 +8940,7 @@ class App(QWidget):
                         self.msg = 'number of energy does not match image shape'
                         self.update_msg()
                     time_s = time.time()
+                    img_xanes = pyxas.check_if_need_align(img_xanes, fit_param)
                     peak_pos, peak_val, fit_error = pyxas.fit_peak_2D_xanes_poly(img_xanes, xanes_eng,
                                                                  eng_range, fit_order, fit_max)
 
