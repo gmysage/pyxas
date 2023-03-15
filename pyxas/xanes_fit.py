@@ -27,8 +27,10 @@ def check_if_need_align(img_xanes, fit_param):
     if align_ref_index == -1:
         align_ref_index = img.shape[0] - 1
     if align_flag == 1:  # using stackreg method
+        print('aligning image stack ...')
         img = pyxas.align_img_stack_stackreg(img_xanes, img_mask, select_image_index=align_ref_index)
     elif align_flag == 2:
+        print('aligning image stack ...')
         img = pyxas.align_img_stack(img_xanes, img_mask, select_image_index=align_ref_index)
     else:
         img = img_xanes
@@ -161,7 +163,6 @@ def fit_2D_xanes_single_file(files_scan, xanes_eng, fit_param, spectrum_ref, fil
     color = fit_param['color'] if len(fit_param['color']) else 'r, g, b, c, y'
 
     save_xanes_fitting_image(res, file_save_path, files_scan, color)
-
     for j in range(num_channel):
         res[f'fitted_xanes_3D_ch{j}'] = np.squeeze(res['xanes_2d_fit'][j])
         res[f'fitted_xanes_3D_ch{j}_norm'] = np.squeeze(res['xanes_2d_fit_norm'][j])

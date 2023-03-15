@@ -39,6 +39,11 @@ def convert_rgb_vector(color):
         if color[i] == 'c': vec[i] = [0, 1, 1] 
         if color[i] == 'p': vec[i] = [1, 0, 1] 
         if color[i] == 'y': vec[i] = [1, 1, 0]
+        if color[i] == 'd-gray': vec[i] = [0.2, 0.2, 0.2]
+        if color[i] == 'l-gray': vec[i] = [0.8, 0.8, 0.8]
+        if color[i] == 'white': vec[i] = [1, 1, 1]
+        if color[i] == 'black': vec[i] = [0, 0, 0]
+
     return vec 
 
 
@@ -62,7 +67,7 @@ def convert_color_string(color_string=''):
     color = color.replace(';', ',')
     color = color.split(',')
     if color[0] == '':
-        color = ['r', 'g', 'b', 'c', 'p', 'y']
+        color = ['r', 'g', 'b', 'c', 'p', 'y', 'gray']
     return color
 
 

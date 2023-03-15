@@ -4509,7 +4509,7 @@ class App(QWidget):
                 except Exception as err:
                     print(err)
                     img = []
-
+                """
                 if not len(img) == len(self.spectrum_ref):
                     '''
                     self.msg = 'invalid image stack for colormix, will using "XANES fit (concentration)" to demonstrate'
@@ -4520,12 +4520,14 @@ class App(QWidget):
                     self.cb_color_channel.clear()
                     for i in range(len(img)):
                         self.cb_color_channel.addItem(str(i))
+                """
             else:
                 img = deepcopy(self.img_colormix_raw)
 
             # set color scale for selected color channel
             scale = float(self.tx_color_scale.text())
-            selected_channel = int(self.cb_color_channel.currentText())
+            #selected_channel = int(self.cb_color_channel.currentText())
+            selected_channel = int(self.cb_color_channel.currentIndex())
             img[selected_channel] *= scale
             cmax = np.float32(self.tx_cmax.text())
             cmin = np.float32(self.tx_cmin.text())
@@ -4540,7 +4542,8 @@ class App(QWidget):
                 plt.axis('off')
                 plt.show()
             print('plot the colormix ')
-            self.img_colormix = pyxas.convert_rgb_img(self.img_colormix_raw, color_vec)
+            #self.img_colormix = pyxas.convert_rgb_img(self.img_colormix_raw, color_vec)
+            self.img_colormix = pyxas.convert_rgb_img(img, color_vec)
             #self.img_colormix = self.img_colormix_raw.copy()
 
             if self.cb1.findText('Color mix') < 0:
@@ -6417,6 +6420,7 @@ class App(QWidget):
                 canvas.update_img_stack()
                 slide.setMaximum(max(sh[0] - 1, 0))
                 self.current_image = img[0]
+                self.display_cmin_cmax(0, 1)
                 #self.data_summary[type_index] = self.canvas1.img_stack * self.mask
             elif type_index == 'Multi-elem fit (concentration)':
                 self.img_colormix_raw = np.array([])
@@ -6436,6 +6440,7 @@ class App(QWidget):
                 canvas.update_img_stack()
                 slide.setMaximum(max(sh[0] - 1, 0))
                 self.current_image = img[0]
+                self.auto_contrast()
             elif type_index == 'Multi-elem fit error':
                 self.img_colormix_raw = np.array([])
                 canvas.rgb_flag = 0
@@ -6451,6 +6456,7 @@ class App(QWidget):
                 canvas.update_img_stack()
                 slide.setMaximum(0)
                 self.current_image = img[0]
+                self.auto_contrast()
                 self.data_summary[type_index] = self.canvas1.img_stack
 
             elif type_index == 'Color mix':
@@ -6502,14 +6508,18 @@ class App(QWidget):
     def auto_contrast(self):
         canvas = self.canvas1
         cmin, cmax = canvas.auto_contrast()
+        self.display_cmin_cmax(cmin, cmax)
+
+    def display_cmin_cmax(self, cmin, cmax):
         if np.abs(cmax) > 1e3 or np.abs(cmax)<1e-3:
             self.tx_cmax.setText('{:1.3e}'.format(cmax))
         else:
             self.tx_cmax.setText('{:6.3f}'.format(cmax))
         if np.abs(cmin) > 1e3 or np.abs(cmin) < 1e-3:
-            self.tx_cmin.setText('{:1.3e}'.format(cmax))
+            self.tx_cmin.setText('{:1.3e}'.format(cmin))
         else:
             self.tx_cmin.setText('{:6.3f}'.format(cmin))
+        QApplication.processEvents()
 
 
     def set_contrast(self):
