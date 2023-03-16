@@ -4064,22 +4064,20 @@ class App(QWidget):
             label_fit = label_raw + '_fit'
             fn_spec = dir_path + '/' + 'spectrum_' + label_fit + '.txt'
             #fn_cord = dir_path + '/' + 'coordinates_' + label_fit + '.txt'
-            roi_dict_spec = {'X_eng': pd.Series(self.xanes_eng[:n_fit])}
-            #roi_dict_cord = {}
-            label_offset = 'offset'
-            if fit_success:
-                roi_dict_spec[label_raw] = pd.Series(y_data)
-                roi_dict_spec[label_fit] = pd.Series(y_fit)
+            roi_dict_spec = {}
+            n_ref = len(ref_offset)
+            for i in range(n_ref):
+                roi_dict_spec[f'ref{i}_eng'] = pd.Series(np.round(ref_offset[i]['x'], 7))
+                roi_dict_spec[f'ref{i}_spec'] = pd.Series(np.round(ref_offset[i]['y'], 7))
 
-                n_ref = len(ref_offset)
-                for i in range(n_ref):
-                    roi_dict_spec[f'ref{i}_eng'] = pd.Series(ref_offset[i]['x'])
-                    roi_dict_spec[f'ref{i}_spec'] = pd.Series(ref_offset[i]['y'])
-                roi_dict_spec[label_raw + '_fit_coef'] = pd.Series(fit_coef)
+            roi_dict_spec['X_eng'] = pd.Series(np.round(self.xanes_eng[:n_fit], 7))
+            roi_dict_spec[label_raw] = pd.Series(np.round(y_data, 7))
+            roi_dict_spec[label_fit] = pd.Series(np.round(y_fit, 7))
+            roi_dict_spec[label_raw + '_fit_coef'] = pd.Series(fit_coef)
                 #roi_dict_cord[label_raw] = pd.Series([cord[0], cord[1], cord[2], cord[3]], index=['x1', 'y1', 'x2', 'y2'])
             df_spec = pd.DataFrame(roi_dict_spec)
             #df_cord = pd.DataFrame(roi_dict_cord)
-
+            df_spec.fillna('', inplace=True)
             options = QFileDialog.Option()
             options |= QFileDialog.DontUseNativeDialog
             file_type = 'txt files (*.txt)'
