@@ -4087,7 +4087,7 @@ class App(QWidget):
             else:
                 fn_spec = fn + '.txt'
             with open(fn_spec, 'w') as f:
-                df_spec.to_csv(f, float_format='%.7f', sep=' ', index=False)
+                df_spec.to_csv(f, float_format='%.7f', sep=',', index=False)
             # replace 0.0000000 with empty string
             with open(fn_spec, 'r') as f:
                 fd = f.read()
