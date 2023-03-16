@@ -4065,28 +4065,19 @@ class App(QWidget):
             fn_spec = dir_path + '/' + 'spectrum_' + label_fit + '.txt'
             #fn_cord = dir_path + '/' + 'coordinates_' + label_fit + '.txt'
             roi_dict_spec = {}
-            n_ref = len(ref_offset)
-
-            tmp_ref = {}
-            len_ref = [0] * n_ref
-            for i in range(n_ref):
-                tmp_ref[f'ref{i}_eng'] = pd.Series(np.round(ref_offset[i]['x'], 7))
-                tmp_ref[f'ref{i}_spec'] = pd.Series(np.round(ref_offset[i]['y'], 7))
-                len_ref[i] = len(tmp_ref[f'ref{i}_eng'])
-            idx_sort = np.argsort(len_ref)[::-1]
-            for i in range(n_ref):
-                idx = idx_sort[i]
-                roi_dict_spec[f'ref{idx}_eng'] = tmp_ref[f'ref{idx}_eng']
-                roi_dict_spec[f'ref{idx}_spec'] = tmp_ref[f'ref{idx}_spec']
-
             roi_dict_spec['X_eng'] = pd.Series(np.round(self.xanes_eng[:n_fit], 7))
             roi_dict_spec[label_raw] = pd.Series(np.round(y_data, 7))
             roi_dict_spec[label_fit] = pd.Series(np.round(y_fit, 7))
+
+            n_ref = len(ref_offset)
+            for i in range(n_ref):
+                roi_dict_spec[f'ref{i}_eng'] = pd.Series(np.round(ref_offset[i]['x'], 7))
+                roi_dict_spec[f'ref{i}_spec'] = pd.Series(np.round(ref_offset[i]['y'], 7))
+
             roi_dict_spec[label_raw + '_fit_coef'] = pd.Series(fit_coef)
-                #roi_dict_cord[label_raw] = pd.Series([cord[0], cord[1], cord[2], cord[3]], index=['x1', 'y1', 'x2', 'y2'])
+
             df_spec = pd.DataFrame(roi_dict_spec)
-            #df_cord = pd.DataFrame(roi_dict_cord)
-            df_spec.fillna('', inplace=True)
+            df_spec.fillna(0, inplace=True)
             options = QFileDialog.Option()
             options |= QFileDialog.DontUseNativeDialog
             file_type = 'txt files (*.txt)'
@@ -4097,8 +4088,12 @@ class App(QWidget):
                 fn_spec = fn + '.txt'
             with open(fn_spec, 'w') as f:
                 df_spec.to_csv(f, float_format='%.7f', sep=' ', index=False)
-            #with open(fn_cord, 'w') as f:
-            #    df_cord.to_csv(f, float_format='%.4f', sep=' ')
+            # replace 0.0000000 with empty string
+            with open(fn_spec, 'r') as f:
+                fd = f.read()
+            fd = fd.replace('0.0000000', ' '*9)
+            with open(fn_spec, 'w') as f:
+                f.write(fd)
             self.msg = 'Fitted ROI spectrum file saved:    ' + fn_spec
             self.update_msg()
         else:
