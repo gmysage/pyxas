@@ -4016,6 +4016,7 @@ class App(QWidget):
             line_fit = plt.plot(eng, y_fit, color='r', label='Fitted')
             legend.append(line_raw)
             legend.append(line_fit)
+            ref_offset = {}
             if self.chkbox_overlay_ref.isChecked():
                 line_ref = {}
                 for i in range(self.num_ref):
@@ -4029,6 +4030,9 @@ class App(QWidget):
                     y_plot = y_ref * fit_coef[i] + offset_ref
                     line_ref[ref_name] = plt.plot(x_ref, y_plot, alpha=0.6, color=t_color[i%5], label=ref_name)
                     legend.append(line_ref[ref_name])
+                    ref_offset[i] = {}
+                    ref_offset[i]['x'] = x_ref
+                    ref_offset[i]['y'] = y_plot
             plt.xlim([eng[0] - 0.02, eng[-1] + 0.02])
             #plt.legend(handles=legend)
             plt.legend()
@@ -4036,7 +4040,7 @@ class App(QWidget):
             plt.show()
             fit_success = 1
             if return_flag:
-                return eng, np.squeeze(img_stack_s), y_fit, fit_coef, roi_selected, fit_success
+                return eng, np.squeeze(img_stack_s), y_fit, fit_coef, ref_offset, roi_selected, fit_success
         except Exception as err:
             print(err)
             self.msg = str(err)
@@ -4047,7 +4051,7 @@ class App(QWidget):
 
 
     def export_roi_fit(self):
-        x_data, y_data, y_fit, fit_coef, cord, fit_success = self.plot_roi_fit_new(return_flag=1)
+        x_data, y_data, y_fit, fit_coef, ref_offset, cord, fit_success = self.plot_roi_fit_new(return_flag=1)
         dir_path = self.fpath + '/ROI_fit'
 
         if fit_success:
@@ -4062,9 +4066,15 @@ class App(QWidget):
             #fn_cord = dir_path + '/' + 'coordinates_' + label_fit + '.txt'
             roi_dict_spec = {'X_eng': pd.Series(self.xanes_eng[:n_fit])}
             #roi_dict_cord = {}
+            label_offset = 'offset'
             if fit_success:
                 roi_dict_spec[label_raw] = pd.Series(y_data)
                 roi_dict_spec[label_fit] = pd.Series(y_fit)
+
+                n_ref = len(ref_offset)
+                for i in range(n_ref):
+                    roi_dict_spec[f'ref{i}_eng'] = pd.Series(ref_offset[i]['x'])
+                    roi_dict_spec[f'ref{i}_spec'] = pd.Series(ref_offset[i]['y'])
                 roi_dict_spec[label_raw + '_fit_coef'] = pd.Series(fit_coef)
                 #roi_dict_cord[label_raw] = pd.Series([cord[0], cord[1], cord[2], cord[3]], index=['x1', 'y1', 'x2', 'y2'])
             df_spec = pd.DataFrame(roi_dict_spec)
