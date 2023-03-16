@@ -3712,7 +3712,7 @@ class App(QWidget):
             for i in range(n_smart_mask):
                 roi_name = f'roi_SM_{i}'
                 self.canvas1.roi_add_to_list(roi_name = roi_name)
-                self.msg += f'; {roi_name} added to the ROI list'
+                #self.msg += f'; {roi_name} added to the ROI list'
             #self.pb_smart_mask.setStyleSheet('color: rgb(200,50,50);')
         except Exception as err:
             self.msg = f'invalid mask. Error: {str(err)} '
