@@ -4047,7 +4047,7 @@ class App(QWidget):
             self.update_msg()
             fit_success = 0
             if return_flag:
-                return 0, 0, 0, 0, 0, fit_success
+                return 0, 0, 0, 0, 0, 0, fit_success
 
 
     def export_roi_fit(self):
@@ -4066,9 +4066,18 @@ class App(QWidget):
             #fn_cord = dir_path + '/' + 'coordinates_' + label_fit + '.txt'
             roi_dict_spec = {}
             n_ref = len(ref_offset)
+
+            tmp_ref = {}
+            len_ref = [0] * n_ref
             for i in range(n_ref):
-                roi_dict_spec[f'ref{i}_eng'] = pd.Series(np.round(ref_offset[i]['x'], 7))
-                roi_dict_spec[f'ref{i}_spec'] = pd.Series(np.round(ref_offset[i]['y'], 7))
+                tmp_ref[f'ref{i}_eng'] = pd.Series(np.round(ref_offset[i]['x'], 7))
+                tmp_ref[f'ref{i}_spec'] = pd.Series(np.round(ref_offset[i]['y'], 7))
+                len_ref[i] = len(tmp_ref[f'ref{i}_eng'])
+            idx_sort = np.argsort(len_ref)[::-1]
+            for i in range(n_ref):
+                idx = idx_sort[i]
+                roi_dict_spec[f'ref{idx}_eng'] = tmp_ref[f'ref{idx}_eng']
+                roi_dict_spec[f'ref{idx}_spec'] = tmp_ref[f'ref{idx}_spec']
 
             roi_dict_spec['X_eng'] = pd.Series(np.round(self.xanes_eng[:n_fit], 7))
             roi_dict_spec[label_raw] = pd.Series(np.round(y_data, 7))
