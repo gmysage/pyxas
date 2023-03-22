@@ -108,9 +108,11 @@ def fit_multi_element_mu(img_xanes, xanes_eng, elem, exclude_multi_range, bkg_po
         cs[elem[i]] = np.zeros(n_eng)
         cs_all[elem[i]] = np.zeros(n_eng_all)
         for j in range(n_eng):
-            cs[elem[i]][j] = xraylib.CS_Energy(xraylib.SymbolToAtomicNumber(elem[i]), x_eng[j])
+            #cs[elem[i]][j] = xraylib.CS_Energy(xraylib.SymbolToAtomicNumber(elem[i]), x_eng[j])
+            cs[elem[i]][j] = xraylib.CS_Total(xraylib.SymbolToAtomicNumber(elem[i]), x_eng[j])
         for j in range(n_eng_all):
-            cs_all[elem[i]][j] = xraylib.CS_Energy(xraylib.SymbolToAtomicNumber(elem[i]), x_eng_all[j])
+            #cs_all[elem[i]][j] = xraylib.CS_Energy(xraylib.SymbolToAtomicNumber(elem[i]), x_eng_all[j])
+            cs_all[elem[i]][j] = xraylib.CS_Total(xraylib.SymbolToAtomicNumber(elem[i]), x_eng_all[j])
 
     A = np.zeros((n_eng, n_order+n_elem))
     for i in range(n_elem):
