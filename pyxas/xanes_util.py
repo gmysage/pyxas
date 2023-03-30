@@ -102,27 +102,33 @@ def fit_multi_element_mu(img_xanes, xanes_eng, elem, exclude_multi_range, bkg_po
     n_elem = len(elem)
     n_order = len(order)
 
-    cs = {}
-    cs_all = {}
+    cs = {} # cross-section: cm2/g
+    cs_all = {} # cross-section: cm2/g
+    rho = {}  # mass density: g/cm-3
+    mass = {} # atomic mass: g/mol
+
     for i in range(n_elem):
         cs[elem[i]] = np.zeros(n_eng)
         cs_all[elem[i]] = np.zeros(n_eng_all)
+
+        atom_id = xraylib.SymbolToAtomicNumber(elem[i])
+        rho[elem[i]] = xraylib.ElementDensity(atom_id)
+        mass[elem[i]] = xraylib.AtomicWeight(atom_id)
+
         for j in range(n_eng):
-            cs[elem[i]][j] = xraylib.CS_Energy(xraylib.SymbolToAtomicNumber(elem[i]), x_eng[j])
-            #cs[elem[i]][j] = xraylib.CS_Total(xraylib.SymbolToAtomicNumber(elem[i]), x_eng[j])
+            cs[elem[i]][j] = xraylib.CS_Total(atom_id, x_eng[j])
         for j in range(n_eng_all):
-            cs_all[elem[i]][j] = xraylib.CS_Energy(xraylib.SymbolToAtomicNumber(elem[i]), x_eng_all[j])
-            #cs_all[elem[i]][j] = xraylib.CS_Total(xraylib.SymbolToAtomicNumber(elem[i]), x_eng_all[j])
+            cs_all[elem[i]][j] = xraylib.CS_Total(atom_id, x_eng_all[j])
 
     A = np.zeros((n_eng, n_order+n_elem))
     for i in range(n_elem):
-        A[:, i] = cs[elem[i]]
+        A[:, i] = cs[elem[i]] * rho[elem[i]] / mass[elem[i]]
     for i in range(n_order):
         A[:, i+n_elem] = x_eng ** (order[i])
 
     A_all = np.zeros((n_eng_all, n_order + n_elem))
     for i in range(n_elem):
-        A_all[:, i] = cs_all[elem[i]]
+        A_all[:, i] = cs_all[elem[i]] * rho[elem[i]] / mass[elem[i]]
     for i in range(n_order):
         A_all[:, i + n_elem] = x_eng_all ** (order[i])
 

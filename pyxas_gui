@@ -2403,6 +2403,11 @@ class App(QWidget):
         lb_multi_elem.setText('Elements to fit (e.g., Ni, Co, Mn)')
         lb_multi_elem.setFixedWidth(300)
 
+        lb_multi_elem_rho = QLabel()
+        lb_multi_elem_rho.setFont(self.font2)
+        lb_multi_elem_rho.setText('Elements density (g/cm3, e.g., 5.7, 8.9)')
+        lb_multi_elem_rho.setFixedWidth(300)
+
         lb_multi_exclude_eng = QLabel()
         lb_multi_exclude_eng.setFont(self.font2)
         lb_multi_exclude_eng.setText('Exclude energy (e.g., [6.5, 6.8], [8.3, 8.4])')
@@ -2411,6 +2416,10 @@ class App(QWidget):
         self.tx_multi_elem = QLineEdit()
         self.tx_multi_elem.setFont(self.font2)
         self.tx_multi_elem.setFixedWidth(340)
+
+        self.tx_multi_elem_rho = QLineEdit()
+        self.tx_multi_elem_rho.setFont(self.font2)
+        self.tx_multi_elem_rho.setFixedWidth(340)
 
         self.tx_multi_exclude_eng = QLineEdit()
         self.tx_multi_exclude_eng.setFont(self.font2)
@@ -2496,6 +2505,8 @@ class App(QWidget):
         vbox_multi_elem.addWidget(lb_empty1)
         vbox_multi_elem.addWidget(lb_multi_elem)
         vbox_multi_elem.addWidget(self.tx_multi_elem)
+        #vbox_multi_elem.addWidget(lb_multi_elem_rho)
+        #vbox_multi_elem.addWidget(self.tx_multi_elem_rho)
         vbox_multi_elem.addLayout(hbox_fit_elem)
         vbox_multi_elem.addWidget(lb_empty2)
         vbox_multi_elem.addWidget(lb_multi_exclude_eng)
@@ -2995,11 +3006,11 @@ class App(QWidget):
             self.fitting_method = 'admm'
             self.tx_iter_num.setEnabled(True)
             self.tx_fit_rate.setEnabled(True)
-            self.chkbox_bkg_poly1.setChecked(False) # order = 1
+            self.chkbox_bkg_poly1.setChecked(True) # order = 1
             self.chkbox_bkg_poly2.setChecked(True)  # order = 0
             self.chkbox_bkg_poly3.setChecked(False)  # order = -1
             self.chkbox_bkg_poly4.setChecked(False)  # order = -2
-            self.chkbox_bkg_poly5.setChecked(True)  # order = -3
+            self.chkbox_bkg_poly5.setChecked(False)  # order = -3
             self.tx_iter_num.setEnabled(True)
             self.tx_fit_rate.setEnabled(True)
 
