@@ -122,13 +122,13 @@ def fit_multi_element_mu(img_xanes, xanes_eng, elem, exclude_multi_range, bkg_po
 
     A = np.zeros((n_eng, n_order+n_elem))
     for i in range(n_elem):
-        A[:, i] = cs[elem[i]] * rho[elem[i]] / mass[elem[i]]
+        A[:, i] = cs[elem[i]] * mass[elem[i]]
     for i in range(n_order):
         A[:, i+n_elem] = x_eng ** (order[i])
 
     A_all = np.zeros((n_eng_all, n_order + n_elem))
     for i in range(n_elem):
-        A_all[:, i] = cs_all[elem[i]] * rho[elem[i]] / mass[elem[i]]
+        A_all[:, i] = cs_all[elem[i]] * mass[elem[i]]
     for i in range(n_order):
         A_all[:, i + n_elem] = x_eng_all ** (order[i])
 
