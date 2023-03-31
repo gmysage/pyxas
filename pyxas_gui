@@ -4901,11 +4901,13 @@ class App(QWidget):
                 fn, _ = QFileDialog.getSaveFileName(self, 'Save ROI list', "", file_type, options=options)
                 if fn[-5:] == '.json':
                     fn = fn[:-5]
-                fn_roi = f'{fn}.json'
-                with open(fn_roi, "w") as outfile:
-                    json.dump(roi_list, outfile)
+                if len(fn):
+                    fn_roi = f'{fn}.json'
+                    with open(fn_roi, "w") as outfile:
+                        json.dump(roi_list, outfile)
                 with open('/tmp/roi.json', "w") as outfile_1:
                     json.dump(roi_list, outfile_1)
+                    fn_roi = '/tmp/roi.json'
             self.msg = f'roi list saved to {fn_roi}'
         except Exception as err:
             self.msg = 'fails to save roi_list'
@@ -4927,6 +4929,7 @@ class App(QWidget):
                     roi_list = json.load(json_file)
                 canvas.roi_count = 0
                 canvas.roi_list = {}
+                canvas.show_roi_flag = True
                 for roi_name in roi_list.keys():
                     canvas.current_roi = roi_list[roi_name]
                     canvas.roi_add_to_list(roi_name)
@@ -4943,6 +4946,7 @@ class App(QWidget):
                 roi_list = json.load(json_file)
             canvas.roi_count = 0
             canvas.roi_list = {}
+            canvas.show_roi_flag = True
             for roi_name in roi_list.keys():
                 canvas.current_roi = roi_list[roi_name]
                 canvas.roi_add_to_list(roi_name)
