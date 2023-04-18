@@ -20,11 +20,11 @@ import json
 from multiprocessing import cpu_count
 from PyQt5 import QtGui
 from PyQt5.QtWidgets import (QMainWindow, QFileDialog, QRadioButton, QApplication,QWidget, QPlainTextEdit,
-                             QLineEdit, QWidget, QPushButton, QLabel, QCheckBox, QGroupBox,
-                             QScrollBar, QVBoxLayout, QHBoxLayout, QGridLayout, QTabWidget,
-                             QListWidget, QListWidgetItem, QAbstractItemView, QScrollArea,
+                             QLineEdit, QWidget, QPushButton, QLabel, QCheckBox, QGroupBox, QSystemTrayIcon,
+                             QScrollBar, QVBoxLayout, QHBoxLayout, QGridLayout, QTabWidget, QMenu,
+                             QListWidget, QListWidgetItem, QAbstractItemView, QScrollArea, QAction,
                              QSlider, QComboBox, QButtonGroup, QMessageBox, QSizePolicy)
-from PyQt5.QtGui import QIntValidator, QDoubleValidator
+from PyQt5.QtGui import QIntValidator, QDoubleValidator, QIcon
 from PyQt5 import QtCore
 from scipy.ndimage.interpolation import shift
 from scipy.signal import medfilt2d, medfilt
@@ -37,6 +37,8 @@ from copy import deepcopy
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import pyxas
 import warnings
+from tqdm import trange
+from multiprocessing import cpu_count
 
 global xanes
 
@@ -50,6 +52,7 @@ class App(QWidget):
         self.height = 800
         self.left = (width - self.width) // 2
         self.top = (height - self.height) // 2
+        self.system_cpu = cpu_count()
         self.initUI()
         self.bkg_memory_check()
         self.default_layout()
@@ -194,11 +197,14 @@ class App(QWidget):
         self.multi_elem_fit_result = {}
         self.multi_elem_fit_result_roi = {}
         self.multi_elem_fit_roi_success = 0
+        self.multi_elem_fitting_method = 'basic'
+        self.load_file_multi_elem_batch_successfull = 0
+        self.load_file_batch_color_successfull = 0
+        self.multi_elem_batch_files = []
         try:
             self.num_ref = self.num_ref
         except Exception as err:
             self.num_ref = 0
-            print(err)
             print('set num_ref = 0')
         try:
             self.spectrum_ref = self.spectrum_ref
@@ -1756,7 +1762,7 @@ class App(QWidget):
         hbox_fit_method = QHBoxLayout()
         hbox_fit_method.addWidget(lb_fit_method)
         hbox_fit_method.addWidget(self.rd_fit_method1)
-        hbox_fit_method.addWidget(self.rd_fit_method2)
+        #hbox_fit_method.addWidget(self.rd_fit_method2)
         hbox_fit_method.addWidget(self.rd_fit_method3)
         hbox_fit_method.setAlignment(QtCore.Qt.AlignLeft)
 
@@ -1926,28 +1932,7 @@ class App(QWidget):
         lb_img.setText('Threshold Mask')
         lb_img.setFixedWidth(150)
 
-        # median filter
-        self.pb_filt = QPushButton('Median Filter')
-        self.pb_filt.setFont(self.font2)
-        self.pb_filt.clicked.connect(self.xanes_img_smooth)
-        self.pb_filt.setFixedWidth(105)
 
-        lb_filt = QLabel()
-        lb_filt.setFont(self.font2)
-        lb_filt.setText(' Kernal: ')
-        lb_filt.setFixedWidth(50)
-
-        self.tx_filt = QLineEdit(self)
-        self.tx_filt.setFont(self.font2)
-        self.tx_filt.setText('1')
-        self.tx_filt.setValidator(QIntValidator())
-        self.tx_filt.setFixedWidth(50)
-
-        hbox_filt = QHBoxLayout()
-        hbox_filt.addWidget(self.pb_filt)
-        hbox_filt.addWidget(lb_filt)
-        hbox_filt.addWidget(self.tx_filt)
-        hbox_filt.setAlignment(QtCore.Qt.AlignLeft)
 
         # mask1
         self.pb_mask1 = QPushButton('Gen. Mask1')
@@ -2159,13 +2144,37 @@ class App(QWidget):
         vbox_smart_mask.addWidget(lb_empty)
         vbox_smart_mask.setAlignment(QtCore.Qt.AlignTop)
 
-        # noise removal
-        lb_other = QLabel()
-        lb_other.setFont(self.font1)
-        lb_other.setText('Other Tools')
-        lb_other.setFixedWidth(150)
+        ## img denoise
+        lb_img_denoise = QLabel()
+        lb_img_denoise.setFont(self.font1)
+        lb_img_denoise.setText('Image Denoise')
+        lb_img_denoise.setFixedWidth(150)
 
-        self.pb_rm_noise = QPushButton('Rmv. Noise')
+        # median filter
+        self.pb_filt = QPushButton('Median Filter')
+        self.pb_filt.setFont(self.font2)
+        self.pb_filt.clicked.connect(self.xanes_img_smooth)
+        self.pb_filt.setFixedWidth(105)
+
+        lb_filt = QLabel()
+        lb_filt.setFont(self.font2)
+        lb_filt.setText(' Kernal: ')
+        lb_filt.setFixedWidth(50)
+
+        self.tx_filt = QLineEdit(self)
+        self.tx_filt.setFont(self.font2)
+        self.tx_filt.setText('1')
+        self.tx_filt.setValidator(QIntValidator())
+        self.tx_filt.setFixedWidth(50)
+
+        hbox_filt = QHBoxLayout()
+        hbox_filt.addWidget(self.pb_filt)
+        hbox_filt.addWidget(lb_filt)
+        hbox_filt.addWidget(self.tx_filt)
+        hbox_filt.setAlignment(QtCore.Qt.AlignLeft)
+
+        # noise removal similar to median filter
+        self.pb_rm_noise = QPushButton('Median Filter2')
         self.pb_rm_noise.setFont(self.font2)
         self.pb_rm_noise.clicked.connect(self.noise_removal)
         self.pb_rm_noise.setEnabled(True)
@@ -2200,6 +2209,43 @@ class App(QWidget):
         hbox_rm_noise.addWidget(lb_rm_noise_size)
         hbox_rm_noise.addWidget(self.tx_rm_noise_size)
         hbox_rm_noise.setAlignment(QtCore.Qt.AlignLeft)
+
+        # non-local mean denoise
+        self.pb_rm_noise_nl = QPushButton('Non-local')
+        self.pb_rm_noise_nl.setFont(self.font2)
+        self.pb_rm_noise_nl.clicked.connect(self.noise_removal_nl)
+        self.pb_rm_noise_nl.setEnabled(True)
+        self.pb_rm_noise_nl.setFixedWidth(105)
+
+        lb_rm_noise_nl_patch_size = QLabel()
+        lb_rm_noise_nl_patch_size.setFont(self.font2)
+        lb_rm_noise_nl_patch_size.setText('Filt_sz: ')
+        lb_rm_noise_nl_patch_size.setFixedWidth(50)
+
+        self.tx_rm_noise_nl_patch_size = QLineEdit(self)
+        self.tx_rm_noise_nl_patch_size.setFont(self.font2)
+        self.tx_rm_noise_nl_patch_size.setText('5')
+        self.tx_rm_noise_nl_patch_size.setFixedWidth(50)
+        self.tx_rm_noise_nl_patch_size.setValidator(QIntValidator())
+
+        lb_rm_noise_size_nl_patch_dis = QLabel()
+        lb_rm_noise_size_nl_patch_dis.setFont(self.font2)
+        lb_rm_noise_size_nl_patch_dis.setText('Filt_dis: ')
+        lb_rm_noise_size_nl_patch_dis.setFixedWidth(50)
+
+        self.tx_rm_noise_nl_patch_dis = QLineEdit(self)
+        self.tx_rm_noise_nl_patch_dis.setFont(self.font2)
+        self.tx_rm_noise_nl_patch_dis.setText('6')
+        self.tx_rm_noise_nl_patch_dis.setValidator(QIntValidator())
+        self.tx_rm_noise_nl_patch_dis.setFixedWidth(50)
+
+        hbox_rm_noise_nl = QHBoxLayout()
+        hbox_rm_noise_nl.addWidget(self.pb_rm_noise_nl)
+        hbox_rm_noise_nl.addWidget(lb_rm_noise_size_nl_patch_dis)
+        hbox_rm_noise_nl.addWidget(self.tx_rm_noise_nl_patch_dis)
+        hbox_rm_noise_nl.addWidget(lb_rm_noise_nl_patch_size)
+        hbox_rm_noise_nl.addWidget(self.tx_rm_noise_nl_patch_size)
+        hbox_rm_noise_nl.setAlignment(QtCore.Qt.AlignLeft)
 
         # dilation
         lb_dilation = QLabel()
@@ -2291,7 +2337,37 @@ class App(QWidget):
         hbox_fhole.addWidget(self.pb_fhole)
         hbox_fhole.setAlignment(QtCore.Qt.AlignTop)
 
+        vbox_colormix = self.layout_colormix()
+
+        # assemble
+        vbox_img_assemble = QVBoxLayout()
+        vbox_img_assemble.addWidget(lb_img)
+        vbox_img_assemble.addLayout(hbox_mask1)
+        vbox_img_assemble.addLayout(hbox_mask2)
+        vbox_img_assemble.addLayout(hbox_mask3)
+        vbox_img_assemble.addLayout(vbox_smart_mask)
+        vbox_img_assemble.addWidget(lb_img_denoise)
+        vbox_img_assemble.addLayout(hbox_filt)
+        vbox_img_assemble.addLayout(hbox_rm_noise)
+        vbox_img_assemble.addLayout(hbox_rm_noise_nl)
+        vbox_img_assemble.addWidget(lb_empty)
+        vbox_img_assemble.addLayout(hbox_dilation)
+        vbox_img_assemble.addLayout(hbox_erosion)
+        vbox_img_assemble.addLayout(hbox_fhole)
+        vbox_img_assemble.addWidget(lb_empty)
+        vbox_img_assemble.addLayout(vbox_colormix)
+        vbox_img_assemble.addWidget(lb_empty)
+        vbox_img_assemble.setAlignment(QtCore.Qt.AlignLeft)
+        return vbox_img_assemble
+
+    def layout_colormix(self):
+        lb_empty = QLabel()
         # colormix
+        lb_img_colormix = QLabel()
+        lb_img_colormix.setFont(self.font1)
+        lb_img_colormix.setText('Colormix')
+        lb_img_colormix.setFixedWidth(150)
+
         lb_colormix = QLabel()
         lb_colormix.setFont(self.font2)
         lb_colormix.setText(' Color Mix: ')
@@ -2359,39 +2435,128 @@ class App(QWidget):
         hbox_color_channel.addWidget(self.pb_color_scale)
         hbox_color_channel.setAlignment(QtCore.Qt.AlignTop)
 
-        # assemble
-        vbox_img_assemble = QVBoxLayout()
-        vbox_img_assemble.addWidget(lb_img)
-        vbox_img_assemble.addLayout(hbox_filt)
-        vbox_img_assemble.addLayout(hbox_mask1)
-        vbox_img_assemble.addLayout(hbox_mask2)
-        vbox_img_assemble.addLayout(hbox_mask3)
-        vbox_img_assemble.addLayout(vbox_smart_mask)
-        vbox_img_assemble.addWidget(lb_other)
-        vbox_img_assemble.addLayout(hbox_rm_noise)
-        vbox_img_assemble.addWidget(lb_empty)
-        vbox_img_assemble.addLayout(hbox_dilation)
-        vbox_img_assemble.addLayout(hbox_erosion)
-        vbox_img_assemble.addLayout(hbox_fhole)
-        vbox_img_assemble.addLayout(hbox_colormix)
-        vbox_img_assemble.addLayout(hbox_color_channel)
-        vbox_img_assemble.addWidget(lb_empty)
-        vbox_img_assemble.setAlignment(QtCore.Qt.AlignLeft)
-        return vbox_img_assemble
+        vbox_batch_color = self.layout_colormix_batch()
 
+        vbox_color = QVBoxLayout()
+        vbox_color.addWidget(lb_img_colormix)
+        vbox_color.addLayout(hbox_colormix)
+        vbox_color.addLayout(hbox_color_channel)
+        vbox_color.addWidget(lb_empty)
+        vbox_color.addLayout(vbox_batch_color)
+        vbox_color.setAlignment(QtCore.Qt.AlignTop)
+        return vbox_color
+
+    def layout_colormix_batch(self):
+        lb_colormix_batch = QLabel()
+        lb_colormix_batch.setFont(self.font1)
+        lb_colormix_batch.setText('Batch colormix ')
+        lb_colormix_batch.setFixedWidth(120)
+
+        lb_file = QLabel()
+        lb_file.setText('File path:')
+        lb_file.setFixedWidth(60)
+        lb_file.setFont(self.font2)
+
+        self.tx_batch_color_folder = QLineEdit()
+        self.tx_batch_color_folder.setFixedWidth(230)
+        self.tx_batch_color_folder.setFont(self.font2)
+
+        self.pb_batch_color_open = QPushButton('Open')
+        self.pb_batch_color_open.setFont(self.font2)
+        self.pb_batch_color_open.setFixedWidth(80)
+        self.pb_batch_color_open.clicked.connect(self.batch_colormix_open_file)
+
+        hbox_batch_color_open = QHBoxLayout()
+        hbox_batch_color_open.addWidget(lb_file)
+        hbox_batch_color_open.addWidget(self.tx_batch_color_folder)
+        hbox_batch_color_open.addWidget(self.pb_batch_color_open)
+        hbox_batch_color_open.setAlignment(QtCore.Qt.AlignLeft)
+
+        lb_batch_color = QLabel()
+        lb_batch_color.setFont(self.font2)
+        lb_batch_color.setText('   Colors:')
+        lb_batch_color.setFixedWidth(60)
+
+        self.tx_batch_color = QLineEdit(self)
+        self.tx_batch_color.setFont(self.font2)
+        self.tx_batch_color.setText('r, g, b')
+        self.tx_batch_color.setFixedWidth(80)
+
+        lb_batch_color_cmin = QLabel()
+        lb_batch_color_cmin.setFont(self.font2)
+        lb_batch_color_cmin.setText('CMin:')
+        lb_batch_color_cmin.setFixedWidth(60)
+
+        self.tx_batch_color_cmin = QLineEdit(self)
+        self.tx_batch_color_cmin.setFont(self.font2)
+        self.tx_batch_color_cmin.setText('0')
+        self.tx_batch_color_cmin.setFixedWidth(50)
+        self.tx_batch_color_cmin.setValidator(QDoubleValidator())
+
+        lb_batch_color_cmax = QLabel()
+        lb_batch_color_cmax.setFont(self.font2)
+        lb_batch_color_cmax.setText('  CMax:')
+        lb_batch_color_cmax.setFixedWidth(50)
+
+        self.tx_batch_color_cmax = QLineEdit(self)
+        self.tx_batch_color_cmax.setFont(self.font2)
+        self.tx_batch_color_cmax.setText('1')
+        self.tx_batch_color_cmax.setFixedWidth(50)
+        self.tx_batch_color_cmax.setValidator(QDoubleValidator())
+
+        hbox_batch_color = QHBoxLayout()
+        hbox_batch_color.addWidget(lb_batch_color_cmin)
+        hbox_batch_color.addWidget(self.tx_batch_color_cmin)
+        hbox_batch_color.addWidget(lb_batch_color_cmax)
+        hbox_batch_color.addWidget(self.tx_batch_color_cmax)
+        hbox_batch_color.addWidget(lb_batch_color)
+        hbox_batch_color.addWidget(self.tx_batch_color)
+        hbox_batch_color.setAlignment(QtCore.Qt.AlignLeft)
+
+        self.pb_batch_color = QPushButton('Batch colormix (Tiff only)')
+        self.pb_batch_color.setFixedWidth(200)
+        self.pb_batch_color.setFont(self.font2)
+        self.pb_batch_color.clicked.connect(self.batch_colormix)
+
+        self.lb_batch_color_msg = QLabel()
+        self.lb_batch_color_msg.setFont(self.font2)
+        self.lb_batch_color_msg.setStyleSheet('color: rgb(200, 50, 50);')
+
+        vbox_batch_color = QVBoxLayout()
+        vbox_batch_color.addWidget(lb_colormix_batch)
+        vbox_batch_color.addLayout(hbox_batch_color_open)
+        vbox_batch_color.addLayout(hbox_batch_color)
+        vbox_batch_color.addWidget(self.pb_batch_color)
+        vbox_batch_color.addWidget(self.lb_batch_color_msg)
+        vbox_batch_color.setAlignment(QtCore.Qt.AlignTop)
+
+        return vbox_batch_color
 
     def layout_multi_elem(self):
         lb_empty1 = QLabel()
         lb_empty1.setFixedHeight(15)
+        multi_elem_2D = self.layout_multi_elem_2D()
+        multi_elem_batch = self.layout_multi_elem_batch()
+        vbox = QVBoxLayout()
+        vbox.addLayout(multi_elem_2D)
+        vbox.addWidget(lb_empty1)
+        vbox.addLayout(multi_elem_batch)
+        vbox.setAlignment(QtCore.Qt.AlignTop)
+        return vbox
+
+
+    def layout_multi_elem_2D(self):
+        lb_empty1 = QLabel()
+        lb_empty1.setFixedHeight(5)
 
         lb_empty2 = QLabel()
-        lb_empty2.setFixedHeight(15)
+        lb_empty2.setFixedHeight(5)
 
         lb_empty3 = QLabel()
-        lb_empty3.setFixedHeight(15)
+        lb_empty3.setFixedHeight(5)
 
         lb_empty4 = QLabel()
-        lb_empty4.setFixedHeight(15)
+        lb_empty4.setFixedHeight(5)
 
         lb_multi_eng = QLabel()
         lb_multi_eng.setFont(self.font1)
@@ -2435,6 +2600,65 @@ class App(QWidget):
         self.pb_multi_elem_save.setFixedWidth(120)
         self.pb_multi_elem_save.clicked.connect(self.save_multi_elem_thickness)
 
+        # method
+        lb_multi_param_fit_method = QLabel()
+        lb_multi_param_fit_method.setText('Fitting method: ')
+        lb_multi_param_fit_method.setFixedWidth(120)
+        lb_multi_param_fit_method.setFont(self.font1)
+
+        self.rd_multi_param_fit_method1 = QRadioButton('Basic')
+        self.rd_multi_param_fit_method1.setFixedWidth(120)
+        self.rd_multi_param_fit_method1.setFont(self.font2)
+        self.rd_multi_param_fit_method1.setChecked(True)
+
+        self.rd_multi_param_fit_method3 = QRadioButton('NN-ADMM')
+        self.rd_multi_param_fit_method3.setFixedWidth(120)
+        self.rd_multi_param_fit_method3.setFont(self.font2)
+        self.rd_multi_param_fit_method3.setChecked(False)
+        self.rd_multi_param_fit_method3.toggled.connect(self.select_2d_multi_elem_fitting_method)
+
+        hbox_multi_fit_method = QHBoxLayout()
+        hbox_multi_fit_method.addWidget(lb_multi_param_fit_method)
+        hbox_multi_fit_method.addWidget(self.rd_multi_param_fit_method1)
+        hbox_multi_fit_method.addWidget(self.rd_multi_param_fit_method3)
+        hbox_multi_fit_method.setAlignment(QtCore.Qt.AlignLeft)
+        #############################################
+        lb_multi_iter_num = QLabel()
+        lb_multi_iter_num.setFont(self.font2)
+        lb_multi_iter_num.setText('Maximum iteration:')
+        lb_multi_iter_num.setFixedWidth(140)
+
+        self.tx_multi_iter_num = QLineEdit(self)
+        self.tx_multi_iter_num.setFont(self.font2)
+        self.tx_multi_iter_num.setText('100')
+        self.tx_multi_iter_num.setValidator(QIntValidator())
+        self.tx_multi_iter_num.setFixedWidth(100)
+        self.tx_multi_iter_num.setEnabled(False)
+
+        hbox_multi_fit_iter_num = QHBoxLayout()
+        hbox_multi_fit_iter_num.addWidget(lb_multi_iter_num)
+        hbox_multi_fit_iter_num.addWidget(self.tx_multi_iter_num)
+        hbox_multi_fit_iter_num.setAlignment(QtCore.Qt.AlignTop)
+
+        ##############################################
+        lb_multi_fit_rate = QLabel()
+        lb_multi_fit_rate.setFont(self.font2)
+        lb_multi_fit_rate.setText('Updating rate:')
+        lb_multi_fit_rate.setFixedWidth(140)
+
+        self.tx_multi_fit_rate = QLineEdit(self)
+        self.tx_multi_fit_rate.setFont(self.font2)
+        self.tx_multi_fit_rate.setText('0.2')  # conjugate gradient updating rate
+        self.tx_multi_fit_rate.setFixedWidth(100)
+        self.tx_multi_fit_rate.setEnabled(False)
+
+        hbox_multi_fit_iter_rate = QHBoxLayout()
+        hbox_multi_fit_iter_rate.addWidget(lb_multi_fit_rate)
+        hbox_multi_fit_iter_rate.addWidget(self.tx_multi_fit_rate)
+        hbox_multi_fit_iter_rate.setAlignment(QtCore.Qt.AlignTop)
+        ########################
+
+        # elem
         self.pb_multi_elem_ni = QPushButton('Ni')
         self.pb_multi_elem_ni.setFont(self.font2)
         self.pb_multi_elem_ni.setFixedWidth(60)
@@ -2499,6 +2723,14 @@ class App(QWidget):
         hbox.addWidget(self.pb_multi_elem_save)
         hbox.setAlignment(QtCore.Qt.AlignLeft)
 
+        vbox = QVBoxLayout()
+
+        vbox.addLayout(hbox_multi_fit_method)
+        vbox.addLayout(hbox_multi_fit_iter_num)
+        vbox.addLayout(hbox_multi_fit_iter_rate)
+        vbox.addLayout(hbox)
+        vbox.setAlignment(QtCore.Qt.AlignTop)
+
         vbox_multi_elem = QVBoxLayout()
         vbox_multi_elem.addWidget(lb_multi_eng)
         vbox_multi_elem.addLayout(hbox_multi_elem_range)
@@ -2515,11 +2747,219 @@ class App(QWidget):
         vbox_multi_elem.addWidget(lb_empty3)
         vbox_multi_elem.addLayout(layout_multi_elem_bkg)
         vbox_multi_elem.addWidget(lb_empty4)
-        vbox_multi_elem.addLayout(hbox)
+        vbox_multi_elem.addLayout(vbox)
         vbox_multi_elem.addLayout(layout_multi_elem_roi)
         vbox_multi_elem.setAlignment(QtCore.Qt.AlignTop)
 
         return vbox_multi_elem
+
+
+    def layout_multi_elem_batch(self):
+        # open file
+        lb_batch = QLabel()
+        lb_batch.setText('Batch fit')
+        lb_batch.setFixedWidth(80)
+        lb_batch.setFont(self.font1)
+
+        lb_file = QLabel()
+        lb_file.setText('File path:')
+        lb_file.setFixedWidth(80)
+        lb_file.setFont(self.font2)
+
+        self.tx_multi_elem_folder = QLineEdit()
+        self.tx_multi_elem_folder.setFixedWidth(230)
+        self.tx_multi_elem_folder.setFont(self.font2)
+
+        self.pb_mulit_elem_open = QPushButton('Open')
+        self.pb_mulit_elem_open.setFont(self.font2)
+        self.pb_mulit_elem_open.setFixedWidth(80)
+        self.pb_mulit_elem_open.clicked.connect(self.open_file_multi_elem)
+
+        hbox_multi_elem_open = QHBoxLayout()
+        hbox_multi_elem_open.addWidget(lb_file)
+        hbox_multi_elem_open.addWidget(self.tx_multi_elem_folder)
+        hbox_multi_elem_open.addWidget(self.pb_mulit_elem_open)
+        hbox_multi_elem_open.setAlignment(QtCore.Qt.AlignLeft)
+
+        # align image
+        self.chkbox_multi_elem_align = QCheckBox('Align:')
+        self.chkbox_multi_elem_align.setFixedWidth(120)
+        self.chkbox_multi_elem_align.setFont(self.font2)
+        self.chkbox_multi_elem_align.setChecked(False)
+
+        lb_multi_elem_align_roi = QLabel()
+        lb_multi_elem_align_roi.setFont(self.font2)
+        lb_multi_elem_align_roi.setText('ROI ID:')
+        lb_multi_elem_align_roi.setFixedWidth(60)
+
+        self.tx_multi_elem_align_roi = QLineEdit()
+        self.tx_multi_elem_align_roi.setText('-1')
+        self.tx_multi_elem_align_roi.setFont(self.font2)
+        self.tx_multi_elem_align_roi.setFixedWidth(50)
+        self.tx_multi_elem_align_roi.setValidator(QIntValidator())
+
+        lb_multi_elem_align_ref = QLabel()
+        lb_multi_elem_align_ref.setFont(self.font2)
+        lb_multi_elem_align_ref.setText('Ref. ID:')
+        lb_multi_elem_align_ref.setFixedWidth(60)
+
+        self.tx_multi_elem_align_ref = QLineEdit()
+        self.tx_multi_elem_align_ref.setText('-1')
+        self.tx_multi_elem_align_ref.setFont(self.font2)
+        self.tx_multi_elem_align_ref.setFixedWidth(50)
+        self.tx_multi_elem_align_ref.setValidator(QIntValidator())
+
+        hbox_multi_elem_align = QHBoxLayout()
+        hbox_multi_elem_align.addWidget(self.chkbox_multi_elem_align)
+        hbox_multi_elem_align.addWidget(lb_multi_elem_align_roi)
+        hbox_multi_elem_align.addWidget(self.tx_multi_elem_align_roi)
+        hbox_multi_elem_align.addWidget(lb_multi_elem_align_ref)
+        hbox_multi_elem_align.addWidget(self.tx_multi_elem_align_ref)
+        hbox_multi_elem_align.setAlignment(QtCore.Qt.AlignLeft)
+
+        # Non-local mean denoise
+        self.chkbox_multi_elem_denoise = QCheckBox('NL Denoise:')
+        self.chkbox_multi_elem_denoise.setFixedWidth(120)
+        self.chkbox_multi_elem_denoise.setFont(self.font2)
+        self.chkbox_multi_elem_denoise.setChecked(False)
+
+        lb_mulit_elem_nl_patch_size = QLabel()
+        lb_mulit_elem_nl_patch_size.setFont(self.font2)
+        lb_mulit_elem_nl_patch_size.setText('Filt_sz: ')
+        lb_mulit_elem_nl_patch_size.setFixedWidth(60)
+
+        self.tx_mulit_elem_nl_patch_size = QLineEdit(self)
+        self.tx_mulit_elem_nl_patch_size.setFont(self.font2)
+        self.tx_mulit_elem_nl_patch_size.setText('5')
+        self.tx_mulit_elem_nl_patch_size.setFixedWidth(50)
+        self.tx_mulit_elem_nl_patch_size.setValidator(QIntValidator())
+
+        lb_multi_elem_nl_patch_dis = QLabel()
+        lb_multi_elem_nl_patch_dis.setFont(self.font2)
+        lb_multi_elem_nl_patch_dis.setText('Filt_dis: ')
+        lb_multi_elem_nl_patch_dis.setFixedWidth(60)
+
+        self.tx_multi_elem_nl_patch_dis = QLineEdit(self)
+        self.tx_multi_elem_nl_patch_dis.setFont(self.font2)
+        self.tx_multi_elem_nl_patch_dis.setText('6')
+        self.tx_multi_elem_nl_patch_dis.setValidator(QIntValidator())
+        self.tx_multi_elem_nl_patch_dis.setFixedWidth(50)
+
+        hbox_multi_elem_nl = QHBoxLayout()
+        hbox_multi_elem_nl.addWidget(self.chkbox_multi_elem_denoise)
+        hbox_multi_elem_nl.addWidget(lb_mulit_elem_nl_patch_size)
+        hbox_multi_elem_nl.addWidget(self.tx_mulit_elem_nl_patch_size)
+        hbox_multi_elem_nl.addWidget(lb_multi_elem_nl_patch_dis)
+        hbox_multi_elem_nl.addWidget(self.tx_multi_elem_nl_patch_dis)
+        hbox_multi_elem_nl.setAlignment(QtCore.Qt.AlignLeft)
+
+        # cluster mask
+        self.chkbox_multi_elem_cmask = QCheckBox('Cluster Mask:')
+        self.chkbox_multi_elem_cmask.setFixedWidth(120)
+        self.chkbox_multi_elem_cmask.setFont(self.font2)
+        self.chkbox_multi_elem_cmask.setChecked(False)
+
+        lb_mulit_elem_cmask_roi = QLabel()
+        lb_mulit_elem_cmask_roi.setFont(self.font2)
+        lb_mulit_elem_cmask_roi.setText('ROI ID: ')
+        lb_mulit_elem_cmask_roi.setFixedWidth(60)
+
+        self.tx_mulit_elem_cmask_roi = QLineEdit(self)
+        self.tx_mulit_elem_cmask_roi.setFont(self.font2)
+        self.tx_mulit_elem_cmask_roi.setText('-1')
+        self.tx_mulit_elem_cmask_roi.setFixedWidth(50)
+        self.tx_mulit_elem_cmask_roi.setValidator(QIntValidator())
+
+        lb_mulit_elem_cmask = QLabel()
+        lb_mulit_elem_cmask.setFont(self.font2)
+        lb_mulit_elem_cmask.setText('Comp. #: ')
+        lb_mulit_elem_cmask.setFixedWidth(60)
+
+        self.tx_mulit_elem_cmask = QLineEdit(self)
+        self.tx_mulit_elem_cmask.setFont(self.font2)
+        self.tx_mulit_elem_cmask.setText('2')
+        self.tx_mulit_elem_cmask.setFixedWidth(50)
+        self.tx_mulit_elem_cmask.setValidator(QIntValidator())
+
+        hbox_multi_elem_cmask = QHBoxLayout()
+        hbox_multi_elem_cmask.addWidget(self.chkbox_multi_elem_cmask)
+        hbox_multi_elem_cmask.addWidget(lb_mulit_elem_cmask_roi)
+        hbox_multi_elem_cmask.addWidget(self.tx_mulit_elem_cmask_roi)
+        hbox_multi_elem_cmask.addWidget(lb_mulit_elem_cmask)
+        hbox_multi_elem_cmask.addWidget(self.tx_mulit_elem_cmask)
+        hbox_multi_elem_cmask.setAlignment(QtCore.Qt.AlignLeft)
+
+        # colormix
+        self.chkbox_multi_elem_color = QCheckBox('Colormix:')
+        self.chkbox_multi_elem_color.setFixedWidth(120)
+        self.chkbox_multi_elem_color.setFont(self.font2)
+        self.chkbox_multi_elem_color.setChecked(False)
+
+        lb_mulit_elem_color = QLabel()
+        lb_mulit_elem_color.setFont(self.font2)
+        lb_mulit_elem_color.setText('Colors: ')
+        lb_mulit_elem_color.setFixedWidth(60)
+
+        self.tx_mulit_elem_color = QLineEdit(self)
+        self.tx_mulit_elem_color.setFont(self.font2)
+        self.tx_mulit_elem_color.setText('r, g, b')
+        self.tx_mulit_elem_color.setFixedWidth(90)
+
+        lb_mulit_elem_color_clim = QLabel()
+        lb_mulit_elem_color_clim.setFont(self.font2)
+        lb_mulit_elem_color_clim.setText('CLim: ')
+        lb_mulit_elem_color_clim.setFixedWidth(60)
+
+        self.tx_mulit_elem_color_clim = QLineEdit(self)
+        self.tx_mulit_elem_color_clim.setFont(self.font2)
+        self.tx_mulit_elem_color_clim.setText('0, 1')
+        self.tx_mulit_elem_color_clim.setFixedWidth(50)
+
+        hbox_multi_elem_color = QHBoxLayout()
+        hbox_multi_elem_color.addWidget(self.chkbox_multi_elem_color)
+        hbox_multi_elem_color.addWidget(lb_mulit_elem_color_clim)
+        hbox_multi_elem_color.addWidget(self.tx_mulit_elem_color_clim)
+        hbox_multi_elem_color.addWidget(lb_mulit_elem_color)
+        hbox_multi_elem_color.addWidget(self.tx_mulit_elem_color)
+        hbox_multi_elem_color.setAlignment(QtCore.Qt.AlignLeft)
+
+        # batch fit button
+        self.pb_multi_elem_fit_batch = QPushButton('Batch fit')
+        self.pb_multi_elem_fit_batch.setFixedWidth(240)
+        self.pb_multi_elem_fit_batch.setFont(self.font2)
+        self.pb_multi_elem_fit_batch.clicked.connect(self.fit_multi_elem_thickness_batch)
+
+        lb_multi_elem_batch_cpu = QLabel()
+        max_cpu = np.floor(self.system_cpu*0.8)
+        lb_multi_elem_batch_cpu.setText(f'cpu ({int(max_cpu)}):')
+        lb_multi_elem_batch_cpu.setFont(self.font2)
+        lb_multi_elem_batch_cpu.setFixedWidth(60)
+
+        self.tx_multi_elem_batch_cpu = QLineEdit('8')
+        self.tx_multi_elem_batch_cpu.setFont(self.font2)
+        self.tx_multi_elem_batch_cpu.setFixedWidth(50)
+        self.tx_multi_elem_batch_cpu.setValidator(QIntValidator())
+
+        hbox_cpu = QHBoxLayout()
+        hbox_cpu.addWidget(self.pb_multi_elem_fit_batch)
+        hbox_cpu.addWidget(lb_multi_elem_batch_cpu)
+        hbox_cpu.addWidget(self.tx_multi_elem_batch_cpu)
+        hbox_cpu.setAlignment(QtCore.Qt.AlignLeft)
+
+        # assemble together
+        vbox_multi_elem_batch = QVBoxLayout()
+        vbox_multi_elem_batch.addWidget(lb_batch)
+        vbox_multi_elem_batch.addLayout(hbox_multi_elem_open)
+        vbox_multi_elem_batch.addLayout(hbox_multi_elem_align)
+        vbox_multi_elem_batch.addLayout(hbox_multi_elem_nl)
+        vbox_multi_elem_batch.addLayout(hbox_multi_elem_cmask)
+        vbox_multi_elem_batch.addLayout(hbox_multi_elem_color)
+        vbox_multi_elem_batch.addLayout(hbox_cpu)
+        #vbox_multi_elem_batch.addWidget(self.pb_multi_elem_fit_batch)
+        vbox_multi_elem_batch.setAlignment(QtCore.Qt.AlignTop)
+
+        return vbox_multi_elem_batch
+
 
     def layout_multi_elem_eng_range(self):
         lb_eng_s = QLabel()
@@ -2924,7 +3364,7 @@ class App(QWidget):
         vbox_can1.setAlignment(QtCore.Qt.AlignLeft)
         return vbox_can1
 
-
+    '''
     def check_xanes_fit_requirement(self, img_stack):
         n_ref = len(self.spectrum_ref)
         n_eng = len(self.xanes_eng)
@@ -2933,6 +3373,15 @@ class App(QWidget):
             self.msg += ';   # of reference spectrum need to be larger than 2, fitting fails ...'
             return_flag = 0
         elif img_stack.shape[0] != n_eng:
+            self.msg += ';   # of stack image is not equal to energies, fitting fails ...'
+            return_flag = 0
+        return return_flag
+    '''
+
+    def check_xanes_fit_requirement(self, img_stack):
+        n_eng = len(self.xanes_eng)
+        return_flag = 1
+        if img_stack.shape[0] != n_eng:
             self.msg += ';   # of stack image is not equal to energies, fitting fails ...'
             return_flag = 0
         return return_flag
@@ -3298,8 +3747,34 @@ class App(QWidget):
             self.msg = f'un-recognized reference spectrum format. Error: {str(err)}'
             self.update_msg()
 
+
+
+    def select_2d_multi_elem_fitting_method(self):
+        if self.rd_multi_param_fit_method1.isChecked():
+            self.multi_elem_fitting_method = 'basic'
+            self.tx_multi_iter_num.setEnabled(False)
+            self.tx_multi_fit_rate.setEnabled(False)
+            self.chkbox_multi_bkg_poly1.setChecked(False) # order = 1
+            self.chkbox_multi_bkg_poly2.setChecked(True)  # order = 0
+            self.chkbox_multi_bkg_poly3.setChecked(False)  # order = -1
+            self.chkbox_multi_bkg_poly4.setChecked(False)  # order = -2
+            self.chkbox_multi_bkg_poly5.setChecked(True)  # order = -3
+        if self.rd_multi_param_fit_method3.isChecked():
+            self.multi_elem_fitting_method = 'admm'
+            self.tx_multi_iter_num.setEnabled(True)
+            self.tx_multi_fit_rate.setEnabled(True)
+            self.chkbox_multi_bkg_poly1.setChecked(False) # order = 1
+            self.chkbox_multi_bkg_poly2.setChecked(True)  # order = 0
+            self.chkbox_multi_bkg_poly3.setChecked(False)  # order = -1
+            self.chkbox_multi_bkg_poly4.setChecked(False)  # order = -2
+            self.chkbox_multi_bkg_poly5.setChecked(True)  # order = -3
+
+
     def fit_multi_elem_thickness(self):
         try:
+            self.pb_multi_elem_fit.setEnabled(False)
+            self.pb_multi_elem_fit.setText('wait ...')
+            QApplication.processEvents()
             return_flag, img_stack = self.choose_image_for_fittting()
             img_stack = self.smooth(img_stack * self.mask)
             fit_eng_range = self._get_multi_elem_eng_range()
@@ -3308,7 +3783,12 @@ class App(QWidget):
 
             bkg_polynomial_order = self.get_mulit_elem_bkg_poly_order()
             fit_elem, eng_exclude = self._get_multi_elem()
-            res = pyxas.fit_2D_multi_elem_thick(img_stack, x_eng, fit_elem, eng_exclude, bkg_polynomial_order)
+            #self.select_2d_multi_elem_fitting_method()
+            admm_iter = int(self.tx_multi_iter_num.text())
+            admm_rate = float(self.tx_multi_fit_rate.text())
+            method = self.multi_elem_fitting_method
+            res = pyxas.fit_2D_multi_elem_thick(img_stack, x_eng, fit_elem, eng_exclude,
+                                                bkg_polynomial_order, method, admm_iter, admm_rate)
             self.multi_elem_fit_result = res.copy()
             self.multi_elem_thickness = res['thickness']
             self.multi_elem_fit_err = res['y_fit_err']
@@ -3318,6 +3798,10 @@ class App(QWidget):
             print(err)
             self.msg = str(err)
             self.update_msg()
+        finally:
+            self.pb_multi_elem_fit.setEnabled(True)
+            self.pb_multi_elem_fit.setText('Fit thickness')
+            QApplication.processEvents()
 
     def add_multi_elem(self, elem):
         txt = self.tx_multi_elem.text()
@@ -3456,6 +3940,9 @@ class App(QWidget):
 
     def fit_multi_elem_roi(self):
         try:
+            self.pb_multi_roi.setEnabled(False)
+            self.pb_multi_roi.setText('wait ...')
+            QApplication.processEvents()
             return_flag, img_stack = self.choose_image_for_fittting()
             img_stack = self.smooth(img_stack * self.mask)
             fit_eng_range = self._get_multi_elem_eng_range()
@@ -3470,8 +3957,12 @@ class App(QWidget):
             img_stack = self._get_roi_image(img_stack, roi_selected)
             img_stack_s = np.mean(np.mean(img_stack, axis=-1), axis=-1)
             img_stack_s = img_stack_s.reshape((len(x_eng), 1, 1))
-
-            res = pyxas.fit_2D_multi_elem_thick(img_stack_s, x_eng, fit_elem, eng_exclude, bkg_polynomial_order)
+            #self.select_2d_multi_elem_fitting_method()
+            method = self.multi_elem_fitting_method
+            admm_iter = int(self.tx_multi_iter_num.text())
+            admm_rate = float(self.tx_multi_fit_rate.text())
+            res = pyxas.fit_2D_multi_elem_thick(img_stack_s, x_eng, fit_elem, eng_exclude,
+                                                bkg_polynomial_order, method, admm_iter, admm_rate)
             self.multi_elem_fit_result_roi = res.copy()
             self.multi_elem_fit_result_roi['elem'] = fit_elem
             self.multi_elem_fit_result_roi['roi'] = roi_selected
@@ -3504,7 +3995,10 @@ class App(QWidget):
             print(err)
             self.msg = str(err)
             self.update_msg()
-
+        finally:
+            self.pb_multi_roi.setEnabled(True)
+            self.pb_multi_roi.setText('Fit ROI')
+            QApplication.processEvents()
 
     def save_multi_elem_roi(self):
         if not self.multi_elem_fit_roi_success:
@@ -3554,6 +4048,206 @@ class App(QWidget):
             self.msg = str(err)
         finally:
             self.update_msg()
+
+
+    def open_file_multi_elem(self):
+        try:
+            options = QFileDialog.Option()
+            options |= QFileDialog.DontUseNativeDialog
+            file_type = '*.*'
+            fn, _ = QFileDialog.getOpenFileName(xanes, "QFileDialog.getOpenFileName()", "", '*', options=options)
+            if fn:
+                fn_tmp = fn.split('/')
+                fn_short = fn_tmp[-1]
+                file_type = fn_short.split('.')[-1]
+                file_prefix = fn_short.split('_')[0]
+                if len(file_prefix) > 4:
+                    file_prefix = file_prefix[:4]
+                self.mulit_elem_file_path = '/'.join(t for t in fn_tmp[:-1])
+                self.tx_multi_elem_folder.setText(self.mulit_elem_file_path)
+                self.multi_elem_batch_files =  pyxas.retrieve_file_type(self.mulit_elem_file_path, file_prefix, file_type)
+                n_file = len(self.multi_elem_batch_files)
+                self.msg = f'{n_file} files loaded:   {self.multi_elem_batch_files[0].split("/")[-1]}  ...  ' \
+                           f'{self.multi_elem_batch_files[-1].split("/")[-1]}'
+                self.update_msg()
+                self.load_file_multi_elem_batch_successfull = 1
+            else:
+                self.multi_elem_files = []
+                self.load_file_multi_elem_batch_successfull = 0
+        except Exception as err:
+            print(err)
+            self.msg = str(err)
+            self.update_msg()
+            self.multi_elem_files = []
+            self.load_file_multi_elem_batch_successfull = 0
+
+
+    def fit_multi_elem_thickness_batch(self):
+        align_flag = 1 if self.chkbox_multi_elem_align.isChecked() else 0
+        align_roi_index = int(self.tx_multi_elem_align_roi.text())
+        align_ref_index = int(self.tx_multi_elem_align_ref.text())
+
+        nl_flag = 1 if self.chkbox_multi_elem_denoise.isChecked() else 0
+        nl_filt_sz = int(self.tx_mulit_elem_nl_patch_size.text())
+        nl_filt_dis = int(self.tx_multi_elem_nl_patch_dis.text())
+
+        mask_flag = 1 if self.chkbox_multi_elem_cmask.isChecked() else 0
+        mask_comp = int(self.tx_mulit_elem_cmask.text())
+        mask_roi_index = int(self.tx_mulit_elem_cmask_roi.text())
+
+        color_flag = 1 if self.chkbox_multi_elem_color.isChecked() else 0
+        try:
+            n_cpu = int(self.tx_multi_elem_batch_cpu.text())
+            roi_selected = f'roi_{align_roi_index}'
+            if self.load_file_multi_elem_batch_successfull:
+                self.pb_multi_elem_fit_batch.setEnabled(False)
+                fn = self.multi_elem_batch_files[0]
+                fn_root = fn.split('/')
+                fsave_root = '/'.join(x for x in fn_root[:-1])
+                n = len(self.multi_elem_batch_files)
+                ts = time.time()
+                for i in range(n):
+                    te = time.time()
+                    fn_current = self.multi_elem_batch_files[i]
+                    fn_current = fn_current.split('/')[-1]
+                    msg_current_file = f'processing {fn_current} [{i+1}/{n}]: '
+                    txt_title = f'[{te-ts:4.1f} sec] [{i+1}/{n}]: '
+                    fn = self.multi_elem_batch_files[i]
+                    img = io.imread(fn)
+                    img = pyxas.rm_abnormal(img)
+                    img_stack = img.copy()
+                    n_img = len(img_stack)
+                    if align_flag:
+                        txt = txt_title + 'align...'
+                        self.pb_multi_elem_fit_batch.setText(txt)
+                        self.msg = msg_current_file + 'aligning ...'
+                        self.update_msg()
+                        QApplication.processEvents()
+                        img_roi = self._get_roi_image(img_stack, roi_selected)
+                        img_stack = pyxas.align_img_stack_stackreg2_mpi(img_stack, align_ref_index, img_roi, n_cpu)
+                        '''
+                        for j in range(n_img):
+                            self.msg = msg_current_file + f'aligning {j+1}/{n_img}'
+                            self.update_msg()
+                            QApplication.processEvents()
+                            rsft, csft, sr = pyxas.align_img_stackreg(img_roi[align_ref_index], img_roi[j],
+                                                                      align_flag=0, method='translation')
+                            img_stack[j] = sr.transform(img_stack[j])
+                        '''
+                    if nl_flag:
+                        txt = txt_title + 'denoise...'
+                        self.msg = msg_current_file + 'denoise ...'
+                        self.pb_multi_elem_fit_batch.setText(txt)
+                        self.update_msg()
+                        QApplication.processEvents()
+                        '''
+                        for j in range(n_img):
+                            self.msg = msg_current_file + f'non-local mean denoising {j + 1}/{n_img}'
+                            self.update_msg()
+                            QApplication.processEvents()
+                            img_stack[j] = pyxas.img_denoise_nl(img_stack[i], nl_filt_sz, nl_filt_dis)[0]
+                        '''
+                        img_stack = pyxas.img_denoise_nl_mpi(img_stack, nl_filt_sz, nl_filt_dis, n_cpu)
+                    if mask_flag:
+                        txt = txt_title + 'mask...'
+                        self.pb_multi_elem_fit_batch.setText(txt)
+                        self.msg = msg_current_file + f'generate cluster mask'
+                        self.update_msg()
+                        QApplication.processEvents()
+                        mask_roi = f'roi_{mask_roi_index}'
+                        img_roi = self._get_roi_image(img_stack, mask_roi)
+                        roi_cord = self._get_roi_cord(mask_roi)
+                        smart_mask, img_labels = pyxas.kmean_mask(img_roi, mask_comp)
+                        if roi_cord is None: # e.g. -1, the whole image
+                            mask = smart_mask[0]
+                        else:
+                            mask = np.zeros((img_stack.shape[1], img_stack.shape[2]))
+                            mask[roi_cord[2]:roi_cord[3], roi_cord[0]:roi_cord[1]] = smart_mask[0]
+                    else:
+                        mask = 1
+
+                    # start fitting
+                    txt = txt_title + 'fitting...'
+                    self.pb_multi_elem_fit_batch.setText(txt)
+                    self.msg = msg_current_file + f'fitting ...'
+                    self.update_msg()
+                    QApplication.processEvents()
+                    fit_eng_range = self._get_multi_elem_eng_range()
+                    img_stack = img_stack[fit_eng_range]
+                    x_eng = self.xanes_eng[fit_eng_range]
+                    bkg_polynomial_order = self.get_mulit_elem_bkg_poly_order()
+                    fit_elem, eng_exclude = self._get_multi_elem()
+                    #self.select_2d_multi_elem_fitting_method()
+                    method = self.multi_elem_fitting_method
+                    admm_iter = int(self.tx_multi_iter_num.text())
+                    admm_rate = float(self.tx_multi_fit_rate.text())
+                    res = pyxas.fit_2D_multi_elem_thick(img_stack, x_eng, fit_elem, eng_exclude,
+                                                        bkg_polynomial_order, method, admm_iter, admm_rate)
+                    res['mask'] = mask
+                    self.save_multi_elem_batch_fit(fsave_root, fn, res, color_flag)
+            self.msg = 'batch fitting finished'
+        except Exception as err:
+            print(err)
+            self.msg = str(err)
+        finally:
+            self.pb_multi_elem_fit_batch.setEnabled(True)
+            self.pb_multi_elem_fit_batch.setText('Batch fit')
+            self.update_msg()
+
+
+    def save_multi_elem_batch_fit(self, fsave_root, fn, res, color_flag):
+        fn_short = fn.split('/')[-1]
+        fn_short = fn_short.split('.')[0]
+        fn_short = fn_short.split('_')[-1]
+        img_thick = res['thickness']
+        img_err = res['y_fit_err']
+        mask = res['mask']
+        img_thick[img_thick < 0] = 0
+        img_err = img_err * mask
+        img_sum = np.sum(img_thick, axis=0)
+        img_ratio = pyxas.rm_abnormal(img_thick / img_sum) * mask
+        fsave_multi_img = f'{fsave_root}/multi_elem_fit/thickness'
+        fsave_multi_img_ratio = f'{fsave_root}/multi_elem_fit/thickness_ratio'
+        fsave_multi_err = f'{fsave_root}/multi_elem_fit/fit_error'
+        fsave_multi_mask = f'{fsave_root}/multi_elem_fit/cluster_mask'
+        pyxas.create_directory(fsave_multi_img)
+        pyxas.create_directory(fsave_multi_img_ratio)
+        pyxas.create_directory(fsave_multi_err)
+        pyxas.create_directory(fsave_multi_mask)
+
+        fsave_img = f'{fsave_multi_img}/fit_thick_{fn_short}.tiff'
+        fsave_img_ratio = f'{fsave_multi_img_ratio}/ratio_fit_thick_{fn_short}.tiff'
+        fsave_err = f'{fsave_multi_err}/fit_thick_error_{fn_short}.tiff'
+        fsave_mask = f'{fsave_multi_mask}/mask_{fn_short}.tiff'
+
+
+        io.imsave(fsave_img, img_thick.astype(np.float32))
+        io.imsave(fsave_img_ratio, img_ratio.astype(np.float32))
+        io.imsave(fsave_err, img_err.astype(np.float32))
+        if not (isinstance(mask, int)):
+            io.imsave(fsave_mask, mask.astype(np.float32))
+
+        if color_flag:
+            fsave_multi_color = f'{fsave_root}/multi_elem_fit/colormix'
+            color = self.tx_mulit_elem_color.text()
+            #color = pyxas.convert_color_string(color)
+            clim_txt = self.tx_mulit_elem_color_clim.text()
+            clim_txt = clim_txt.split(',')
+            cmin = float(clim_txt[0])
+            cmax = float(clim_txt[1])
+            self.colormix_and_save(img_ratio, color, clim=[cmin, cmax],
+                                   fsave_root=fsave_multi_color,
+                                   fn_save=f'ratio_colormix_{fn_short}')
+
+
+
+    def colormix_and_save(self, img, color, clim=[0,1], fsave_root='.', fn_save='colormix'):
+        img_color = pyxas.colormix(img, color=color, clim=clim)
+        cmin, cmax = clim
+        fsave_color = f'{fsave_root}/{fn_save}.jpg'
+        pyxas.create_directory(fsave_root)
+        pyxas.toimage(img_color[:, :, :3], cmin=cmin, cmax=cmax).save(fsave_color)
+
 
 
     def bin_image(self):
@@ -3970,6 +4664,22 @@ class App(QWidget):
             #img_stack = img.copy()
         return img_stack
 
+    def _get_roi_cord(self, roi_selected):
+        canvas = self.canvas1
+        roi_list = canvas.roi_list
+        if (type(roi_selected) is str) and ('roi_' in roi_selected) and (not 'SM' in roi_selected) and not (
+                '-1' in roi_selected):
+            roi_cord = np.int32(np.array(roi_list[roi_selected][:4]))
+            print(f'{roi_cord}')
+            a, b, c, d = roi_cord[0], roi_cord[1], roi_cord[2], roi_cord[3]
+            x1 = min(a, c)
+            x2 = max(a, c)
+            y1 = min(b, d)
+            y2 = max(b, d)
+            cord = [x1, x2, y1, y2]
+            return cord
+        else:
+            return None
 
     def _get_elem(self):
         elem = self.tx_elem.text()
@@ -4126,8 +4836,12 @@ class App(QWidget):
             filter_size = int(self.tx_rm_noise_size.text())
             n = img.shape[0]
             self.img_rm_noise = np.zeros(img.shape)
+            self.pb_rm_noise.setEnabled(False)
+            QApplication.processEvents()
             for i in range(n):
                 self.img_rm_noise[i] = pyxas.rm_noise(img[i], noise_level, filter_size)
+                self.msg = f'Median filter2 denoising for image #{i + 1}/{n}'
+                self.update_msg()
             if self.cb1.findText('Noise removal') < 0:
                 self.cb1.addItem('Noise removal')
             self.cb1.setCurrentText('Noise removal')
@@ -4136,8 +4850,37 @@ class App(QWidget):
         except Exception as err:
             self.msg = f'fails to remove noise. Error: {str(err)}'
         finally:
+            self.pb_rm_noise.setEnabled(True)
             self.update_msg()
+            QApplication.processEvents()
 
+    def noise_removal_nl(self):
+        try:
+            canvas = self.canvas1
+            #img = canvas.current_img.copy()
+            img = canvas.img_stack.copy()
+            patch_dis = int(self.tx_rm_noise_nl_patch_dis.text())
+            patch_size = int(self.tx_rm_noise_nl_patch_size.text())
+            n = img.shape[0]
+            img_d = img.copy()
+            self.pb_rm_noise_nl.setEnabled(False)
+            self.img_rm_noise = np.zeros(img.shape)
+            for i in trange(n):
+                self.img_rm_noise[i] = pyxas.img_denoise_nl(img[i], patch_size, patch_dis)[0]
+                self.msg = f'Non-local mean denoising for image #{i+1}/{n}'
+                self.update_msg()
+                QApplication.processEvents()
+            if self.cb1.findText('Noise removal') < 0:
+                self.cb1.addItem('Noise removal')
+            self.cb1.setCurrentText('Noise removal')
+            self.update_canvas_img()
+            self.msg = 'Noise removed'
+        except Exception as err:
+            self.msg = f'fails to remove noise. Error: {str(err)}'
+        finally:
+            self.pb_rm_noise_nl.setEnabled(True)
+            self.update_msg()
+            QApplication.processEvents()
 
     def convert_percentage_image(self):
         try:
@@ -4577,6 +5320,82 @@ class App(QWidget):
                 self.update_canvas_img()
         except Exception as err:
             print(err)
+
+    def batch_colormix_open_file(self):
+        try:
+            options = QFileDialog.Option()
+            options |= QFileDialog.DontUseNativeDialog
+            file_type = '*.*'
+            fn, _ = QFileDialog.getOpenFileName(xanes, "QFileDialog.getOpenFileName()", "", '*', options=options)
+            if fn:
+                fn_tmp = fn.split('/')
+                fn_short = fn_tmp[-1]
+                file_type = fn_short.split('.')[-1]
+                file_prefix = fn_short.split('_')[0]
+                if len(file_prefix) > 4:
+                    file_prefix = file_prefix[:4]
+                self.batch_color_file_path = '/'.join(t for t in fn_tmp[:-1])
+                self.batch_color_files = pyxas.retrieve_file_type(self.batch_color_file_path,
+                                                                  file_prefix, file_type)
+                n_file = len(self.batch_color_files)
+                self.load_file_batch_color_successfull = 1
+                msg = f'{n_file} file loaded: {fn_short} ...'
+                self.tx_batch_color_folder.setText(fn)
+            else:
+                self.load_file_batch_color_successfull = 0
+                self.batch_color_files = []
+                msg = 'fail to load files'
+        except Exception as err:
+            print(err)
+            msg = str(err)
+            self.batch_color_files = []
+            self.load_file_batch_color_successfull = 0
+        finally:
+            self.lb_batch_color_msg.setText(msg)
+
+
+    def batch_colormix(self):
+        try:
+            msg = ''
+            cmin = float(self.tx_batch_color_cmin.text())
+            cmax = float(self.tx_batch_color_cmax.text())
+            color = self.tx_batch_color.text()
+            if self.load_file_batch_color_successfull:
+                self.pb_batch_color.setEnabled(False)
+                self.pb_batch_color.setText('wait ...')
+                files = self.batch_color_files
+                n = len(files)
+                for i in range(n):
+                    fn = files[i]
+                    msg = f'[{i+1}/{n}]: processing {fn.split("/")[-1]} ...'
+                    self.lb_batch_color_msg.setText(msg)
+                    QApplication.processEvents()
+                    img = io.imread(fn)
+                    img = pyxas.check_and_swap_img_axis(img)
+                    fn_split = fn.split('/')
+                    fsave_root = '/'.join(i for i in fn_split[:-1])
+                    fn_short = fn_split[-1]
+                    fn_short = fn_short.split('.')[0]
+                    fn_short = fn_short.split('_')[-1]
+                    fn_save = f'colormix_{fn_short}'
+                    self.colormix_and_save(img, color, clim=[cmin, cmax],
+                                           fsave_root=f'{fsave_root}/colormix',
+                                           fn_save=fn_save)
+
+                msg = 'Batch colormix finished'
+            else:
+                msg = 'File load unsuccessfull :('
+
+        except Exception as err:
+            print(err)
+            msg = str(err)
+        finally:
+            self.pb_batch_color.setText('Batch colormix (Tiff only)')
+            self.pb_batch_color.setEnabled(True)
+            self.lb_batch_color_msg.setText(msg)
+            QApplication.processEvents()
+
+
 
 
     def save_2Dfit(self):
@@ -7208,28 +8027,38 @@ class App(QWidget):
         param_cpu = self.layout_3D_param_cpu()
         param_txm_norm = self.layout_3D_param_txm_norm()
         param_edge_fit = self.layout_3D_param_edge_norm()
-        param_peak_reg = self.layout_3D_param_edge_regulation()
+        #param_peak_reg = self.layout_3D_param_edge_regulation()
         param_image_align = self.layout_3D_param_align()
-        param_xanes_fit = self.layout_3D_param_fitting()
+        param_xanes_fit_eng = self.layout_3D_param_fitting()
+        param_xanes_fit_method = self.layout_3D_fitting_method()
         param_mask = self.layout_3D_param_mask()
         param_ref = self.layout_3D_param_ref()
         param_execute = self.layout_3D_param_execute()
         param_colormix = self.layout_3D_param_colormix()
-        param_comb_color_ref = QVBoxLayout()
-        param_comb_color_ref.addLayout(param_colormix)
-        param_comb_color_ref.addLayout(param_ref)
+        #param_comb_color_ref = QVBoxLayout()
+        #param_comb_color_ref.addLayout(param_colormix)
+        #param_comb_color_ref.addLayout(param_ref)
+        param_comb = QVBoxLayout()
+        param_comb.addLayout(param_mask)
+        param_comb.addLayout(param_ref)
 
         grid = QGridLayout()
         grid.addLayout(param_cpu, 0, 1)
         grid.addLayout(param_txm_norm, 0, 2)
         grid.addLayout(param_edge_fit, 1, 1)
-        grid.addLayout(param_peak_reg, 1, 2)
-        grid.addLayout(param_image_align, 2, 1)
+        #grid.addLayout(param_peak_reg, 1, 2)
+        #grid.addLayout(param_image_align, 2, 1)
+        grid.addLayout(param_image_align, 1, 2)
+        grid.addLayout(param_xanes_fit_eng, 2, 1)
+        grid.addLayout(param_colormix, 2, 2)
         grid.addLayout(param_mask, 2, 2)
-        grid.addLayout(param_xanes_fit, 3, 1)
-        grid.addLayout(param_comb_color_ref, 3, 2)
+        #grid.addLayout(param_xanes_fit, 3, 1)
+        #grid.addLayout(param_comb_color_ref, 3, 2)
+        grid.addLayout(param_xanes_fit_method, 3, 1)
+        grid.addLayout(param_comb, 3, 2)
         # grid.addLayout(param_ref, 4, 2)
         grid.addLayout(param_execute, 4, 1, 1, 2)
+
         return grid
 
     def layout_3D_param_cpu(self):
@@ -7599,6 +8428,12 @@ class App(QWidget):
         hbox_param_fit_range.addWidget(self.tx_param_fit_range_e)
         hbox_param_fit_range.setAlignment(QtCore.Qt.AlignLeft)
 
+        vbox_param_fit_range = QVBoxLayout()
+        vbox_param_fit_range.addWidget(lb_param_fit_iter0)
+        vbox_param_fit_range.addLayout(hbox_param_fit_range)
+        return vbox_param_fit_range
+
+    def layout_3D_fitting_method(self):
 
         # XANES fitting
          # fit 3D method
@@ -7622,7 +8457,7 @@ class App(QWidget):
         self.fit_param_method_group = QButtonGroup()
         self.fit_param_method_group.setExclusive(True)
         self.fit_param_method_group.addButton(self.rd_fit_method1)
-        self.fit_param_method_group.addButton(self.rd_fit_method2)
+        #self.fit_param_method_group.addButton(self.rd_fit_method2)
         self.fit_param_method_group.addButton(self.rd_fit_method3)
 
         hbox_fit_param_method = QHBoxLayout()
@@ -7709,9 +8544,9 @@ class App(QWidget):
 
 
         vbox_param_fit = QVBoxLayout()
-        vbox_param_fit.addWidget(lb_param_fit_iter0)
+        #vbox_param_fit.addWidget(lb_param_fit_iter0)
         #vbox_param_fit.addLayout(hbox_param_fit_edge)
-        vbox_param_fit.addLayout(hbox_param_fit_range)
+        #vbox_param_fit.addLayout(hbox_param_fit_range)
         vbox_param_fit.addWidget(self.lb_empty)
         vbox_param_fit.addWidget(lb_param_fit_method)
         vbox_param_fit.addLayout(hbox_fit_param_method)
@@ -7940,8 +8775,9 @@ class App(QWidget):
         return vbox_param_execute
 
     def layout_3D_fit_peak_only(self):
-        gpbox = QGroupBox('Fit peak only')
+        gpbox = QGroupBox()
         gpbox.setFont(self.font1)
+        gpbox.setTitle('Fit Peak / Cluster Mask only')
 
         lb_edge_range = QLabel()
         lb_edge_range.setFont(self.font1)
@@ -9188,7 +10024,10 @@ class MyCanvas(FigureCanvas):
             if self.show_roi_flag:
                 for i in range(len(self.roi_list)):
                     self.current_color = self.color_list[i % 10]
-                    self.roi_display(self.roi_list[f'roi_{i}'])
+                    try:
+                        self.roi_display(self.roi_list[f'roi_{i}'])
+                    except:
+                        pass
         except Exception as err:
             print(f'Error in updating image. Error: {str(err)}')
 
@@ -9304,8 +10143,10 @@ class MyCanvas(FigureCanvas):
 
 
 if __name__ == '__main__':
+
     warnings.filterwarnings("ignore")
     app = QApplication(sys.argv)
     xanes = App()
     xanes.show()
+
     sys.exit(app.exec_())

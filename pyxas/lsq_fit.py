@@ -335,6 +335,9 @@ def admm_iter2(A, y, rate=0.2, maxiter=100, low_bounds=[0], high_bounds=[1e12], 
     z = At @ y
     c = At @ A
 
+    ATA = At @ A
+    ATA_inv = np.linalg.inv(ATA)
+
     n_ref = A.shape[1]
     n_pix = y.shape[1]
 
@@ -357,9 +360,11 @@ def admm_iter2(A, y, rate=0.2, maxiter=100, low_bounds=[0], high_bounds=[1e12], 
     hb = list(high_bounds) + [1e12] * n_ref
     hb = hb[:n_ref]
 
+    # initialize using Least-square-fitting
+    x = ATA_inv @ At @ y
     for i in trange(maxiter):
-        m2 = z + (w - u) * rate
-        x = np.matmul(m1, m2)
+        #m2 = z + (w - u) * rate
+        #x = np.matmul(m1, m2)
         w_updated = x + u
 
         # apply bounds
@@ -372,6 +377,8 @@ def admm_iter2(A, y, rate=0.2, maxiter=100, low_bounds=[0], high_bounds=[1e12], 
         if conv < epsilon:
             n_iter = i + 1
             break
+        m2 = z + (w - u) * rate
+        x = np.matmul(m1, m2)
     convergence = convergence[:n_iter]
     return w
 

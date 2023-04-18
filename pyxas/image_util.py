@@ -3,7 +3,11 @@ from scipy import ndimage
 import scipy.fftpack as sf
 import matplotlib.pyplot as plt
 from scipy.signal import medfilt2d
-
+from skimage.restoration import denoise_nl_means, estimate_sigma
+from tqdm import trange
+from multiprocessing import Pool, cpu_count
+from tqdm import tqdm
+from functools import partial
 
 def rm_abnormal(img):
     tmp = img.copy()
@@ -13,6 +17,13 @@ def rm_abnormal(img):
 
     return tmp
 
+def check_and_swap_img_axis(img):
+    s = img.shape
+    img_s = img.copy()
+    if np.min(s) == s[-1] and len(s)==3:
+        img_s = np.swapaxes(img_s, 1, 2)
+        img_s = np.swapaxes(img_s, 0, 1)
+    return img_s
 
 def img_smooth(img, kernal_size, axis=0):
     s = img.shape
@@ -31,6 +42,79 @@ def img_smooth(img, kernal_size, axis=0):
         for i in range(img_stack.shape[2]):
             img_stack[:, :, i] = medfilt2d(img_stack[:,:, i], kernal_size)
     return img_stack
+
+
+def rm_noise(img, noise_level=2e-3, filter_size=3):
+    img_s = medfilt2d(img, filter_size)
+    id0 = img_s==0
+    img_s[id0] = img[id0]
+    img_diff = np.abs(img - img_s)
+    index = img_diff > noise_level
+    img_m = img.copy()
+    img_m[index] = img_s[index]
+    return img_m
+
+
+def img_denoise_bm3d(img, sigma=0.01):
+    try:
+        import bm3d
+        s = img.shape
+        if len(s) == 2:
+            img_stack = img.reshape(1, s[0], s[1])
+        else:
+            img_stack = img.copy()
+        img_d = img_stack.copy()
+        n = img_stack.shape[0]
+        for i in range(n):
+            img_d[i] = bm3d.bm3d(img_stack[i], sigma_psd=sigma, stage_arg=bm3d.BM3DStages.HARD_THRESHOLDING)
+        return img_d
+    except Exception as err:
+        print(err)
+        return img
+
+
+def img_denoise_nl_single(img, patch_size=5, patch_distance=6):
+    img_d = img.copy()
+    patch_kw = dict(patch_size=patch_size,  # 5x5 patches
+                    patch_distance=patch_distance,  # 13x13 search area
+                    )
+    sigma_est = np.mean(estimate_sigma(img_d))
+    img_d = denoise_nl_means(img_d, h=1.2 * sigma_est, sigma=sigma_est, fast_mode=True, **patch_kw)
+    return img_d
+
+
+def img_denoise_nl(img, patch_size=5, patch_distance=6):
+    s = img.shape
+    if len(s) == 2:
+        img_stack = img.reshape(1, s[0], s[1])
+    else:
+        img_stack = img.copy()
+    img_d = img_stack.copy()
+    n = img_stack.shape[0]
+    for i in range(n):
+        img_d[i] = img_denoise_nl_single(img_stack[i], patch_size, patch_distance)
+    return img_d
+
+
+def img_denoise_nl_mpi(img, patch_size=5, patch_distance=6, n_cpu=8):
+    max_cpu = round(cpu_count() * 0.8)
+    n_cpu = min(n_cpu, max_cpu)
+    n_cpu = max(n_cpu, 1)
+    s = img.shape
+    if len(s) == 2:
+        img_stack = img.reshape(1, s[0], s[1])
+    else:
+        img_stack = img.copy()
+    img_d = img_stack.copy()
+    pool = Pool(n_cpu)
+    res = []
+    partial_func = partial(img_denoise_nl_single, patch_size=patch_size, patch_distance=patch_distance)
+    for result in tqdm(pool.imap(func=partial_func, iterable=img), total=len(img)):
+        res.append(result)
+    pool.close()
+    pool.join()
+    img_d = np.array(res)
+    return img_d
 
 
 def img_fillhole(img, binary_threshold=0.5):
@@ -75,15 +159,6 @@ def img_erosion(img, binary_threshold=0.5, iterations=2):
 
 
 
-def rm_noise(img, noise_level=2e-3, filter_size=3):
-    img_s = medfilt2d(img, filter_size)
-    id0 = img_s==0
-    img_s[id0] = img[id0]
-    img_diff = np.abs(img - img_s)
-    index = img_diff > noise_level
-    img_m = img.copy()
-    img_m[index] = img_s[index]
-    return img_m
 
 
 def _get_mask(dx, dy, ratio):

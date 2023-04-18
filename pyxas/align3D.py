@@ -9,6 +9,8 @@ from scipy.ndimage import shift, center_of_mass
 from pystackreg import StackReg
 from pyxas.image_util import dftregistration,idxmax
 from skimage import io
+from multiprocessing import Pool, cpu_count
+from tqdm import tqdm
 
 def align_img(img_ref, img, align_flag=1):
     img1_fft = np.fft.fft2(img_ref)
@@ -57,6 +59,15 @@ def align_img_stackreg(img_ref, img, align_flag=1, method='translation'):
     else:
         return row_shift, col_shift, sr
 
+def align_img_stackreg2(img_comb):
+    sr = StackReg(StackReg.TRANSLATION)
+    img = img_comb[0]
+    img_roi = img_comb[1]
+    img_ref = img_comb[2]
+    tmat = sr.register(img_ref, img_roi)
+    img_ali = sr.transform(img)
+    return img_ali
+
 
 def align_img_stack(img, img_mask=None, select_image_index=None, print_flag=1):
     img_align = deepcopy(img)
@@ -101,6 +112,20 @@ def align_img_stack_stackreg(img, img_mask=None, select_image_index=None, print_
                 print('aligning #{0}, rshift:{1:3.2f}, cshift:{2:3.2f}'.format(i, r, c))
     return img_align
 
+def align_img_stack_stackreg2_mpi(img, ref_index, img_roi, n_cpu=8):
+    max_cpu = round(cpu_count() * 0.8)
+    n_cpu = min(n_cpu, max_cpu)
+    n_cpu = max(n_cpu, 1)
+    n = len(img)
+    img_comb = ((img[i], img_roi[i], img_roi[ref_index]) for i in range(n))
+    pool = Pool(n_cpu)
+    res = []
+    for result in tqdm(pool.imap(func=align_img_stackreg2, iterable=img_comb), total=n):
+        res.append(result)
+    pool.close()
+    pool.join()
+    img_ali = np.array(res)
+    return img_ali
 
 def align_two_img_stack(img_ref, img):
     s = img_ref.shape

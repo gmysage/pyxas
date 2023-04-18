@@ -1,14 +1,12 @@
 import numpy as np
 from matplotlib.colors import ListedColormap
+import matplotlib.pyplot as plt
 
 def colormix(img, color='r, g, b', scale=[1], clim=[0,1], plot_flag=0):
     s = img.shape
     assert len(s) >= 2, 'colormix: need 3D image to convert rgb'
     num_channel = s[0]   
-
-    color = color.replace(' ','')
-    color = color.replace(';', ',')
-    color = color.split(',') 
+    color = convert_color_string(color)
     if len(color) < num_channel:
         color = ['r', 'g', 'b', 'c', 'p', 'y']
     color = color[:num_channel]
@@ -67,7 +65,7 @@ def convert_color_string(color_string=''):
     color = color.replace(';', ',')
     color = color.split(',')
     if color[0] == '':
-        color = ['r', 'g', 'b', 'c', 'p', 'y', 'gray']
+        color = ['r', 'g', 'b', 'c', 'p', 'y', 'gray', 'black']
     return color
 
 

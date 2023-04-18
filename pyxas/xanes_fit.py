@@ -755,14 +755,18 @@ def assemble_xanes_from_files(files_recon, sli=[], align_flag=0, align_ref_index
         return img_xanes, xanes_eng
 
 
-def fit_2D_multi_elem_thick(img_xanes, xanes_eng, elem, eng_exclude, bkg_polynomial_order):
+def fit_2D_multi_elem_thick(img_xanes, xanes_eng, elem, eng_exclude,
+                            bkg_polynomial_order, method, admm_iter, admm_rate):
     s = img_xanes.shape
     n_elem = len(elem)
     X, A, A_all, x_eng, Y, Y_fit, Y_diff, x_eng_all, Y_all, Y_fit_all = fit_multi_element_mu(img_xanes,
                                                                                              xanes_eng,
                                                                                              elem,
                                                                                              eng_exclude,
-                                                                                             bkg_polynomial_order)
+                                                                                             bkg_polynomial_order,
+                                                                                             method,
+                                                                                             admm_iter,
+                                                                                             admm_rate)
     thickness = X[:n_elem].reshape((n_elem, s[1], s[2]))
     y_diff = np.sum(Y_diff, axis=0).reshape((s[1], s[2]))
     y_fit_err = np.abs(y_diff)
