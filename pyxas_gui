@@ -9889,6 +9889,10 @@ class App(QWidget):
                                           file_type=file_type)
             file_suffix = files[0].split('.')[-1]
             scale = float(self.tx_3D_scale_img.text())
+
+            align_flag = 1 if self.rd_param_align_yes.isChecked() else 0
+            align_ref_index = int(self.tx_param_align_ref.text())
+
             time_s = time.time()
             try:
                 for i in range(len(files)):
@@ -9906,6 +9910,8 @@ class App(QWidget):
                         img_xanes = pyxas.get_img_from_hdf_file(fn, hdf_attr)[hdf_attr]
                     img_xanes *= scale * fit_max
                     img_xanes = img_xanes[xs_id:xe_id]
+                    if align_flag:
+                        image_xanes = pyxas.align_img_stack_stackreg2_mpi(img_xanes, align_ref_index, img_xanes, 4)
                     smart_mask, img_labels = pyxas.kmean_mask(img_xanes * scale, mask_comp)
                     for j in range(mask_comp):
                         fn_save_mask = f'{fs[str(j)]}/{fn_save}_cmask_{j}.tiff'
