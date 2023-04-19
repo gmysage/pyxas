@@ -3515,7 +3515,7 @@ class App(QWidget):
                 fit_eng_range = self._get_fit_eng_range()
                 img_stack_s = img_stack[fit_eng_range]
                 eng_s = self.xanes_eng[fit_eng_range]
-                fit_coef, cost, X, y_fit, y_offset, var = self.fit_2d_xanes_core(img_stack_s, eng_s, bkg_polynomial_order, n_iter, learning_rate)
+                fit_coef, cost, X, y_fit, y_offset, var, x_interp, y_interp = self.fit_2d_xanes_core(img_stack_s, eng_s, bkg_polynomial_order, n_iter, learning_rate)
                 self.xanes_2d_fit = fit_coef
                 self.xanes_fit_cost = cost
                 self.xanes_2d_fit_offset = y_offset
@@ -3535,13 +3535,20 @@ class App(QWidget):
 
     def fit_2d_xanes_core(self, img_stack_s, eng_s, bkg_polynomial_order, n_iter, learning_rate):
         if self.rd_fit_method1.isChecked():
-            fit_coef, cost, X, y_fit, y_offset, var = pyxas.fit_2D_xanes_basic(img_stack_s, eng_s, self.spectrum_ref, bkg_polynomial_order)
+            fit_coef, cost, X, y_fit, y_offset, var, x_interp, y_interp = pyxas.fit_2D_xanes_basic(img_stack_s, eng_s,
+                                                                                                   self.spectrum_ref,
+                                                                                                   bkg_polynomial_order)
         elif self.rd_fit_method2.isChecked():
-            fit_coef, cost, X, y_fit, y_offset, var = pyxas.fit_2D_xanes_nnls(img_stack_s, eng_s, self.spectrum_ref, n_iter)
+            fit_coef, cost, X, y_fit, y_offset, var, x_interp, y_interp = pyxas.fit_2D_xanes_nnls(img_stack_s, eng_s,
+                                                                                                  self.spectrum_ref,
+                                                                                                  n_iter)
         elif self.rd_fit_method3.isChecked():
-            fit_coef, cost, X, y_fit, y_offset, var = pyxas.fit_2D_xanes_admm(img_stack_s, eng_s, self.spectrum_ref, learning_rate,
-                                                                 n_iter, [0, 1e10], bkg_polynomial_order)
-        return fit_coef, cost, X, y_fit, y_offset, var
+            fit_coef, cost, X, y_fit, y_offset, var, x_interp, y_interp = pyxas.fit_2D_xanes_admm(img_stack_s, eng_s,
+                                                                                                  self.spectrum_ref,
+                                                                                                  learning_rate, n_iter,
+                                                                                                  [0, 1e10],
+                                                                                                  bkg_polynomial_order)
+        return fit_coef, cost, X, y_fit, y_offset, var, x_interp, y_interp
 
 
     def get_bkg_poly_order(self):
@@ -4608,6 +4615,8 @@ class App(QWidget):
 
 
     def _select_xanes_fit_img(self):
+        return_flag, img = self.choose_image_for_fittting()
+        '''
         if self.dataset_used_for_fitting == 0:
             img = self.img_xanes
         elif self.dataset_used_for_fitting == 1:
@@ -4616,6 +4625,7 @@ class App(QWidget):
             img = self.img_regulation
         else:
             img = []
+        '''
         return img
 
 
@@ -4723,7 +4733,7 @@ class App(QWidget):
             img_stack_s = np.mean(np.mean(img_stack, axis=-1), axis=-1)
             img_stack_s = img_stack_s.reshape((len(eng), 1, 1))
 
-            fit_coef, cost, X, y_fit, y_offset, var = self.fit_2d_xanes_core(img_stack_s, eng, bkg_polynomial_order, n_iter, learning_rate)
+            fit_coef, cost, X, y_fit, y_offset, var, x_interp, y_interp = self.fit_2d_xanes_core(img_stack_s, eng, bkg_polynomial_order, n_iter, learning_rate)
             fit_coef = np.squeeze(fit_coef)
             cost = np.squeeze(cost)
             y_fit = np.squeeze(y_fit)
@@ -4734,7 +4744,8 @@ class App(QWidget):
             plt.figure()
             legend = []
             line_raw, = plt.plot(eng, np.squeeze(img_stack_s), 'b.', label='Experiment data')
-            line_fit = plt.plot(eng, y_fit, color='r', label='Fitted')
+            #line_fit = plt.plot(eng, y_fit, color='r', label='Fitted')
+            line_fit = plt.plot(x_interp, y_interp, color='r', label='Fitted')
             legend.append(line_raw)
             legend.append(line_fit)
             ref_offset = {}

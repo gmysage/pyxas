@@ -307,7 +307,27 @@ def fit_2D_xanes_basic(img_xanes, eng, spectrum_ref, bkg_polynomial_order):
         var2[i] = ATA_inv_diag[i] * sigma2
     var = np.sqrt(var2)
     var = var.reshape((num_ref+num_order, s[1], s[2]))
-    return fit_coef, cost, X, Y_hat, Y_offset, var
+
+    # interpolate energy for display
+    eng_min = 10000000
+    eng_max = 0
+    for i in range(num_ref):
+        idx = f'ref{i}'
+        if eng_min > spectrum_ref[idx][0, 0]:
+            eng_min = spectrum_ref[idx][0, 0]
+        if eng_max < spectrum_ref[idx][-1, 0]:
+            eng_max = spectrum_ref[idx][-1, 0]
+    eng_min = max(eng_min, eng[0])
+    eng_max = min(eng_max, eng[-1])
+    eng_interp = np.arange(eng_min, eng_max, 0.0005)
+    num_eng_interp = len(eng_interp)
+    A_interp = np.ones((num_eng_interp, num_ref + num_order))
+    A_interp[:, :num_ref] = interp_spec0(spectrum_ref, eng_interp)
+    for i in range(num_order):
+        A_interp[:, i + num_ref] = eng_interp ** (bkg_polynomial_order[i])
+    Y_interp = A_interp @ X
+
+    return fit_coef, cost, X, Y_hat, Y_offset, var, eng_interp, Y_interp
 
 """
 def fit_2D_xanes_non_iter(img_xanes, eng, spectrum_ref):
@@ -378,6 +398,8 @@ def fit_2D_xanes_admm(img_xanes, eng, spectrum_ref, learning_rate=0.2, n_iter=50
     num_eng = len(eng)
     num_order = len(bkg_polynomial_order)
 
+
+
     low_bounds = [bounds[0]] * num_ref
     high_bounds = [bounds[1]] * num_ref
 
@@ -420,7 +442,26 @@ def fit_2D_xanes_admm(img_xanes, eng, spectrum_ref, learning_rate=0.2, n_iter=50
     var = np.sqrt(var2)
     var = var.reshape((num_ref + num_order, s[1], s[2]))
 
-    return fit_coef, cost, X, Y_hat, Y_offset, var
+    # interpolate energy for display
+    eng_min = 10000000
+    eng_max = 0
+    for i in range(num_ref):
+        idx = f'ref{i}'
+        if eng_min > spectrum_ref[idx][0, 0]:
+            eng_min = spectrum_ref[idx][0, 0]
+        if eng_max < spectrum_ref[idx][-1, 0]:
+            eng_max = spectrum_ref[idx][-1, 0]
+    eng_min = max(eng_min, eng[0])
+    eng_max = min(eng_max, eng[-1])
+    eng_interp = np.arange(eng_min, eng_max, 0.0005)
+    num_eng_interp = len(eng_interp)
+    A_interp = np.ones((num_eng_interp, num_ref + num_order))
+    A_interp[:, :num_ref] = interp_spec0(spectrum_ref, eng_interp)
+    for i in range(num_order):
+        A_interp[:, i + num_ref] = eng_interp ** (bkg_polynomial_order[i])
+    Y_interp = A_interp @ X
+
+    return fit_coef, cost, X, Y_hat, Y_offset, var, eng_interp, Y_interp
 
 def fit_2D_xanes_nnls(img_xanes, eng, spectrum_ref, n_iter=50, bkg_polynomial_order=[-3]):
     bkg_polynomial_order = list(np.sort(bkg_polynomial_order))
@@ -481,11 +522,30 @@ def fit_2D_xanes_nnls(img_xanes, eng, spectrum_ref, n_iter=50, bkg_polynomial_or
     nA = len(ATA_inv_diag)
     var2 = np.ones((nA, len(sigma2)))
     for i in range(nA):
-        var2[i] = ATA_inv_diag[i] * sigma2
+        var2[i] = 1.0/ATA_inv_diag[i] * sigma2
     var = np.sqrt(var2)
     var = var.reshape((num_ref + num_order, s[1], s[2]))
 
-    return fit_coef, cost, X, Y_hat, Y_offset
+    # interpolate energy for display
+    eng_min = 10000000
+    eng_max = 0
+    for i in range(num_ref):
+        idx = f'ref{i}'
+        if eng_min > spectrum_ref[idx][0, 0]:
+            eng_min = spectrum_ref[idx][0, 0]
+        if eng_max < spectrum_ref[idx][-1, 0]:
+            eng_max = spectrum_ref[idx][-1, 0]
+    eng_min = max(eng_min, eng[0])
+    eng_max = min(eng_max, eng[-1])
+    eng_interp = np.arange(eng_min, eng_max, 0.0005)
+    num_eng_interp = len(eng_interp)
+    A_interp = np.ones((num_eng_interp, num_ref + num_order))
+    A_interp[:, :num_ref] = interp_spec0(spectrum_ref, eng_interp)
+    for i in range(num_order):
+        A_interp[:, i + num_ref] = eng_interp ** (bkg_polynomial_order[i])
+    Y_interp = A_interp @ X
+
+    return fit_coef, cost, X, Y_hat, Y_offset, var, eng_interp, Y_interp
 
 """
 def fit_2D_xanes_iter(img_xanes, eng, spectrum_ref, coef0=None, offset=None, learning_rate=0.005, n_iter=10, bounds=[0,1], fit_iter_lambda=0):
