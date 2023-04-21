@@ -50,11 +50,12 @@ def fit_2D_xanes_using_param(img_xanes, xanes_eng, fit_param, spectrum_ref):
     n_iter = int(fit_param['fit_iter_num'])
     bkg_polynomial_order = fit_param['fit_bkg_poly']
 
+    '''
     regulation_flag = fit_param['regulation_flag']
     if regulation_flag:
         regulation_designed_max = fit_param['regulation_designed_max']
         regulation_gamma = fit_param['regulation_gamma']
-
+    '''
     mask_xanes_flag = fit_param['mask_xanes_flag']
 
     n_comp = fit_param['n_comp'] if mask_xanes_flag else 1
@@ -88,10 +89,11 @@ def fit_2D_xanes_using_param(img_xanes, xanes_eng, fit_param, spectrum_ref):
     else:
         img_thickness = None
     # regularize xanes image
+    '''
     if regulation_flag:
         img_xanes_norm = pyxas.normalize_2D_xanes_regulation(img_xanes_norm, xanes_eng, pre_edge, post_edge,
                                                              regulation_designed_max, regulation_gamma)
-
+    '''
     fit_method = fit_param['fit_method']
     fit_eng = fit_param['fit_eng']
     eng_s = pyxas.find_nearest(xanes_eng, fit_eng[0])
@@ -105,13 +107,13 @@ def fit_2D_xanes_using_param(img_xanes, xanes_eng, fit_param, spectrum_ref):
     fit_eng_range = np.arange(eng_s, eng_e)[np.bool8(tmp)]
     # fitting
     if fit_method == 'basic':
-        fit_coef, fit_cost, X, Y_hat, fit_offset, var = pyxas.fit_2D_xanes_basic(img_xanes_norm[fit_eng_range],
+        fit_coef, fit_cost, X, Y_hat, fit_offset, var, eng_interp, Y_interp = pyxas.fit_2D_xanes_basic(img_xanes_norm[fit_eng_range],
                                                                             xanes_eng[fit_eng_range],
                                                                             spectrum_ref,
                                                                             bkg_polynomial_order)
     # fit_method == 'admm'
     else:
-        fit_coef, fit_cost, X, Y_hat, fit_offset, var = pyxas.fit_2D_xanes_admm(img_xanes_norm[fit_eng_range],
+        fit_coef, fit_cost, X, Y_hat, fit_offset, var, eng_interp, Y_interp = pyxas.fit_2D_xanes_admm(img_xanes_norm[fit_eng_range],
                                                                            xanes_eng[fit_eng_range],
                                                                            spectrum_ref,
                                                                            learning_rate,

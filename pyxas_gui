@@ -3515,7 +3515,9 @@ class App(QWidget):
                 fit_eng_range = self._get_fit_eng_range()
                 img_stack_s = img_stack[fit_eng_range]
                 eng_s = self.xanes_eng[fit_eng_range]
-                fit_coef, cost, X, y_fit, y_offset, var, x_interp, y_interp = self.fit_2d_xanes_core(img_stack_s, eng_s, bkg_polynomial_order, n_iter, learning_rate)
+                fit_coef, cost, X, y_fit, y_offset, var, x_interp, y_interp = self.fit_2d_xanes_core(img_stack_s, eng_s,
+                                                                                                     bkg_polynomial_order,
+                                                                                                     n_iter, learning_rate)
                 self.xanes_2d_fit = fit_coef
                 self.xanes_fit_cost = cost
                 self.xanes_2d_fit_offset = y_offset
@@ -8263,6 +8265,7 @@ class App(QWidget):
 
         return vbox_param_edge
 
+    '''
     def layout_3D_param_edge_regulation(self):
         lb_param_reg_edge0 = QLabel()
         lb_param_reg_edge0.setFont(self.font1)
@@ -8329,6 +8332,7 @@ class App(QWidget):
         vbox_param_reg.setAlignment(QtCore.Qt.AlignTop)
 
         return vbox_param_reg
+    '''
 
     def layout_3D_param_align(self):
         lb_param_align0 = QLabel()
@@ -9151,6 +9155,7 @@ class App(QWidget):
                 self.fit_param['post_edge'] = []
                 self.fit_param['pre_edge'] = []
 
+            '''
             self.fit_param['regulation_flag'] = 1 if self.rd_param_reg_edge_yes.isChecked() else 0
             peak_max = self.tx_param_reg_peak.text()
             peak_max = float(peak_max) if peak_max else 1.6
@@ -9161,6 +9166,7 @@ class App(QWidget):
             peak_width = float(peak_width) if peak_width else 0.05
             self.fit_param['regulation_gamma'] = peak_width
             self.tx_param_reg_gamma.setText(f'{peak_width:2.4f}')
+            '''
 
             self.num_cpu = min(int(self.tx_param_cpu.text()), round(cpu_count() * 0.8))
             self.tx_param_cpu.setText(str(self.num_cpu))

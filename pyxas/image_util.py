@@ -442,13 +442,13 @@ def get_circle_line_from_img(img, cen, r, pix_size=17.1, theta=[0, 360.0], f_out
 
 
 class IndexTracker(object):
-    def __init__(self, ax, X):
+    def __init__(self, ax, X, cmap):
         self.ax = ax
         self._indx_txt = ax.set_title(' ', loc='center')
         self.X = X
         self.slices, rows, cols = X.shape
         self.ind = self.slices//2
-        self.im = ax.imshow(self.X[self.ind, :, :], cmap='gray')
+        self.im = ax.imshow(self.X[self.ind, :, :], cmap=cmap)
         self.update()
 
     def onscroll(self, event):
@@ -465,13 +465,13 @@ class IndexTracker(object):
         self.im.axes.figure.canvas.draw()
 
 
-def image_movie(data, *, ax=None):
+def image_movie(data, ax=None, cmap='gray'):
     # show a movie of image in python environment
     if ax is None:
         fig, ax = plt.subplots()
     else:
         fig = ax.figure
-    tracker = IndexTracker(ax, data)
+    tracker = IndexTracker(ax, data, cmap)
     # monkey patch the tracker onto the figure to keep it alive
     fig._tracker = tracker
     fig.canvas.mpl_connect('scroll_event', tracker.onscroll)
