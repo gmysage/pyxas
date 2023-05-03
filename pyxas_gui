@@ -31,6 +31,7 @@ from scipy.signal import medfilt2d, medfilt
 from scipy.interpolate import interp1d, UnivariateSpline
 from scipy import ndimage
 from skimage import io
+
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from copy import deepcopy
@@ -169,6 +170,7 @@ class App(QWidget):
         self.mask1 = np.array([1])
         self.mask2 = np.array([1])
         self.mask3 = np.array([1])
+        self.mask_auto = np.array([1])
         self.mask = np.array([1])
         self.smart_mask = np.array([1])
         self.smart_mask_comp = 2
@@ -655,6 +657,7 @@ class App(QWidget):
         tab4 = QWidget()
         tab5 = QWidget()
         tab6 = QWidget()
+        tab7 = QWidget()
 
         lay1 = QVBoxLayout()
         lay2 = QVBoxLayout()
@@ -662,6 +665,7 @@ class App(QWidget):
         lay4 = QVBoxLayout()
         lay5 = QVBoxLayout()
         lay6 = QVBoxLayout()
+        lay7 = QVBoxLayout()
 
         scroll1 = QScrollArea()
         scroll1.setWidgetResizable(True)
@@ -693,11 +697,17 @@ class App(QWidget):
         scroll6.setFixedHeight(h)
         scroll6.setFixedWidth(w)
 
+        scroll7 = QScrollArea()
+        scroll7.setWidgetResizable(True)
+        scroll7.setFixedHeight(h)
+        scroll7.setFixedWidth(w)
+
         xanes_prep_layout = self.layout_xanes_prep()
         xanes_roi_layout = self.layout_plot_spec
         xanes_roi_norm_layout = self.layout_roi_normalization()
         xanes_fit2d_layout = self.layout_fit2d()
-        img_tools_layout = self.layout_img_tools()
+        img_tools_mask_layout = self.layout_img_tools_mask()
+        img_tools_colormix_layout = self.layout_colormix()
         canvas_layout = self.layout_canvas()
         analysis_layout = self.layout_find_edge()
         multi_elem_layout = self.layout_multi_elem()
@@ -708,6 +718,7 @@ class App(QWidget):
         vbox_lay4 = QVBoxLayout()
         vbox_lay5 = QVBoxLayout()
         vbox_lay6 = QVBoxLayout()
+        vbox_lay7 = QVBoxLayout()
 
         vbox_lay1.addLayout(xanes_prep_layout)
         vbox_lay1.setAlignment(QtCore.Qt.AlignTop)
@@ -719,14 +730,17 @@ class App(QWidget):
         vbox_lay3.addLayout(xanes_fit2d_layout)
         vbox_lay3.setAlignment(QtCore.Qt.AlignTop)
 
-        vbox_lay4.addLayout(img_tools_layout)
+        vbox_lay4.addLayout(img_tools_mask_layout)
         vbox_lay4.setAlignment(QtCore.Qt.AlignTop)
 
-        vbox_lay5.addLayout(analysis_layout)
+        vbox_lay5.addLayout(img_tools_colormix_layout)
         vbox_lay5.setAlignment(QtCore.Qt.AlignTop)
 
-        vbox_lay6.addLayout(multi_elem_layout)
+        vbox_lay6.addLayout(analysis_layout)
         vbox_lay6.setAlignment(QtCore.Qt.AlignTop)
+
+        vbox_lay7.addLayout(multi_elem_layout)
+        vbox_lay7.setAlignment(QtCore.Qt.AlignTop)
 
         gp_box1 = QGroupBox()
         gp_box2 = QGroupBox()
@@ -734,6 +748,7 @@ class App(QWidget):
         gp_box4 = QGroupBox()
         gp_box5 = QGroupBox()
         gp_box6 = QGroupBox()
+        gp_box7 = QGroupBox()
 
         gp_box1.setLayout(vbox_lay1)
         gp_box2.setLayout(vbox_lay2)
@@ -741,6 +756,7 @@ class App(QWidget):
         gp_box4.setLayout(vbox_lay4)
         gp_box5.setLayout(vbox_lay5)
         gp_box6.setLayout(vbox_lay6)
+        gp_box7.setLayout(vbox_lay7)
 
         scroll1.setWidget(gp_box1)
         scroll2.setWidget(gp_box2)
@@ -748,6 +764,7 @@ class App(QWidget):
         scroll4.setWidget(gp_box4)
         scroll5.setWidget(gp_box5)
         scroll6.setWidget(gp_box6)
+        scroll7.setWidget(gp_box7)
 
         lay1.addWidget(scroll1)
         lay2.addWidget(scroll2)
@@ -755,6 +772,7 @@ class App(QWidget):
         lay4.addWidget(scroll4)
         lay5.addWidget(scroll5)
         lay6.addWidget(scroll6)
+        lay7.addWidget(scroll7)
 
         tab1.setLayout(lay1)
         tab2.setLayout(lay2)
@@ -762,13 +780,15 @@ class App(QWidget):
         tab4.setLayout(lay4)
         tab5.setLayout(lay5)
         tab6.setLayout(lay6)
+        tab7.setLayout(lay7)
 
         tabs.addTab(tab1, 'Prep.')
         tabs.addTab(tab2, 'Norm.')
-        tabs.addTab(tab3, 'Fit Spec.')
-        tabs.addTab(tab4, 'Img. Tools')
-        tabs.addTab(tab5, 'Others')
-        tabs.addTab(tab6, 'Multi Elem')
+        tabs.addTab(tab3, '2D XANES')
+        tabs.addTab(tab4, 'Mask')
+        tabs.addTab(tab5, 'Colormix')
+        tabs.addTab(tab6, 'Others')
+        tabs.addTab(tab7, 'Multi Elem')
 
         hbox = QHBoxLayout()
         hbox.addWidget(tabs)
@@ -1343,7 +1363,6 @@ class App(QWidget):
         self.tx_cvt_max.setFixedWidth(60)
 
         # 2nd method to fit peak only using polynominal
-
 
         hbox_cvt_percentage = QHBoxLayout()
         hbox_cvt_percentage.addWidget(self.pb_cvt_percentage)
@@ -1925,14 +1944,11 @@ class App(QWidget):
         ##########################
 
 
-    def layout_img_tools(self):
-        lb_empty = QLabel()
+    def layout_thresh_mask(self):
         lb_img = QLabel()
         lb_img.setFont(self.font1)
         lb_img.setText('Threshold Mask')
         lb_img.setFixedWidth(150)
-
-
 
         # mask1
         self.pb_mask1 = QPushButton('Gen. Mask1')
@@ -1992,7 +2008,7 @@ class App(QWidget):
         hbox_mask2.addWidget(lb_mask2)
         hbox_mask2.addWidget(self.tx_mask2)
         hbox_mask2.addWidget(self.pb_mask2_rm)
-        hbox_mask2.setAlignment(QtCore.Qt.AlignTop)
+        hbox_mask2.setAlignment(QtCore.Qt.AlignLeft)
 
         # circular mask
         self.pb_mask3 = QPushButton('Circ. Mask')
@@ -2022,9 +2038,96 @@ class App(QWidget):
         hbox_mask3.addWidget(lb_mask3)
         hbox_mask3.addWidget(self.tx_mask3)
         hbox_mask3.addWidget(self.pb_mask3_rm)
-        hbox_mask3.setAlignment(QtCore.Qt.AlignTop)
+        hbox_mask3.setAlignment(QtCore.Qt.AlignLeft)
 
-        # smart mask
+        vbox_thresh_mask = QVBoxLayout()
+        vbox_thresh_mask.addWidget(lb_img)
+        vbox_thresh_mask.addLayout(hbox_mask1)
+        vbox_thresh_mask.addLayout(hbox_mask2)
+        vbox_thresh_mask.addLayout(hbox_mask3)
+        vbox_thresh_mask.setAlignment(QtCore.Qt.AlignTop)
+        return vbox_thresh_mask
+
+    # otsu threshold
+    def layout_otsu_mask(self):
+        lb_otsu_mask = QLabel()
+        lb_otsu_mask.setFont(self.font1)
+        lb_otsu_mask.setText('Auto threshold')
+        lb_otsu_mask.setFixedWidth(120)
+
+        self.pb_mask_otsu = QPushButton('Auto thresh')
+        self.pb_mask_otsu.setFont(self.font2)
+        self.pb_mask_otsu.clicked.connect(self.generate_otsu_mask)
+        self.pb_mask_otsu.setEnabled(True)
+        self.pb_mask_otsu.setFixedWidth(105)
+
+        self.pb_mask_otsu_rm = QPushButton('Rmv. Mask')
+        self.pb_mask_otsu_rm.setFont(self.font2)
+        self.pb_mask_otsu_rm.clicked.connect(self.rm_otsu_mask)
+        self.pb_mask_otsu_rm.setEnabled(True)
+        self.pb_mask_otsu_rm.setFixedWidth(105)
+
+
+        self.tx_mask_otsu_bin = QLineEdit(self)
+        self.tx_mask_otsu_bin.setFont(self.font2)
+        self.tx_mask_otsu_bin.setText('256')
+        self.tx_mask_otsu_bin.setFixedWidth(50)
+
+        lb_mask_otsu_bin = QLabel()
+        lb_mask_otsu_bin.setFont(self.font2)
+        lb_mask_otsu_bin.setText('    Bins: ')
+        lb_mask_otsu_bin.setFixedWidth(50)
+
+
+        self.chkbox_mask_otsu = QCheckBox('Keep high inten.')
+        self.chkbox_mask_otsu.setFont(self.font2)
+        self.chkbox_mask_otsu.setChecked(True)
+        self.chkbox_mask_otsu.setFixedWidth(145)
+
+        self.tx_mask_otsu_fz = QLineEdit(self)
+        self.tx_mask_otsu_fz.setFont(self.font2)
+        self.tx_mask_otsu_fz.setText('3')
+        self.tx_mask_otsu_fz.setFixedWidth(50)
+
+        lb_mask_otsu_fz = QLabel()
+        lb_mask_otsu_fz.setFont(self.font2)
+        lb_mask_otsu_fz.setText('Filt_sz: ')
+        lb_mask_otsu_fz.setFixedWidth(50)
+
+        self.tx_mask_otsu_iter = QLineEdit(self)
+        self.tx_mask_otsu_iter.setFont(self.font2)
+        self.tx_mask_otsu_iter.setText('2')
+        self.tx_mask_otsu_iter.setFixedWidth(50)
+
+        lb_mask_otsu_iter = QLabel()
+        lb_mask_otsu_iter.setFont(self.font2)
+        lb_mask_otsu_iter.setText('    Iter: ')
+        lb_mask_otsu_iter.setFixedWidth(50)
+
+        hbox_otsu1 = QHBoxLayout()
+        hbox_otsu1.addWidget(self.pb_mask_otsu)
+        hbox_otsu1.addWidget(self.pb_mask_otsu_rm)
+        hbox_otsu1.addWidget(self.chkbox_mask_otsu)
+        hbox_otsu1.setAlignment(QtCore.Qt.AlignLeft)
+
+        hbox_otsu2 = QHBoxLayout()
+        hbox_otsu2.addWidget(lb_mask_otsu_fz)
+        hbox_otsu2.addWidget(self.tx_mask_otsu_fz)
+        hbox_otsu2.addWidget(lb_mask_otsu_iter)
+        hbox_otsu2.addWidget(self.tx_mask_otsu_iter)
+        hbox_otsu2.addWidget(lb_mask_otsu_bin)
+        hbox_otsu2.addWidget(self.tx_mask_otsu_bin)
+        hbox_otsu2.setAlignment(QtCore.Qt.AlignLeft)
+
+        vbox_otsu = QVBoxLayout()
+        vbox_otsu.addWidget(lb_otsu_mask)
+        vbox_otsu.addLayout(hbox_otsu2)
+        vbox_otsu.addLayout(hbox_otsu1)
+        vbox_otsu.setAlignment(QtCore.Qt.AlignTop)
+        return vbox_otsu
+
+    # smart mask
+    def layout_smart_mask(self):
         lb_smart_mask = QLabel()
         lb_smart_mask.setFont(self.font1)
         lb_smart_mask.setText('Clustering Mask')
@@ -2105,8 +2208,6 @@ class App(QWidget):
         self.tx_update_img_label.setFont(self.font2)
         self.tx_update_img_label.setFixedWidth(105)
 
-        lb_empty = QLabel()
-
         hbox_smart_mask1 = QHBoxLayout()
         # hbox_smart_mask1.addWidget(self.pb_smart_mask)
         hbox_smart_mask1.addWidget(self.chkbox_smask)
@@ -2135,16 +2236,17 @@ class App(QWidget):
         hbox_smart_mask4.setAlignment(QtCore.Qt.AlignLeft)
 
         vbox_smart_mask = QVBoxLayout()
-        vbox_smart_mask.addWidget(lb_empty)
         vbox_smart_mask.addWidget(lb_smart_mask)
         vbox_smart_mask.addLayout(hbox_smart_mask1)
         vbox_smart_mask.addLayout(hbox_smart_mask2)
         vbox_smart_mask.addLayout(hbox_smart_mask3)
         vbox_smart_mask.addLayout(hbox_smart_mask4)
-        vbox_smart_mask.addWidget(lb_empty)
         vbox_smart_mask.setAlignment(QtCore.Qt.AlignTop)
 
-        ## img denoise
+        return vbox_smart_mask
+
+    ## img denoise
+    def layout_img_denoise(self):
         lb_img_denoise = QLabel()
         lb_img_denoise.setFont(self.font1)
         lb_img_denoise.setText('Image Denoise')
@@ -2247,6 +2349,19 @@ class App(QWidget):
         hbox_rm_noise_nl.addWidget(self.tx_rm_noise_nl_patch_size)
         hbox_rm_noise_nl.setAlignment(QtCore.Qt.AlignLeft)
 
+        vbox_denoise = QVBoxLayout()
+        vbox_denoise.addWidget(lb_img_denoise)
+        vbox_denoise.addLayout(hbox_filt)
+        vbox_denoise.addLayout(hbox_rm_noise)
+        vbox_denoise.addLayout(hbox_rm_noise_nl)
+        return vbox_denoise
+
+    # binary morphology
+    def layout_binary_morpholog(self):
+        lb_binary = QLabel()
+        lb_binary.setFont(self.font1)
+        lb_binary.setText('Binary morphology')
+        lb_binary.setFixedWidth(150)
         # dilation
         lb_dilation = QLabel()
         lb_dilation.setFont(self.font2)
@@ -2337,27 +2452,41 @@ class App(QWidget):
         hbox_fhole.addWidget(self.pb_fhole)
         hbox_fhole.setAlignment(QtCore.Qt.AlignTop)
 
-        vbox_colormix = self.layout_colormix()
+        vbox_binary_morphology = QVBoxLayout()
+        vbox_binary_morphology.addWidget(lb_binary)
+        vbox_binary_morphology.addLayout(hbox_dilation)
+        vbox_binary_morphology.addLayout(hbox_erosion)
+        vbox_binary_morphology.addLayout(hbox_fhole)
+        vbox_binary_morphology.setAlignment(QtCore.Qt.AlignLeft)
+        return vbox_binary_morphology
+
+    def layout_img_tools_mask(self):
+        lb_empty = QLabel()
+
+        vbox_thresh_mask = self.layout_thresh_mask()
+        vbox_otsu_mask = self.layout_otsu_mask()
+        vbox_smart_mask = self.layout_smart_mask()
+        vbox_img_denoise = self.layout_img_denoise()
+        vbox_binary_morphology = self.layout_binary_morpholog()
+        #vbox_colormix = self.layout_colormix()
 
         # assemble
         vbox_img_assemble = QVBoxLayout()
-        vbox_img_assemble.addWidget(lb_img)
-        vbox_img_assemble.addLayout(hbox_mask1)
-        vbox_img_assemble.addLayout(hbox_mask2)
-        vbox_img_assemble.addLayout(hbox_mask3)
+        vbox_img_assemble.addLayout(vbox_otsu_mask)
+        vbox_img_assemble.addWidget(lb_empty)
+        vbox_img_assemble.addLayout(vbox_thresh_mask)
+        vbox_img_assemble.addWidget(lb_empty)
         vbox_img_assemble.addLayout(vbox_smart_mask)
-        vbox_img_assemble.addWidget(lb_img_denoise)
-        vbox_img_assemble.addLayout(hbox_filt)
-        vbox_img_assemble.addLayout(hbox_rm_noise)
-        vbox_img_assemble.addLayout(hbox_rm_noise_nl)
         vbox_img_assemble.addWidget(lb_empty)
-        vbox_img_assemble.addLayout(hbox_dilation)
-        vbox_img_assemble.addLayout(hbox_erosion)
-        vbox_img_assemble.addLayout(hbox_fhole)
+        vbox_img_assemble.addLayout(vbox_img_denoise)
         vbox_img_assemble.addWidget(lb_empty)
-        vbox_img_assemble.addLayout(vbox_colormix)
+        vbox_img_assemble.addLayout(vbox_binary_morphology)
         vbox_img_assemble.addWidget(lb_empty)
-        vbox_img_assemble.setAlignment(QtCore.Qt.AlignLeft)
+
+        #vbox_img_assemble.addLayout(vbox_colormix)
+
+        #vbox_img_assemble.addWidget(lb_empty)
+        vbox_img_assemble.setAlignment(QtCore.Qt.AlignTop)
         return vbox_img_assemble
 
     def layout_colormix(self):
@@ -2763,7 +2892,7 @@ class App(QWidget):
 
         lb_file = QLabel()
         lb_file.setText('File path:')
-        lb_file.setFixedWidth(80)
+        lb_file.setFixedWidth(70)
         lb_file.setFont(self.font2)
 
         self.tx_multi_elem_folder = QLineEdit()
@@ -2903,7 +3032,7 @@ class App(QWidget):
         self.tx_mulit_elem_color = QLineEdit(self)
         self.tx_mulit_elem_color.setFont(self.font2)
         self.tx_mulit_elem_color.setText('r, g, b')
-        self.tx_mulit_elem_color.setFixedWidth(90)
+        self.tx_mulit_elem_color.setFixedWidth(80)
 
         lb_mulit_elem_color_clim = QLabel()
         lb_mulit_elem_color_clim.setFont(self.font2)
@@ -4393,6 +4522,27 @@ class App(QWidget):
             self.update_msg()
 
 
+    def generate_otsu_mask(self):
+        try:
+            tmp = self.canvas1.current_img
+            filt_sz = int(self.tx_mask_otsu_fz.text())
+            iters = int(self.tx_mask_otsu_iter.text())
+            bins = int(self.tx_mask_otsu_bin.text())
+            reverse = 1 if self.chkbox_mask_otsu.isChecked() else 0
+            mask = pyxas.otsu_mask(tmp, filt_sz, iters, bins)
+            if reverse:
+                mask = 1 - mask
+            self.canvas1.mask = self.canvas1.mask * mask
+            self.mask_auto = mask
+            self.mask = self.canvas1.mask
+            self.update_canvas_img()
+            if self.cb1.findText('Mask') < 0:
+                self.cb1.addItem('Mask')
+            self.pb_mask_otsu.setStyleSheet('color: rgb(200,50,50);')
+        except Exception as err:
+            self.msg = f'invalid mask. Error: {str(err)} '
+            self.update_msg()
+
     def generate_smart_mask(self):
         try:
             self.pb_smart_mask.setEnabled(False)
@@ -4491,7 +4641,7 @@ class App(QWidget):
 
     def rm_mask1(self):
         try:
-            self.canvas1.mask = self.mask2 * self.mask3 * self.smart_mask_current
+            self.canvas1.mask = self.mask2 * self.mask3 * self.smart_mask_current * self.mask_auto
             self.mask1 = np.array([1])
             self.mask = self.canvas1.mask
             self.update_canvas_img()
@@ -4503,7 +4653,7 @@ class App(QWidget):
 
     def rm_mask2(self):
         try:
-            self.canvas1.mask = self.mask1 * self.mask3 * self.smart_mask_current
+            self.canvas1.mask = self.mask1 * self.mask3 * self.smart_mask_current * self.mask_auto
             self.mask2 = np.array([1])
             self.mask = self.canvas1.mask
             self.update_canvas_img()
@@ -4515,7 +4665,7 @@ class App(QWidget):
 
     def rm_mask3(self):
         try:
-            self.canvas1.mask = self.mask1 * self.mask2 * self.smart_mask_current
+            self.canvas1.mask = self.mask1 * self.mask2 * self.smart_mask_current * self.maskauto
             self.mask3 = np.array([1])
             self.mask = self.canvas1.mask
             self.update_canvas_img()
@@ -4524,6 +4674,16 @@ class App(QWidget):
             self.msg = f'something wrong in removing mask3. Error: {str(err)}'
             self.update_msg()
 
+    def rm_otsu_mask(self):
+        try:
+            self.canvas1.mask = self.mask1 * self.mask2 * self.mask3 * self.smart_mask_current
+            self.mask_auto = np.array([1])
+            self.mask = self.canvas1.mask
+            self.update_canvas_img()
+            self.pb_mask_otsu.setStyleSheet('color: rgb(0,0,0);')
+        except Exception as err:
+            self.msg = f'something wrong in removing auto mask. Error: {str(err)}'
+            self.update_msg()
 
     def rm_smart_mask(self):
         try:

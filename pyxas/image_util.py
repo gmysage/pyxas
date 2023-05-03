@@ -4,7 +4,7 @@ import scipy.fftpack as sf
 import matplotlib.pyplot as plt
 from scipy.signal import medfilt2d
 from skimage.restoration import denoise_nl_means, estimate_sigma
-from tqdm import trange
+from skimage.filters import threshold_otsu, threshold_yen
 from multiprocessing import Pool, cpu_count
 from tqdm import tqdm
 from functools import partial
@@ -43,6 +43,16 @@ def img_smooth(img, kernal_size, axis=0):
             img_stack[:, :, i] = medfilt2d(img_stack[:,:, i], kernal_size)
     return img_stack
 
+
+def otsu_mask(img, kernal_size, iters=1, bins=256):
+    img_s = img.copy()
+    img_s[np.isnan(img_s)] = 0
+    img_s[np.isinf(img_s)] = 0
+    for i in range(iters):
+        img_s = img_smooth(img, kernal_size)
+    thresh = threshold_otsu(img_s, nbins=bins)
+    mask = np.float32(img_s > thresh)
+    return np.squeeze(mask)
 
 def rm_noise(img, noise_level=2e-3, filter_size=3):
     img_s = medfilt2d(img, filter_size)
