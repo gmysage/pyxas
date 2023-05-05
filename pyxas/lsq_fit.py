@@ -363,8 +363,8 @@ def admm_iter2(A, y, rate=0.2, maxiter=100, low_bounds=[0], high_bounds=[1e12], 
     # initialize using Least-square-fitting
     # x = ATA_inv @ At @ y
     for i in trange(maxiter):
-        #m2 = z + (w - u) * rate
-        #x = np.matmul(m1, m2)
+        m2 = z + (w - u) * rate
+        x = np.matmul(m1, m2)
         w_updated = x + u
 
         # apply bounds
