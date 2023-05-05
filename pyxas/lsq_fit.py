@@ -361,7 +361,7 @@ def admm_iter2(A, y, rate=0.2, maxiter=100, low_bounds=[0], high_bounds=[1e12], 
     hb = hb[:n_ref]
 
     # initialize using Least-square-fitting
-    x = ATA_inv @ At @ y
+    # x = ATA_inv @ At @ y
     for i in trange(maxiter):
         #m2 = z + (w - u) * rate
         #x = np.matmul(m1, m2)
@@ -377,9 +377,10 @@ def admm_iter2(A, y, rate=0.2, maxiter=100, low_bounds=[0], high_bounds=[1e12], 
         if conv < epsilon:
             n_iter = i + 1
             break
-        m2 = z + (w - u) * rate
-        x = np.matmul(m1, m2)
+        #m2 = z + (w - u) * rate
+        #x = np.matmul(m1, m2)
     convergence = convergence[:n_iter]
+    w = clip_with_bounds(w_updated, lb, hb, first_n_term)
     return w
 
 
