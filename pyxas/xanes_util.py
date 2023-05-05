@@ -137,7 +137,7 @@ def fit_multi_element_mu(img_xanes, xanes_eng, elem, exclude_multi_range,
     ATA = AT @ A
     ATA_inv = np.linalg.inv(ATA)
     if method == 'admm':
-        X = admm_iter2(A, Y, admm_rate, admm_iter, [0], [100])
+        X = admm_iter2(A, Y, admm_rate, admm_iter, [0], [100], first_n_term=n_elem)
     else:
         X = ATA_inv @ AT @ Y
     Y_fit = A @ X

@@ -330,7 +330,7 @@ def admm_iter(A, y, rho=0.2, num_iters=10, X_guess=[], wgt=[], lasso_lamda=0.01,
         convergency[i] = (norm(z.flatten()) - norm(temp.flatten())) / norm(z.flatten())
     return x
 
-def admm_iter2(A, y, rate=0.2, maxiter=100, low_bounds=[0], high_bounds=[1e12], epsilon=1e-16):
+def admm_iter2(A, y, rate=0.2, maxiter=100, low_bounds=[0], high_bounds=[1e12], epsilon=1e-16, first_n_term=None):
     At = A.T
     z = At @ y
     c = At @ A
@@ -368,7 +368,7 @@ def admm_iter2(A, y, rate=0.2, maxiter=100, low_bounds=[0], high_bounds=[1e12], 
         w_updated = x + u
 
         # apply bounds
-        w_updated = clip_with_bounds(w_updated, lb, hb)
+        w_updated = clip_with_bounds(w_updated, lb, hb, first_n_term)
         u = u + x - w_updated
 
         conv = np.linalg.norm(w_updated - w) / np.linalg.norm(w_updated)
@@ -383,9 +383,12 @@ def admm_iter2(A, y, rate=0.2, maxiter=100, low_bounds=[0], high_bounds=[1e12], 
     return w
 
 
-def clip_with_bounds(m, lb, hb):
+def clip_with_bounds(m, lb, hb, first_n_term=None):
     m_clip = m.copy()
-    n = m_clip.shape[0]
+    if first_n_term is None:
+        n = m_clip.shape[0]
+    else:
+        n = min(m_clip.shape[0], first_n_term)
     try:
         for i in range(n):
             id1 = m_clip[i] < lb[i]
