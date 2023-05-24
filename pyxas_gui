@@ -6138,9 +6138,12 @@ class App(QWidget):
 
     def crop_roi(self):
         x_s, x_e, y_s, y_e = self.get_crop_roi()
+        image = self.canvas1.img_stack
         try:
-            self.img_xanes = self.img_xanes[:, x_s:x_e, y_s:y_e]
-            self.cb1.setCurrentText('Raw image')
+            self.img_update = self.image[:, x_s:x_e, y_s:y_e]
+            if self.cb1.findText('Image updated') < 0:
+                self.cb1.addItem('Image updated')
+            self.cb1.setCurrentText('Image updated')
             self.update_canvas_img()
         except Exception as err:
             print(err)
