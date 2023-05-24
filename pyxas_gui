@@ -6140,7 +6140,7 @@ class App(QWidget):
         x_s, x_e, y_s, y_e = self.get_crop_roi()
         image = self.canvas1.img_stack
         try:
-            self.img_update = image[:, x_s:x_e, y_s:y_e]
+            self.img_update = image[:, y_s:y_e, x_s:x_e]
             if self.cb1.findText('Image updated') < 0:
                 self.cb1.addItem('Image updated')
             self.cb1.setCurrentText('Image updated')
