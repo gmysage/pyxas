@@ -820,6 +820,7 @@ class App(QWidget):
         lb_info.setStyleSheet('color: rgb(200, 50, 50);')
         lb_info.setText('Spectrum calc. based on current image stack')
 
+        '''
         lb_roi_x1 = QLabel()
         lb_roi_x1.setText('Top-left  x:')
         lb_roi_x1.setFont(self.font2)
@@ -859,7 +860,7 @@ class App(QWidget):
         self.tx_roi_y2.setText('1')
         self.tx_roi_y2.setFont(self.font2)
         self.tx_roi_y2.setFixedWidth(50)
-
+        '''
         self.pb_roi_draw = QPushButton('Draw ROI')
         self.pb_roi_draw.setFont(self.font2)
         self.pb_roi_draw.clicked.connect(self.draw_roi)
@@ -946,6 +947,89 @@ class App(QWidget):
         self.pb_roi_load_last.setFont(self.font2)
         self.pb_roi_load_last.clicked.connect(self.load_roi_last)
         self.pb_roi_load_last.setFixedWidth(w)
+
+
+        # crop image
+        lb_crop = QLabel()
+        lb_crop.setText('Crop image')
+        lb_crop.setFont(self.font1)
+        lb_crop.setFixedWidth(100)
+
+        lb_crop_cen_x = QLabel()
+        lb_crop_cen_x.setText('X center:')
+        lb_crop_cen_x.setFont(self.font2)
+        lb_crop_cen_x.setFixedWidth(80)
+
+        lb_crop_cen_y = QLabel()
+        lb_crop_cen_y.setText('Y center:')
+        lb_crop_cen_y.setFont(self.font2)
+        lb_crop_cen_y.setFixedWidth(80)
+
+        lb_crop_size_x = QLabel()
+        lb_crop_size_x.setText('  X length:')
+        lb_crop_size_x.setFont(self.font2)
+        lb_crop_size_x.setFixedWidth(80)
+
+        lb_crop_size_y = QLabel()
+        lb_crop_size_y.setText('  Y length:')
+        lb_crop_size_y.setFont(self.font2)
+        lb_crop_size_y.setFixedWidth(80)
+
+        self.tx_crop_cen_x = QLineEdit()
+        self.tx_crop_cen_x.setText('0')
+        self.tx_crop_cen_x.setFont(self.font2)
+        self.tx_crop_cen_x.setFixedWidth(50)
+
+        self.tx_crop_cen_y = QLineEdit()
+        self.tx_crop_cen_y.setText('0')
+        self.tx_crop_cen_y.setFont(self.font2)
+        self.tx_crop_cen_y.setFixedWidth(50)
+
+        self.tx_crop_size_x = QLineEdit()
+        self.tx_crop_size_x.setText('0')
+        self.tx_crop_size_x.setFont(self.font2)
+        self.tx_crop_size_x.setFixedWidth(50)
+
+        self.tx_crop_size_y = QLineEdit()
+        self.tx_crop_size_y.setText('0')
+        self.tx_crop_size_y.setFont(self.font2)
+        self.tx_crop_size_y.setFixedWidth(50)
+
+        self.pb_crop_display = QPushButton('Display')
+        self.pb_crop_display.setFont(self.font2)
+        self.pb_crop_display.setFixedWidth(w)
+        self.pb_crop_display.clicked.connect(self.crop_roi_display)
+
+        self.pb_crop_exec = QPushButton('Crop image')
+        self.pb_crop_exec.setFont(self.font2)
+        self.pb_crop_exec.setFixedWidth(w)
+        self.pb_crop_exec.clicked.connect(self.crop_roi)
+
+        hbox_crop_x = QHBoxLayout()
+        hbox_crop_x.addWidget(lb_crop_cen_x)
+        hbox_crop_x.addWidget(self.tx_crop_cen_x)
+        hbox_crop_x.addWidget(lb_crop_size_x)
+        hbox_crop_x.addWidget(self.tx_crop_size_x)
+        hbox_crop_x.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignLeft)
+
+        hbox_crop_y = QHBoxLayout()
+        hbox_crop_y.addWidget(lb_crop_cen_y)
+        hbox_crop_y.addWidget(self.tx_crop_cen_y)
+        hbox_crop_y.addWidget(lb_crop_size_y)
+        hbox_crop_y.addWidget(self.tx_crop_size_y)
+        hbox_crop_y.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignLeft)
+
+        hbox_crop_exec = QHBoxLayout()
+        hbox_crop_exec.addWidget(self.pb_crop_display)
+        hbox_crop_exec.addWidget(self.pb_crop_exec)
+        hbox_crop_exec.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignLeft)
+
+        vbox_crop = QVBoxLayout()
+        vbox_crop.addWidget(lb_crop)
+        vbox_crop.addLayout(hbox_crop_x)
+        vbox_crop.addLayout(hbox_crop_y)
+        vbox_crop.addLayout(hbox_crop_exec)
+        vbox_crop.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignLeft)
 
         vbox_roi_save_load = QVBoxLayout()
         vbox_roi_save_load.addWidget(self.pb_roi_save)
@@ -1039,6 +1123,7 @@ class App(QWidget):
         box_roi_tot.addWidget(lb_roi)
         box_roi_tot.addWidget(lb_info)
         box_roi_tot.addLayout(box_roi)
+        box_roi_tot.addLayout(vbox_crop)
         box_roi_tot.addWidget(lb_empty02)
         box_roi_tot.setAlignment(QtCore.Qt.AlignLeft)
         return box_roi_tot
@@ -6015,6 +6100,50 @@ class App(QWidget):
         canvas = self.canvas1
         canvas.draw_roi()
 
+
+    def get_crop_roi(self):
+        current_img = self.canvas1.current_img
+        s_raw = current_img.shape
+        x_cen = int(self.tx_crop_cen_x.text())
+        y_cen = int(self.tx_crop_cen_y.text())
+        x_size = int(self.tx_crop_size_x.text())
+        y_size = int(self.tx_crop_size_y.text())
+
+        x_s = int(max(x_cen - x_size / 2, 0))
+        x_e = int(min(x_s + x_size, s_raw[1]))
+
+        y_s = int(max(y_cen - y_size / 2, 0))
+        y_e = int(min(y_s + y_size, s_raw[0]))
+
+        return x_s, x_e, y_s, y_e
+
+
+    def crop_roi_display(self):
+        current_img = self.canvas1.current_img
+        x_s, x_e, y_s, y_e = self.get_crop_roi()
+        x_size = x_e - x_s
+        y_size = y_e - y_s
+        self.tx_crop_size_x.setText(f'{x_size}')
+        self.tx_crop_size_y.setText(f'{y_size}')
+        x_list = [x_s, x_e, x_e, x_s, x_s]
+        y_list = [y_s, y_s, y_e, y_e, y_s]
+        plt.figure()
+        plt.imshow(current_img)
+        plt.plot(x_list, y_list, 'r', linewidth=1)
+        plt.title('region for crop')
+        plt.show()
+
+
+    def crop_roi(self):
+        x_s, x_e, y_s, y_e = self.get_crop_roi()
+        try:
+            self.img_xanes = self.img_xanes[:, x_s:x_e, y_s:y_e]
+            self.cb1.setCurrentText('Raw image')
+            self.update_canvas_img()
+        except Exception as err:
+            print(err)
+
+
     def load_external_spec(self):
         options = QFileDialog.Option()
         options |= QFileDialog.DontUseNativeDialog
@@ -9846,7 +9975,7 @@ class App(QWidget):
             align_method = 'translation'
         else:
             align_method = 'rigid'
-      
+
         num_cpu = int(self.tx_3D_assemble_cpu.text())
         roi_r_s = int(self.tx_3D_ali_roi_rs.text())
         roi_r_e = int(self.tx_3D_ali_roi_re.text())
