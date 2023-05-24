@@ -6089,10 +6089,12 @@ class App(QWidget):
         canvas.roi_color = {}
         self.update_canvas_img()
         s = canvas.current_img.shape
+        '''
         self.tx_roi_x1.setText('0.0')
         self.tx_roi_x2.setText('{:3.1f}'.format(s[1]))
         self.tx_roi_y1.setText('{:3.1f}'.format(0))
         self.tx_roi_y2.setText('{:3.1f}'.format(s[0]))
+        '''
 
     def draw_roi(self):
         self.pb_roi_draw.setEnabled(False)
@@ -10425,10 +10427,12 @@ class MyCanvas(FigureCanvas):
                            fontsize=10)
         self.draw()
         # self.roi_count += 1
+        '''
         self.obj.tx_roi_x1.setText('{:4.1f}'.format(x1))
         self.obj.tx_roi_y1.setText('{:4.1f}'.format(y1))
         self.obj.tx_roi_x2.setText('{:4.1f}'.format(x2))
         self.obj.tx_roi_y2.setText('{:4.1f}'.format(y2))
+        '''
         self.obj.pb_roi_draw.setEnabled(True)
         QApplication.processEvents()
 
