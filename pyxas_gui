@@ -6428,9 +6428,10 @@ class App(QWidget):
                 fn, _ = QFileDialog.getSaveFileName(self, 'Save File', "", file_type, options=options)
                 if not(fn[-5:] == '.tiff' or fn[-4:] =='.tif'):
                     fn += '.tiff'
-                io.imsave(fn, img_stack)
-                print(f'current image has been saved to file: {fn}')
-                self.msg = f'current image saved to: {fn}'
+                if not fn == '.tiff':
+                    io.imsave(fn, img_stack)
+                    print(f'current image has been saved to file: {fn}')
+                    self.msg = f'current image saved to: {fn}'
                 plt.figure()
                 plt.imshow(img_stack, clim=[cmin, cmax], cmap=canvas.colormap)
                 plt.axis('off')
