@@ -7952,6 +7952,26 @@ class App(QWidget):
         lb_mask.setFont(self.font2)
         lb_mask.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
 
+        lb_ali_method = QLabel()
+        lb_ali_method.setText('align method:')
+        lb_ali_method.setFixedWidth(100)
+        lb_ali_method.setFont(self.font2)
+        lb_ali_method.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+
+        self.rd_3D_ali_method_translation = QRadioButton('Translation')
+        self.rd_3D_ali_method_translation.setFixedWidth(100)
+        self.rd_3D_ali_method_translation.setChecked(True)
+        self.rd_3D_ali_method_translation.setFont(self.font2)
+
+        self.rd_3D_ali_method_rigid = QRadioButton('Rigid')
+        self.rd_3D_ali_method_rigid.setFixedWidth(80)
+        self.rd_3D_ali_method_rigid.setFont(self.font2)
+
+        self.ali_3D_group = QButtonGroup()
+        self.ali_3D_group.setExclusive(True)
+        self.ali_3D_group.addButton(self.rd_3D_ali_method_translation)
+        self.ali_3D_group.addButton(self.rd_3D_ali_method_rigid)
+
         lb_ali_roi_rs = QLabel()
         lb_ali_roi_rs.setText('roi_r_start:')
         lb_ali_roi_rs.setFixedWidth(80)
@@ -7987,7 +8007,7 @@ class App(QWidget):
 
         lb_ali_roi_ce = QLabel()
         lb_ali_roi_ce.setText('roi_c_end:')
-        lb_ali_roi_ce.setFixedWidth(80)
+        lb_ali_roi_ce.setFixedWidth(100)
         lb_ali_roi_ce.setFont(self.font2)
         lb_ali_roi_ce.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
 
@@ -8042,6 +8062,9 @@ class App(QWidget):
         hbox_2.addWidget(self.tx_3D_assemble_ali_ref)
         hbox_2.addWidget(lb_mask)
         hbox_2.addWidget(self.tx_3D_assemble_mask)
+        hbox_2.addWidget(lb_ali_method)
+        hbox_2.addWidget(self.rd_3D_ali_method_translation)
+        hbox_2.addWidget(self.rd_3D_ali_method_rigid)
         hbox_2.addStretch()
 
         hbox_3 = QHBoxLayout()
@@ -9819,6 +9842,11 @@ class App(QWidget):
         align_flag = eval(self.tx_3D_assemble_ali_flag.text())
         align_ref_index = int(self.tx_3D_assemble_ali_ref.text())
         align_roi_ratio = float(self.tx_3D_assemble_mask.text())
+        if self.rd_3D_ali_method_translation.isChecked():
+            align_method = 'translation'
+        else:
+            align_method = 'rigid'
+      
         num_cpu = int(self.tx_3D_assemble_cpu.text())
         roi_r_s = int(self.tx_3D_ali_roi_rs.text())
         roi_r_e = int(self.tx_3D_ali_roi_re.text())
@@ -9860,6 +9888,7 @@ class App(QWidget):
                                                      roi = roi,
                                                      ali_sli = [],
                                                      align_algorithm = 'stackreg',
+                                                     align_method = align_method,
                                                      flag_save_2d_xanes = 1,
                                                      flag_mask = 0,
                                                      num_cpu = num_cpu)
