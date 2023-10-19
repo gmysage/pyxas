@@ -4,6 +4,7 @@ import scipy.fftpack as sf
 import matplotlib.pyplot as plt
 from scipy.signal import medfilt2d
 from skimage.restoration import denoise_nl_means, estimate_sigma
+from skimage.transform import resize
 from skimage.filters import threshold_otsu, threshold_yen
 from multiprocessing import Pool, cpu_count
 from tqdm import tqdm
@@ -44,15 +45,36 @@ def img_smooth(img, kernal_size, axis=0):
     return img_stack
 
 
-def otsu_mask(img, kernal_size, iters=1, bins=256):
+def otsu_mask(img, kernal_size, iters=1, bins=256, erosion_iter=0):
     img_s = img.copy()
     img_s[np.isnan(img_s)] = 0
     img_s[np.isinf(img_s)] = 0
     for i in range(iters):
-        img_s = img_smooth(img, kernal_size)
+        img_s = img_smooth(img_s, kernal_size)
     thresh = threshold_otsu(img_s, nbins=bins)
-    mask = np.float32(img_s > thresh)
-    return np.squeeze(mask)
+    mask = np.zeros(img_s.shape)
+    #mask = np.float32(img_s > thresh)
+    mask[img_s > thresh] = 1
+    mask = np.squeeze(mask)
+    if erosion_iter:
+        struct = ndimage.generate_binary_structure(2, 1)
+        struct1 = ndimage.iterate_structure(struct, 2).astype(int)
+        mask = ndimage.binary_erosion(mask, structure=struct1).astype(mask.dtype)
+    mask[:erosion_iter+1] = 1
+    mask[-erosion_iter-1:] = 1
+    mask[:, :erosion_iter+1] = 1
+    mask[:, -erosion_iter-1:] = 1
+    return mask
+
+def otsu_mask_stack(img, kernal_size, iters=1, bins=256, erosion_iter=0):
+    s = img.shape
+    img_m = np.zeros(s)
+    for i in trange(s[0]):
+        img_m[i] = otsu_mask(img[i], kernal_size, iters, bins, erosion_iter)
+    img_r = img * img_m
+    return img_r
+        
+
 
 def rm_noise(img, noise_level=2e-3, filter_size=3):
     img_s = medfilt2d(img, filter_size)
@@ -65,6 +87,17 @@ def rm_noise(img, noise_level=2e-3, filter_size=3):
     return img_m
 
 
+def rm_noise2(img, noise_level=0.02, filter_size=3):
+    img_s = medfilt2d(img, filter_size)
+    id0 = img_s==0
+    img_s[id0] = img[id0]
+    img_diff = (img - img_s) / img
+    index = img_diff > noise_level
+    img_m = img.copy()
+    img_m[index] = img_s[index]
+    return img_m
+    
+    
 def img_denoise_bm3d(img, sigma=0.01):
     try:
         import bm3d
@@ -353,7 +386,18 @@ def kmean_mask(img, n_comp=2, index_select=-1):
         return mask_comp, img_labels
 
 
-
+def kmean_mask_line_by_line_2D(img):
+    s = img.shape
+    img_m = np.zeros(s)
+    for i in trange(s[0]):
+        l = img[i]
+        l = l.reshape([len(l), 1])
+        mask_comp, img_labels, img_compress = kmean_mask(l, n_comp=2)
+        img_m[i] = np.squeeze(mask_comp[0]) * img[i]
+        
+    return img_m
+        
+        
 def bin_ndarray(ndarray, new_shape=None, operation='mean'):
     """
     Bins an ndarray in all axes based on the target shape, by summing or
@@ -486,6 +530,16 @@ def image_movie(data, ax=None, cmap='gray'):
     fig._tracker = tracker
     fig.canvas.mpl_connect('scroll_event', tracker.onscroll)
     return tracker
+
+
+def crop_scale_image(img_stack, output_size=(256, 256)):
+    img = img_stack.copy()
+    s = img.shape
+    if len(s) == 2:
+        img = np.expand_dims(img, axis=0)
+    s = img.shape
+    img_resize = resize(img, (s[0], output_size[0], output_size[1]))
+    return np.squeeze(img_resize)
 
 
 from PIL import Image
@@ -1133,5 +1187,91 @@ def rm_phase_ramp_manual_2d(array,x_shift,y_shift):
     tmp = array * np.exp(1j*2*np.pi*(-1.*x_shift*(nest[0,:,:]-nx/2.)/(nx)-y_shift*(nest[1,:,:]-ny/2.)/(ny)))
     return tmp
 
+
+def nurbs_surf_spline_fit(ctrlpts, delta=0.025, degree_u=3, degree_v=3, plot_flag=0):
+    from geomdl import BSpline, utilities
+    from geomdl.visualization import VisMPL
+    from matplotlib import cm
+
+    # Create a BSpline surface
+    surf = BSpline.Surface()
+
+    # Set degrees
+    surf.degree_u = degree_u
+    surf.degree_v = degree_v
+
+    # Set control points
+    surf.ctrlpts2d = ctrlpts
+
+    # Set knot vectors
+    surf.knotvector_u = utilities.generate_knot_vector(surf.degree_u, surf.ctrlpts_size_u)
+    surf.knotvector_v = utilities.generate_knot_vector(surf.degree_v, surf.ctrlpts_size_v)
+
+    # Set evaluation delta
+    surf.delta = delta
+
+    # Evaluate surface points
+    surf.evaluate()
+
+    # Import and use Matplotlib's colormaps
+    if plot_flag:
+        # Plot the control points grid and the evaluated surface
+        surf.vis = VisMPL.VisSurface()
+        surf.render(colormap=cm.cool)
+
+    evalpts = surf.evalpts
+    return evalpts
+
+
+
+def nurbs_surf_gen_ctrlpts(img, num_u, num_v):
+    s = img.shape # e.g., (256, 256)
+    cp = []
+    y = np.linspace(0, s[0], num_v, endpoint=False)
+    for i in range(num_v):
+        cp_v = []
+        idx_y = int(y[i])
+        line_x = img[idx_y]
+        idx_non_zero = np.squeeze(np.argwhere(line_x>0))
+        line_x_non_zero = line_x[idx_non_zero]
+        sx = len(line_x_non_zero)
+        idx_x = np.int32(np.linspace(0, sx, num_u, endpoint=False))
+        for j in range(num_u):
+            idx_xx = idx_non_zero[idx_x[j]]
+            cp_v.append([idx_y, idx_xx, img[idx_y, idx_xx]])
+        cp.append(cp_v)
+    return cp
+
+
+
+def spline_img_filter(img, num_u=40, num_v=40, degree_u=3, degree_v=3, clim=None, plot_flag=0):
+    ctrlpts = nurbs_surf_gen_ctrlpts(img, num_u, num_v)
+    s = img.shape
+    delta = 1 / np.max(s)
+    evalpts = nurbs_surf_spline_fit(ctrlpts, delta, degree_u, degree_v, plot_flag=0)
+    s1 = int(len(evalpts)**(0.5))
+    max_size = int(np.max(s))
+    img_s = np.array(evalpts).reshape([max_size, max_size, 3])[:,:,-1]
+    img_resize = resize(img_s, (s[0], s[1]))
+    if clim is None:
+        clim = [np.min(img), np.max(img)]
+    if plot_flag:
+        plt.figure(figsize=(16, 8))
+        plt.subplot(121)
+        plt.imshow(img, clim=clim)
+        plt.subplot(122)
+        plt.imshow(img_resize, clim=clim)
+    return img_resize
+
+
+def spline_img_filter_stack(img, num_u=40, num_v=40, degree_u=3, degree_v=3):
+    s = img.shape
+    img_r = np.zeros(s)
+    for i in trange(s[0]):
+        img_r[i] = spline_img_filter(img[i], num_u, num_v, degree_u, degree_v, plot_flag=0)
+    return img_r
+    
+
+    
 if (__name__ == '__main__'):
     pass

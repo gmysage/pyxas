@@ -8,7 +8,10 @@ Email: gmysage@gmail.com, mingyuan@bnl.gov
 """
 
 import sys
+import gc
 import h5py
+import matplotlib as mpl
+mpl.use('Qt5Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -26,10 +29,10 @@ from PyQt5.QtWidgets import (QMainWindow, QFileDialog, QRadioButton, QApplicatio
                              QSlider, QComboBox, QButtonGroup, QMessageBox, QSizePolicy)
 from PyQt5.QtGui import QIntValidator, QDoubleValidator, QIcon
 from PyQt5 import QtCore
-from scipy.ndimage.interpolation import shift
+from scipy.ndimage import shift
 from scipy.signal import medfilt2d, medfilt
-from scipy.interpolate import interp1d, UnivariateSpline
 from scipy import ndimage
+from pathlib import Path
 from skimage import io
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
@@ -37,11 +40,22 @@ from matplotlib.figure import Figure
 from copy import deepcopy
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import pyxas
+
 import warnings
 from tqdm import trange
 from multiprocessing import cpu_count
 
+
+
 global xanes
+global torch_installed
+
+try:
+    import torch
+    torch_installed = 1
+    from pyxas.pyml import *
+except:
+    torch_installed = 0
 
 class App(QWidget):
     def __init__(self):
@@ -54,15 +68,21 @@ class App(QWidget):
         self.left = (width - self.width) // 2
         self.top = (height - self.height) // 2
         self.system_cpu = cpu_count()
+        self.check_torch_installed()
         self.initUI()
         self.bkg_memory_check()
         self.default_layout()
+        #self.defaul_layout_ml()
 
 
     def closeEvent(self, *args, **kwargs):
         super().closeEvent(*args, **kwargs)
         print('close window')
         plt.close('all')
+
+    def check_torch_installed(self):
+        global torch_installed
+        self.torch_installed = torch_installed
 
 
     def bkg_memory_check(self):
@@ -102,6 +122,15 @@ class App(QWidget):
         self.fpath = os.getcwd()
         self.roi_file_id = 0
         self.spectrum_ref = {}
+        if self.torch_installed:
+            try:
+                self.gpu_count = torch.cuda.device_count()
+                self.defaul_layout_ml()
+            except:
+                self.gpu_count = 0
+        else:
+            self.gpu_count = 0
+
         self.lb_empty = QLabel()
 
         grid1 = QGridLayout()
@@ -133,6 +162,7 @@ class App(QWidget):
 
         '''
         layout2 = self.layout_3D()
+
         tabs = QTabWidget()
         tab1 = QWidget()
         tab2 = QWidget()
@@ -142,6 +172,11 @@ class App(QWidget):
 
         tabs.addTab(tab1, '2D XANES')
         tabs.addTab(tab2, '3D XANES')
+        if self.torch_installed:
+            tab3 = QWidget()
+            layout3 = self.layout_ml()
+            tab3.setLayout(layout3)
+            tabs.addTab(tab3, 'ML App.')
         tabs.setFont(self.font1)
 
         self.layout = QVBoxLayout(self)
@@ -158,9 +193,10 @@ class App(QWidget):
         self.fn_raw_image = ''
         self.save_version = 0
         self.xanes_eng = np.array([0])
-        self.eng = np.array([0, 20]) # for 3D batch fitting
+
         self.img_xanes = deepcopy(default_img)
         self.img_update = deepcopy(default_img)
+        self.img_external = deepcopy(default_img)
         self.current_img = deepcopy(default_img)
         self.img_regulation = deepcopy(default_img)
         self.fit_peak_method = 2 # using polynomial curve to find peak position
@@ -204,15 +240,25 @@ class App(QWidget):
         self.load_file_batch_color_successfull = 0
         self.multi_elem_batch_files = []
         try:
+            self.eng = self.eng  # for 3D batch fitting
+            self.load_eng_successful = 1
+        except:
+            self.eng = np.array([0, 20])
+
+        try:
             self.num_ref = self.num_ref
-        except Exception as err:
+        except :
             self.num_ref = 0
             print('set num_ref = 0')
+
         try:
             self.spectrum_ref = self.spectrum_ref
-        except Exception as err:
-            print(err)
+            self.load_reference_successful = 1 # for 3D batch fitting
+            print('Use existing Reference Spectrum')
+        except:
+            print('Need Reference Spectrum')
             self.spectrum_ref = {}
+
         self.fitting_method = 1
         self.xanes_2d_fit = None
         self.xanes_2d_fit_offset = 0
@@ -220,9 +266,6 @@ class App(QWidget):
         self.img_pre_edge_sub_mean = np.array([1])
         self.elem_label = []
         self.figure = {}
-
-        self.load_reference_successful = 0 # in batch fitting
-        self.load_eng_successful = 0 # in batch fitting
 
         self.pb_plot_roi.setEnabled(True)
         self.pb_export_roi_fit.setEnabled(False)
@@ -263,6 +306,21 @@ class App(QWidget):
         self.cb_color_channel.clear()
         self.update_canvas_img()
 
+    def defaul_layout_ml(self):
+        default_img = np.zeros([1, 500, 500])
+        self.ml_img_stack = deepcopy(default_img)
+        self.ml_eng = np.array([0])
+        self.ml_model_dict = {}
+        self.ml_msg = ''
+        self.ml_img_path = ''
+        self.ml_model_path = f'{self.fpath}/pyxas/pyml/trained_model/pre_traind_model_xanes_denoise.pth'
+        self.ml_train_root_dir = ''
+        self.ml_train_gt_dir = ''
+        self.ml_train_blur_dir = ''
+        self.ml_train_eng_dir = ''
+        self.ml_spectrum_ref = {}
+        self.ml_num_ref = 0
+        self.ml_h_loss = None
 
     def layout_msg(self):
         self.lb_ip = QLabel()
@@ -998,12 +1056,12 @@ class App(QWidget):
         self.pb_crop_display = QPushButton('Display')
         self.pb_crop_display.setFont(self.font2)
         self.pb_crop_display.setFixedWidth(w)
-        self.pb_crop_display.clicked.connect(self.crop_roi_display)
+        self.pb_crop_display.clicked.connect(lambda: self.crop_roi_display(self.canvas1))
 
         self.pb_crop_exec = QPushButton('Crop image')
         self.pb_crop_exec.setFont(self.font2)
         self.pb_crop_exec.setFixedWidth(w)
-        self.pb_crop_exec.clicked.connect(self.crop_roi)
+        self.pb_crop_exec.clicked.connect(lambda:self.crop_roi(self.canvas1))
 
         hbox_crop_x = QHBoxLayout()
         hbox_crop_x.addWidget(lb_crop_cen_x)
@@ -2369,7 +2427,7 @@ class App(QWidget):
 
         self.tx_rm_noise_level = QLineEdit(self)
         self.tx_rm_noise_level.setFont(self.font2)
-        self.tx_rm_noise_level.setText('0.002')
+        self.tx_rm_noise_level.setText('0.02')
         self.tx_rm_noise_level.setFixedWidth(50)
         self.tx_rm_noise_level.setValidator(QDoubleValidator())
 
@@ -3447,12 +3505,12 @@ class App(QWidget):
         self.sl1 = QScrollBar(QtCore.Qt.Horizontal)
         self.sl1.setMaximum(0)
         self.sl1.setMinimum(0)
-        self.sl1.valueChanged.connect(self.sliderval)
+        self.sl1.valueChanged.connect(lambda:self.sliderval(self.canvas1))
 
         self.cb1 = QComboBox()
         self.cb1.setFont(self.font2)
         self.cb1.addItem('Raw image')
-        self.cb1.setFixedWidth(462)
+        self.cb1.setFixedWidth(307)
         self.cb1.currentIndexChanged.connect(self.update_canvas_img)
 
         self.pb_del = QPushButton('Del. single image')
@@ -3462,9 +3520,15 @@ class App(QWidget):
         self.pb_del.setEnabled(False)
         self.pb_del.setFixedWidth(150)
 
+        if self.torch_installed:
+            self.pb_move_img_stack = QPushButton('Move to ML')
+            self.pb_move_img_stack.setFont(self.font2)
+            self.pb_move_img_stack.clicked.connect(lambda: self.move_canvas_img_stack(self.canvas1, self.canvas_ml))
+            self.pb_move_img_stack.setFixedWidth(150)
+
         self.pb_save_img_stack = QPushButton('Save image stack')
         self.pb_save_img_stack.setFont(self.font2)
-        self.pb_save_img_stack.clicked.connect(self.save_img_stack)
+        self.pb_save_img_stack.clicked.connect(lambda:self.save_img_stack(self.canvas1))
         self.pb_save_img_stack.setFixedWidth(150)
 
         self.pb_save_img_single = QPushButton('Save current image')
@@ -3475,6 +3539,8 @@ class App(QWidget):
         hbox_can_l = QHBoxLayout()
         hbox_can_l.addWidget(self.cb1)
         hbox_can_l.addWidget(self.pb_del)
+        if self.torch_installed:
+            hbox_can_l.addWidget(self.pb_move_img_stack)
         hbox_can_l.setAlignment(QtCore.Qt.AlignLeft)
 
         hbox_can_save = QHBoxLayout()
@@ -3509,12 +3575,12 @@ class App(QWidget):
         for i in cmap:
             self.cb_cmap.addItem(i)
         self.cb_cmap.setCurrentText('viridis')
-        self.cb_cmap.currentIndexChanged.connect(self.change_colormap)
+        self.cb_cmap.currentIndexChanged.connect(lambda:self.change_colormap(self.canvas1))
         self.cb_cmap.setFixedWidth(80)
 
         self.pb_adj_cmap = QPushButton('Auto Contrast')
         self.pb_adj_cmap.setFont(self.font2)
-        self.pb_adj_cmap.clicked.connect(self.auto_contrast)
+        self.pb_adj_cmap.clicked.connect(lambda:self.auto_contrast(self.canvas1))
         self.pb_adj_cmap.setEnabled(True)
         self.pb_adj_cmap.setFixedWidth(120)
 
@@ -3543,7 +3609,7 @@ class App(QWidget):
 
         self.pb_set_cmap = QPushButton('Set')
         self.pb_set_cmap.setFont(self.font2)
-        self.pb_set_cmap.clicked.connect(self.set_contrast)
+        self.pb_set_cmap.clicked.connect(lambda:self.set_contrast(self.canvas1))
         self.pb_set_cmap.setEnabled(True)
         self.pb_set_cmap.setFixedWidth(60)
 
@@ -3637,6 +3703,7 @@ class App(QWidget):
         self.lb_ref_info.setText('Reference spectrum:')
         self.lb_param_ref_info.setText('Reference spectrum:')
         self.spectrum_ref = {}
+        self.load_reference_successful = 0
         self.xanes_fit_cost = 0
         self.tx_elem.setText('')
         self.elem_label = []
@@ -3728,6 +3795,7 @@ class App(QWidget):
             if return_flag:
                 fit_eng_range = self._get_fit_eng_range()
                 img_stack_s = img_stack[fit_eng_range]
+                img_stack_s[np.isnan(img_stack_s)] = 0
                 eng_s = self.xanes_eng[fit_eng_range]
                 fit_coef, cost, X, y_fit, y_offset, var, x_interp, y_interp = self.fit_2d_xanes_core(img_stack_s, eng_s,
                                                                                                      bkg_polynomial_order,
@@ -4948,7 +5016,7 @@ class App(QWidget):
         return elem
 
 
-    def _get_roi_fit_title(self, fit_coef, roi_selected):
+    def _get_roi_fit_title(self, fit_coef, roi_selected, elem):
         fit_coef_sum = np.sum(fit_coef)
         title = f'{roi_selected}:  '
         for i in range(len(fit_coef)):
@@ -4986,7 +5054,7 @@ class App(QWidget):
             y_fit = np.squeeze(y_fit)
             y_offset = np.squeeze(y_offset)
 
-            title = self._get_roi_fit_title(fit_coef, roi_selected)
+            title = self._get_roi_fit_title(fit_coef, roi_selected, elem)
             t_color = ['g', 'orange', 'm', 'c', 'y']
             plt.figure()
             legend = []
@@ -5096,10 +5164,11 @@ class App(QWidget):
             self.img_rm_noise = np.zeros(img.shape)
             self.pb_rm_noise.setEnabled(False)
             QApplication.processEvents()
-            for i in range(n):
-                self.img_rm_noise[i] = pyxas.rm_noise(img[i], noise_level, filter_size)
+            for i in trange(n):
+                self.img_rm_noise[i] = pyxas.rm_noise2(img[i], noise_level, filter_size)
                 self.msg = f'Median filter2 denoising for image #{i + 1}/{n}'
                 self.update_msg()
+                QApplication.processEvents()
             if self.cb1.findText('Noise removal') < 0:
                 self.cb1.addItem('Noise removal')
             self.cb1.setCurrentText('Noise removal')
@@ -6089,12 +6158,7 @@ class App(QWidget):
         canvas.roi_color = {}
         self.update_canvas_img()
         s = canvas.current_img.shape
-        '''
-        self.tx_roi_x1.setText('0.0')
-        self.tx_roi_x2.setText('{:3.1f}'.format(s[1]))
-        self.tx_roi_y1.setText('{:3.1f}'.format(0))
-        self.tx_roi_y2.setText('{:3.1f}'.format(s[0]))
-        '''
+
 
     def draw_roi(self):
         self.pb_roi_draw.setEnabled(False)
@@ -6103,13 +6167,19 @@ class App(QWidget):
         canvas.draw_roi()
 
 
-    def get_crop_roi(self):
-        current_img = self.canvas1.current_img
+    def get_crop_roi(self, current_canvas):
+        current_img = current_canvas.current_img
         s_raw = current_img.shape
-        x_cen = int(self.tx_crop_cen_x.text())
-        y_cen = int(self.tx_crop_cen_y.text())
-        x_size = int(self.tx_crop_size_x.text())
-        y_size = int(self.tx_crop_size_y.text())
+        if current_canvas == self.canvas1:
+            x_cen = int(self.tx_crop_cen_x.text())
+            y_cen = int(self.tx_crop_cen_y.text())
+            x_size = int(self.tx_crop_size_x.text())
+            y_size = int(self.tx_crop_size_y.text())
+        if current_canvas == self.canvas_ml:
+            x_cen = int(self.tx_ml_crop_cen_x.text())
+            y_cen = int(self.tx_ml_crop_cen_y.text())
+            x_size = int(self.tx_ml_crop_size_x.text())
+            y_size = int(self.tx_ml_crop_size_y.text())
 
         x_s = int(max(x_cen - x_size / 2, 0))
         x_e = int(min(x_s + x_size, s_raw[1]))
@@ -6120,13 +6190,13 @@ class App(QWidget):
         return x_s, x_e, y_s, y_e
 
 
-    def crop_roi_display(self):
-        current_img = self.canvas1.current_img
-        x_s, x_e, y_s, y_e = self.get_crop_roi()
+    def crop_roi_display(self, current_canvas):
+        current_img = current_canvas.current_img
+        x_s, x_e, y_s, y_e = self.get_crop_roi(current_canvas)
         x_size = x_e - x_s
         y_size = y_e - y_s
-        self.tx_crop_size_x.setText(f'{x_size}')
-        self.tx_crop_size_y.setText(f'{y_size}')
+        self.tx_ml_crop_size_x.setText(f'{x_size}')
+        self.tx_ml_crop_size_y.setText(f'{y_size}')
         x_list = [x_s, x_e, x_e, x_s, x_s]
         y_list = [y_s, y_s, y_e, y_e, y_s]
         plt.figure()
@@ -6136,9 +6206,9 @@ class App(QWidget):
         plt.show()
 
 
-    def crop_roi(self):
-        x_s, x_e, y_s, y_e = self.get_crop_roi()
-        image = self.canvas1.img_stack
+    def crop_roi(self, current_canvas):
+        x_s, x_e, y_s, y_e = self.get_crop_roi(current_canvas)
+        image = current_canvas.img_stack
         try:
             self.img_update = image[:, y_s:y_e, x_s:x_e]
             if self.cb1.findText('Image updated') < 0:
@@ -6383,15 +6453,22 @@ class App(QWidget):
             self.update_msg()
 
 
-    def save_img_stack(self):
+    def save_img_stack(self, current_canvas):
         try:
-            self.pb_save_img_stack.setEnabled(False)
+            #self.pb_save_img_stack.setEnabled(False)
             QApplication.processEvents()
-            canvas = self.canvas1
-            if self.cb1.currentText() == 'Color mix':
-                self.save_img_single()
-            else:
-                img_stack = (canvas.img_stack * self.mask1 * self.mask2 * self.mask).astype(np.float32)
+            #canvas = self.canvas1
+            canvas = current_canvas
+            save_stack = True
+            if canvas == self.canvas1:
+                if self.cb1.currentText() == 'Color mix':
+                    save_stack = False
+                    self.save_img_single()
+                else:
+                    img_stack = (canvas.img_stack * self.mask1 * self.mask2 * self.mask).astype(np.float32)
+            elif canvas == self.canvas_ml:
+                img_stack = (canvas.img_stack).astype(np.float32)
+            if save_stack:
                 options = QFileDialog.Option()
                 options |= QFileDialog.DontUseNativeDialog
                 file_type = 'tif files (*.tiff)'
@@ -6405,7 +6482,10 @@ class App(QWidget):
             self.msg = f'file saving fails.  Error: {str(err)}'
         finally:
             self.update_msg()
-            self.pb_save_img_stack.setEnabled(True)
+            if canvas == self.canvas1:
+                self.pb_save_img_stack.setEnabled(True)
+            if canvas == self.canvas_ml:
+                self.pb_ml_save_img_stack.setEnabled(True)
             QApplication.processEvents()
 
 
@@ -6518,7 +6598,8 @@ class App(QWidget):
                 self.tx_multi_elem_s.setText('{:2.4f}'.format(self.xanes_eng[0]))
                 self.tx_multi_elem_e.setText('{:2.4f}'.format(self.xanes_eng[-1]))
                 # update 3D fitting
-                self.eng = self.xanes_eng.copy()
+                if not self.load_eng_successful:
+                    self.eng = self.xanes_eng.copy()
                 n_eng = len(self.eng)
                 self.load_eng_successful = 1
                 self.lb_param_eng_info.setText(
@@ -6889,7 +6970,7 @@ class App(QWidget):
                         self.lb_eng2.setVisible(True)
                         self.tx_eng.setVisible(True)
                         self.pb_eng.setVisible(True)
-                self.auto_contrast()
+                self.auto_contrast(self.canvas1)
         elif flag_read_from_database:
             print('read_from_databroker, not implemented yet')
         else:
@@ -6927,9 +7008,13 @@ class App(QWidget):
             self.update_msg()
 
 
-    def sliderval(self):
-        canvas = self.canvas1
-        img_index = self.sl1.value()
+    def sliderval(self, current_canvas):
+        #canvas = self.canvas1
+        canvas = current_canvas
+        if canvas == self.canvas1:
+            img_index = self.sl1.value()
+        if canvas == self.canvas_ml:
+            img_index = self.sl1_ml.value()
         canvas.current_img_index = img_index
         canvas.current_img = canvas.img_stack[img_index]
         img = canvas.img_stack[img_index]
@@ -7237,6 +7322,21 @@ class App(QWidget):
                 slide.setMaximum(max(sh[0] - 1, 0))
                 self.current_image = img[0]
                 #self.data_summary[type_index] = self.canvas1.img_stack
+            elif type_index == 'Moved from external':
+                self.img_colormix_raw = np.array([])
+                canvas.rgb_flag = 0
+                img = self.img_external
+                self.pb_roi_draw.setEnabled(True)
+                canvas.x, canvas.y = [], []
+                canvas.axes.clear()  # this is important, to clear the current image before another imshow()
+                sh = img.shape
+                canvas.img_stack = img
+                canvas.special_info = None
+                canvas.current_img_index = self.sl1.value()
+                #canvas.title = [f'#{i:3d},   {self.xanes_eng[i]:2.4f} keV' for i in range(len(self.xanes_eng))]
+                canvas.update_img_stack()
+                slide.setMaximum(max(sh[0] - 1, 0))
+                self.current_image = img[0]
             elif type_index == 'XANES Fit (thickness)': # will be saved
                 self.img_colormix_raw = np.array([])
                 canvas.rgb_flag = 0
@@ -7594,7 +7694,7 @@ class App(QWidget):
                 canvas.update_img_stack()
                 slide.setMaximum(max(sh[0] - 1, 0))
                 self.current_image = img[0]
-                self.auto_contrast()
+                self.auto_contrast(self.canvas1)
             elif type_index == 'Multi-elem fit error':
                 self.img_colormix_raw = np.array([])
                 canvas.rgb_flag = 0
@@ -7610,7 +7710,7 @@ class App(QWidget):
                 canvas.update_img_stack()
                 slide.setMaximum(0)
                 self.current_image = img[0]
-                self.auto_contrast()
+                self.auto_contrast(self.canvas1)
                 self.data_summary[type_index] = self.canvas1.img_stack
 
             elif type_index == 'Color mix':
@@ -7651,39 +7751,59 @@ class App(QWidget):
                 self.lst_roi.removeItemWidget(selectItem)
 
 
-    def change_colormap(self):
-        canvas = self.canvas1
-        cmap = self.cb_cmap.currentText()
+    def change_colormap(self, current_canvas):
+        #canvas = self.canvas1
+        canvas = current_canvas
+        if canvas == self.canvas1:
+            cmap = self.cb_cmap.currentText()
+        if canvas == self.canvas_ml:
+            cmap = self.cb_ml_cmap.currentText()
         canvas.colormap = cmap
         canvas.colorbar_on_flag = True
         canvas.update_img_one(canvas.current_img, canvas.current_img_index)
 
 
-    def auto_contrast(self):
-        canvas = self.canvas1
+    def auto_contrast(self, current_canvas):
+        #canvas = self.canvas1
+        canvas = current_canvas
         cmin, cmax = canvas.auto_contrast()
-        self.display_cmin_cmax(cmin, cmax)
+        self.display_cmin_cmax(cmin, cmax, current_canvas)
 
-    def display_cmin_cmax(self, cmin, cmax):
+    def display_cmin_cmax(self, cmin, cmax, current_canvas):
         if np.abs(cmax) > 1e3 or np.abs(cmax)<1e-3:
-            self.tx_cmax.setText('{:1.3e}'.format(cmax))
+            txt_max = f'{cmax:1.3e}'
+            #self.tx_cmax.setText('{:1.3e}'.format(cmax))
         else:
-            self.tx_cmax.setText('{:6.3f}'.format(cmax))
+            txt_max = f'{cmax:6.3f}'
+            #self.tx_cmax.setText('{:6.3f}'.format(cmax))
         if np.abs(cmin) > 1e3 or np.abs(cmin) < 1e-3:
-            self.tx_cmin.setText('{:1.3e}'.format(cmin))
+            txt_min = f'{cmin:1.3e}'
+            #self.tx_cmin.setText('{:1.3e}'.format(cmin))
         else:
-            self.tx_cmin.setText('{:6.3f}'.format(cmin))
+            txt_min = f'{cmin:6.3f}'
+            #self.tx_cmin.setText('{:6.3f}'.format(cmin))
+        if current_canvas == self.canvas1:
+            self.tx_cmax.setText(txt_max)
+            self.tx_cmin.setText(txt_min)
+        if current_canvas == self.canvas_ml:
+            self.tx_ml_cmax.setText(txt_max)
+            self.tx_ml_cmin.setText(txt_min)
         QApplication.processEvents()
 
 
-    def set_contrast(self):
+    def set_contrast(self, current_canvas):
         try:
-            canvas = self.canvas1
-            cmax = np.float32(self.tx_cmax.text())
-            cmin = np.float32(self.tx_cmin.text())
+            #canvas = self.canvas1
+            canvas = current_canvas
+            if canvas == self.canvas1:
+                cmax = np.float32(self.tx_cmax.text())
+                cmin = np.float32(self.tx_cmin.text())
+            else:
+                cmax = np.float32(self.tx_ml_cmax.text())
+                cmin = np.float32(self.tx_ml_cmin.text())
             assert cmax >= cmin, "cmax should > cmin"
             canvas.set_contrast(cmin, cmax)
-            if canvas.rgb_flag:
+            if canvas == self.canvas1 and canvas.rgb_flag:
                 self.xanes_colormix()
         except Exception as err:
             print(err)
@@ -9739,11 +9859,16 @@ class App(QWidget):
                     sli_id = idx
                 file_save_path = f'{file_path}/fitted_single_xanes/xanes_{sli_id:04d}'
                 pyxas.create_directory(file_save_path)
+                '''
                 res = pyxas.fit_2D_xanes_single_file(files_scan[idx], xanes_eng,
                                                      fit_param, spectrum_ref, file_save_path)
+                '''
+                pyxas.fit_2D_xanes_single_file(files_scan[idx], xanes_eng,
+                                               fit_param, spectrum_ref, file_save_path)
             txt = 'Single file fitting finished'
             file_jpg_save = f'{file_save_path}/fig_{sli_id:04d}.jpg'
-            pyxas.plot_fitting_results(res, fit_param['color'], file_jpg_save, display_flag=1, save_flag=1)
+            plt.show()
+            #pyxas.plot_fitting_results(res, fit_param['color'], file_jpg_save, display_flag=1, save_flag=1)
         except Exception as err:
             txt = str(err)
         finally:
@@ -9768,8 +9893,11 @@ class App(QWidget):
                 spectrum_ref = self.spectrum_ref
                 try:
                     num_cpu = int(self.tx_param_cpu.text())
+                    self.fit_param['num_cpu'] = num_cpu
                 except Exception:
-                    num_cpu = self.fit_param['num_cpu']
+                    pass
+                finally:
+                    print(f'fit using {num_cpu} CPU')
             else:
                 txt = ''
                 if not self.load_eng_successful:
@@ -10276,6 +10404,1659 @@ class App(QWidget):
             print(msg)
         self.pb_3D_gen_cl_mask.setText('Gen. cluster mask')
 
+    def layout_ml(self):
+        tab1 = QWidget()
+        tab1.setLayout(self.layout_ml_denoise())
+
+        tabs = QTabWidget()
+        tabs.addTab(tab1, 'TXM-XANES Denoise')
+
+        layout = QVBoxLayout()
+        layout.addWidget(tabs)
+        layout.addStretch()
+
+        return layout
+
+
+    def layout_ml_denoise_load_model(self):
+        lb_space = QLabel()
+        lb_space.setFixedWidth(30)
+
+        # load model
+        lb_model = QLabel()
+        lb_model.setText('Model path:')
+        lb_model.setFont(self.font2)
+        lb_model.setFixedWidth(120)
+
+        self.tx_ml_model_path = QLineEdit()
+        self.tx_ml_model_path.setFixedWidth(600)
+        self.tx_ml_model_path.setFont(self.font2)
+        #self.ml_load_model_path(self.ml_model_path)
+
+        self.pb_ml_model_open = QPushButton('Open')
+        self.pb_ml_model_open.setFixedWidth(80)
+        self.pb_ml_model_open.setFont(self.font2)
+        self.pb_ml_model_open.clicked.connect(self.ml_load_model)
+
+        self.pb_ml_model_open_multi = QPushButton('Open mulitple')
+        self.pb_ml_model_open_multi.setFixedWidth(120)
+        self.pb_ml_model_open_multi.setFont(self.font2)
+        self.pb_ml_model_open_multi.clicked.connect(self.ml_load_model_multiple)
+
+        lb_ml_device = QLabel()
+        lb_ml_device.setText('Device:')
+        lb_ml_device.setFont(self.font2)
+        lb_ml_device.setFixedWidth(60)
+
+        self.cb_ml_device = QComboBox()
+        self.cb_ml_device.setFont(self.font2)
+        self.cb_ml_device.setFixedWidth(85)
+        if self.gpu_count == 0:
+            self.cb_ml_device.addItem('cpu')
+        elif self.gpu_count == 1:
+            self.cb_ml_device.addItem('cuda')
+        else:
+            for i in range(self.gpu_count):
+                self.cb_ml_device.addItem(f'cuda:{i:d}')
+
+        hbox_path = QHBoxLayout()
+        hbox_path.addWidget(lb_model)
+        hbox_path.addWidget(self.tx_ml_model_path)
+        hbox_path.addWidget(self.pb_ml_model_open)
+        hbox_path.addWidget(self.pb_ml_model_open_multi)
+        hbox_path.addWidget(lb_space)
+        hbox_path.addWidget(lb_ml_device)
+        hbox_path.addWidget(self.cb_ml_device)
+        hbox_path.setAlignment(QtCore.Qt.AlignLeft)
+        hbox_path.addStretch()
+        return hbox_path
+
+    def layout_ml_denoise_load_img(self):
+        lb_space = QLabel()
+        lb_space.setFixedWidth(10)
+
+        lb_model = QLabel()
+        lb_model.setText('Image path:')
+        lb_model.setFont(self.font2)
+        lb_model.setFixedWidth(120)
+
+        self.tx_ml_img_path = QLineEdit()
+        self.tx_ml_img_path.setFixedWidth(600)
+        self.tx_ml_img_path.setFont(self.font2)
+
+        self.pb_ml_img_open = QPushButton('Open')
+        self.pb_ml_img_open.setFixedWidth(80)
+        self.pb_ml_img_open.setFont(self.font2)
+        self.pb_ml_img_open.clicked.connect(self.ml_load_img)
+
+        self.lb_ml_msg_img = QLabel()
+        self.lb_ml_msg_img.setFont(self.font2)
+        self.lb_ml_msg_img.setFixedWidth(200)
+
+        hbox_path = QHBoxLayout()
+        hbox_path.addWidget(lb_model)
+        hbox_path.addWidget(self.tx_ml_img_path)
+        hbox_path.addWidget(self.pb_ml_img_open)
+        hbox_path.addWidget(lb_space)
+        hbox_path.addWidget(self.lb_ml_msg_img)
+        hbox_path.setAlignment(QtCore.Qt.AlignLeft)
+        hbox_path.addStretch()
+
+        return hbox_path
+
+    def layout_ml_denoise_load_energy(self):
+        lb_space = QLabel()
+        lb_space.setFixedWidth(10)
+
+        lb_model = QLabel()
+        lb_model.setText('X_Eng path:')
+        lb_model.setFont(self.font2)
+        lb_model.setFixedWidth(120)
+
+        self.tx_ml_eng_path = QLineEdit()
+        self.tx_ml_eng_path.setFixedWidth(600)
+        self.tx_ml_eng_path.setFont(self.font2)
+
+        self.pb_ml_eng_open = QPushButton('Open')
+        self.pb_ml_eng_open.setFixedWidth(80)
+        self.pb_ml_eng_open.setFont(self.font2)
+        self.pb_ml_eng_open.clicked.connect(self.ml_load_energy)
+
+        self.lb_ml_msg_eng = QLabel()
+        self.lb_ml_msg_eng.setFont(self.font2)
+        self.lb_ml_msg_eng.setFixedWidth(200)
+
+        hbox_path = QHBoxLayout()
+        hbox_path.addWidget(lb_model)
+        hbox_path.addWidget(self.tx_ml_eng_path)
+        hbox_path.addWidget(self.pb_ml_eng_open)
+        hbox_path.addWidget(lb_space)
+        hbox_path.addWidget(self.lb_ml_msg_eng)
+        hbox_path.setAlignment(QtCore.Qt.AlignLeft)
+        hbox_path.addStretch()
+
+        return hbox_path
+
+    def layout_ml_denoise_crop_img(self):
+        lb_space = QLabel()
+        lb_space.setFixedWidth(30)
+
+        lb_space1 = QLabel()
+        lb_space1.setFixedWidth(35)
+
+        w = 80
+
+        lb_crop = QLabel()
+        lb_crop.setText('Crop image:')
+        lb_crop.setFont(self.font2)
+        lb_crop.setFixedWidth(120)
+
+        lb_crop_cen_x = QLabel()
+        lb_crop_cen_x.setText('X center:')
+        lb_crop_cen_x.setFont(self.font2)
+        lb_crop_cen_x.setFixedWidth(70)
+
+        lb_crop_cen_y = QLabel()
+        lb_crop_cen_y.setText('Y center:')
+        lb_crop_cen_y.setFont(self.font2)
+        lb_crop_cen_y.setFixedWidth(70)
+
+        lb_crop_size_x = QLabel()
+        lb_crop_size_x.setText('  X length:')
+        lb_crop_size_x.setFont(self.font2)
+        lb_crop_size_x.setFixedWidth(70)
+
+        lb_crop_size_y = QLabel()
+        lb_crop_size_y.setText('  Y length:')
+        lb_crop_size_y.setFont(self.font2)
+        lb_crop_size_y.setFixedWidth(70)
+
+        self.tx_ml_crop_cen_x = QLineEdit()
+        self.tx_ml_crop_cen_x.setText('0')
+        self.tx_ml_crop_cen_x.setFont(self.font2)
+        self.tx_ml_crop_cen_x.setFixedWidth(50)
+
+        self.tx_ml_crop_cen_y = QLineEdit()
+        self.tx_ml_crop_cen_y.setText('0')
+        self.tx_ml_crop_cen_y.setFont(self.font2)
+        self.tx_ml_crop_cen_y.setFixedWidth(50)
+
+        self.tx_ml_crop_size_x = QLineEdit()
+        self.tx_ml_crop_size_x.setText('0')
+        self.tx_ml_crop_size_x.setFont(self.font2)
+        self.tx_ml_crop_size_x.setFixedWidth(50)
+
+        self.tx_ml_crop_size_y = QLineEdit()
+        self.tx_ml_crop_size_y.setText('0')
+        self.tx_ml_crop_size_y.setFont(self.font2)
+        self.tx_ml_crop_size_y.setFixedWidth(50)
+
+        self.pb_ml_crop_display = QPushButton('Display')
+        self.pb_ml_crop_display.setFont(self.font2)
+        self.pb_ml_crop_display.setFixedWidth(w)
+        self.pb_ml_crop_display.clicked.connect(lambda:self.crop_roi_display(self.canvas_ml))
+
+        self.pb_ml_crop_exec = QPushButton('Crop image')
+        self.pb_ml_crop_exec.setFont(self.font2)
+        self.pb_ml_crop_exec.setFixedWidth(120)
+        self.pb_ml_crop_exec.clicked.connect(lambda:self.ml_crop_roi(self.canvas_ml))
+
+        hbox_crop = QHBoxLayout()
+        hbox_crop.addWidget(lb_crop)
+        hbox_crop.addWidget(lb_crop_cen_x)
+        hbox_crop.addWidget(self.tx_ml_crop_cen_x)
+        hbox_crop.addWidget(lb_crop_size_x)
+        hbox_crop.addWidget(self.tx_ml_crop_size_x)
+        hbox_crop.addWidget(lb_space)
+        hbox_crop.addWidget(lb_crop_cen_y)
+        hbox_crop.addWidget(self.tx_ml_crop_cen_y)
+        hbox_crop.addWidget(lb_crop_size_y)
+        hbox_crop.addWidget(self.tx_ml_crop_size_y)
+        hbox_crop.addWidget(lb_space1)
+        hbox_crop.addWidget(self.pb_ml_crop_display)
+        #hbox_crop.addWidget(lb_space)
+        hbox_crop.addWidget(self.pb_ml_crop_exec)
+        hbox_crop.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignLeft)
+
+        return hbox_crop
+
+    def layout_ml_denoise_function(self):
+        lb_empty = QLabel()
+        lb_space = QLabel()
+        lb_space.setFixedWidth(20)
+        layout_apply_model = self.layout_ml_apply_model()
+        layout_prod_prep = self.layout_ml_production_prep()
+        layout_train_prod = self.layout_ml_train()
+
+        vbox_canvas = self.layout_canvas_ml()
+
+        hbox1 = QHBoxLayout()
+        hbox1.addLayout(layout_apply_model)
+        hbox1.addWidget(lb_space)
+        hbox1.addLayout(layout_prod_prep)
+        hbox1.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignLeft)
+        hbox1.addStretch()
+
+        vbox = QVBoxLayout()
+        #vbox.addLayout(layout_apply_model)
+        #vbox.addWidget(lb_empty)
+        #vbox.addLayout(layout_prod_prep)
+        vbox.addLayout(hbox1)
+        vbox.addWidget(lb_empty)
+        vbox.addLayout(layout_train_prod)
+        vbox.addWidget(lb_empty)
+        vbox.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignLeft)
+        vbox.addStretch()
+
+        hbox = QHBoxLayout()
+        hbox.addLayout(vbox)
+        hbox.addLayout(vbox_canvas)
+        hbox.addWidget(lb_empty)
+        hbox.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignLeft)
+
+        return hbox
+
+
+    def layout_ml_apply_model(self):
+        lb_empty = QLabel()
+        lb_space = QLabel()
+        lb_space.setFixedWidth(30)
+
+        lb_space1 = QLabel()
+        lb_space1.setFixedHeight(10)
+
+        lb_lst_ml_model = QLabel()
+        lb_lst_ml_model.setFont(self.font2)
+        lb_lst_ml_model.setText('Model list:')
+        lb_lst_ml_model.setFixedWidth(80)
+        lb_lst_ml_model.setFixedHeight(28)
+
+        self.lst_ml_model = QListWidget()
+        self.lst_ml_model.setFont(self.font2)
+        #self.lst_ml_model.setSelectionMode(QAbstractItemView.MultiSelection)
+        self.lst_ml_model.setFixedWidth(120)
+        self.lst_ml_model.setFixedHeight(210)
+
+        self.pb_ml_model_clear = QPushButton('Clear')
+        self.pb_ml_model_clear.setFont(self.font2)
+        self.pb_ml_model_clear.clicked.connect(self.ml_clear_model)
+        self.pb_ml_model_clear.setFixedWidth(120)
+
+        lb_ml_apply = QLabel()
+        lb_ml_apply.setText('Apply ML model')
+        lb_ml_apply.setFont(self.font1)
+        lb_ml_apply.setFixedWidth(150)
+
+        self.pb_ml_apply = QPushButton('Apply to stack')
+        self.pb_ml_apply.setFont(self.font2)
+        self.pb_ml_apply.setFixedWidth(120)
+        self.pb_ml_apply.clicked.connect(self.ml_apply_img)
+
+        self.pb_ml_apply_single = QPushButton('Apply to image')
+        self.pb_ml_apply_single.setFont(self.font2)
+        self.pb_ml_apply_single.setFixedWidth(120)
+        self.pb_ml_apply_single.clicked.connect(self.ml_apply_img_single)
+
+        lb_ml_iter = QLabel('Num. Iter:')
+        lb_ml_iter.setFixedWidth(80)
+        lb_ml_iter.setFont(self.font2)
+
+        self.tx_ml_iter = QLineEdit()
+        self.tx_ml_iter.setText('1')
+        self.tx_ml_iter.setFont(self.font2)
+        self.tx_ml_iter.setFixedWidth(35)
+        self.tx_ml_iter.setValidator(QIntValidator())
+
+        lb_ml_filter_sz = QLabel('filter sz:')
+        lb_ml_filter_sz.setFixedWidth(80)
+        lb_ml_filter_sz.setFont(self.font2)
+
+        self.tx_ml_filter_sz = QLineEdit()
+        self.tx_ml_filter_sz.setText('1')
+        self.tx_ml_filter_sz.setFont(self.font2)
+        self.tx_ml_filter_sz.setFixedWidth(35)
+        self.tx_ml_filter_sz.setValidator(QIntValidator())
+
+        lb_ml_norm_factor = QLabel('Bkg. avg:')
+        lb_ml_norm_factor.setFixedWidth(80)
+        lb_ml_norm_factor.setFont(self.font2)
+
+        self.tx_ml_norm_factor = QLineEdit()
+        self.tx_ml_norm_factor.setText('1.0')
+        self.tx_ml_norm_factor.setFont(self.font2)
+        self.tx_ml_norm_factor.setFixedWidth(35)
+        self.tx_ml_norm_factor.setValidator(QDoubleValidator())
+
+        hbox_iter = QHBoxLayout()
+        hbox_iter.addWidget(lb_ml_iter)
+        hbox_iter.addWidget(self.tx_ml_iter)
+        hbox_iter.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignTop)
+        hbox_iter.addStretch()
+
+        hbox_filter = QHBoxLayout()
+        hbox_filter.addWidget(lb_ml_filter_sz)
+        hbox_filter.addWidget(self.tx_ml_filter_sz)
+        hbox_filter.setAlignment(QtCore.Qt.AlignLeft)
+        hbox_filter.addStretch()
+
+        hbox_norm = QHBoxLayout()
+        hbox_norm.addWidget(lb_ml_norm_factor)
+        hbox_norm.addWidget(self.tx_ml_norm_factor)
+        hbox_norm.setAlignment(QtCore.Qt.AlignLeft)
+        hbox_norm.addStretch()
+
+        vbox_model = QVBoxLayout()
+
+        vbox_model.addLayout(hbox_iter)
+        vbox_model.addLayout(hbox_filter)
+        vbox_model.addLayout(hbox_norm)
+        vbox_model.addWidget(lb_space1)
+        vbox_model.addWidget(self.pb_ml_apply)
+        vbox_model.addWidget(self.pb_ml_apply_single)
+        vbox_model.addWidget(lb_space1)
+        vbox_model.addWidget(self.pb_ml_model_clear)
+
+        vbox_model.addWidget(lb_empty)
+        vbox_model.setAlignment(QtCore.Qt.AlignTop)
+        #vbox_model.addStretch()
+
+        hbox_model = QHBoxLayout()
+        hbox_model.addWidget(self.lst_ml_model)
+        hbox_model.addLayout(vbox_model)
+        hbox_model.setAlignment(QtCore.Qt.AlignLeft |QtCore.Qt.AlignTop)
+        #hbox_model.addStretch()
+
+        vbox_apply = QVBoxLayout()
+        vbox_apply.addWidget(lb_ml_apply)
+        vbox_apply.addLayout(hbox_model)
+        vbox_apply.setAlignment(QtCore.Qt.AlignTop)
+        vbox_apply.addStretch()
+        '''
+        hbox_ass = QHBoxLayout()
+        hbox_ass.addLayout(vbox_apply)
+        hbox_ass.addWidget(lb_space)
+        hbox_ass.addLayout(vbox_canvas)
+        hbox_ass.setAlignment(QtCore.Qt.AlignLeft)
+        hbox_ass.addStretch()
+        return hbox_ass
+        '''
+        return vbox_apply
+
+
+    def layout_ml_production_prep(self):
+        lb_space1 = QLabel()
+        lb_space1.setFixedHeight(10)
+
+        lb_prod = QLabel()
+        lb_prod.setFixedWidth(150)
+        #lb_prod.setFixedHeight(40)
+        lb_prod.setFont(self.font1)
+        lb_prod.setText('Prepare training data')
+
+        lb_ml_elem = QLabel('')
+        lb_ml_elem.setText('Elem:')
+        lb_ml_elem.setFont(self.font2)
+        lb_ml_elem.setFixedWidth(80)
+
+        self.tx_ml_elem = QLineEdit()
+        self.tx_ml_elem.setFixedWidth(80)
+        self.tx_ml_elem.setFont(self.font2)
+
+        lb_ml_edge = QLabel('')
+        lb_ml_edge.setText('Excl. Eng:')
+        lb_ml_edge.setFont(self.font2)
+        lb_ml_edge.setFixedWidth(80)
+
+        self.tx_ml_edge = QLineEdit()
+        self.tx_ml_edge.setText('[]')
+        self.tx_ml_edge.setFixedWidth(80)
+        self.tx_ml_edge.setFont(self.font2)
+
+        lb_ml_num = QLabel()
+        lb_ml_num.setText('Num. Img:')
+        lb_ml_num.setFont(self.font2)
+        lb_ml_num.setFixedWidth(80)
+
+        self.tx_ml_num = QLineEdit()
+        self.tx_ml_num.setText('50')
+        self.tx_ml_num.setFixedWidth(80)
+        self.tx_ml_num.setFont(self.font2)
+        self.tx_ml_num.setValidator(QIntValidator())
+
+        ###
+        lb_ml_stack_sz = QLabel()
+        lb_ml_stack_sz.setText('Stack sz:')
+        lb_ml_stack_sz.setFont(self.font2)
+        lb_ml_stack_sz.setFixedWidth(80)
+
+        self.tx_ml_stack_sz = QLineEdit()
+        self.tx_ml_stack_sz.setText('16')
+        self.tx_ml_stack_sz.setFixedWidth(80)
+        self.tx_ml_stack_sz.setFont(self.font2)
+        self.tx_ml_stack_sz.setValidator(QIntValidator())
+        ##
+
+
+        self.pb_ml_prep = QPushButton('Generate')
+        self.pb_ml_prep.setFont(self.font2)
+        self.pb_ml_prep.setFixedWidth(120)
+        self.pb_ml_prep.clicked.connect(self.ml_prep_prod_dataset)
+
+        self.pb_ml_elem_Ni = QPushButton('Ni')
+        self.pb_ml_elem_Ni.setFont(self.font2)
+        self.pb_ml_elem_Ni.setFixedWidth(40)
+        self.pb_ml_elem_Ni.clicked.connect(lambda:self.ml_gen_elem('Ni'))
+
+        self.pb_ml_elem_Co = QPushButton('Co')
+        self.pb_ml_elem_Co.setFont(self.font2)
+        self.pb_ml_elem_Co.setFixedWidth(40)
+        self.pb_ml_elem_Co.clicked.connect(lambda: self.ml_gen_elem('Co'))
+
+        self.pb_ml_elem_Mn = QPushButton('Mn')
+        self.pb_ml_elem_Mn.setFont(self.font2)
+        self.pb_ml_elem_Mn.setFixedWidth(40)
+        self.pb_ml_elem_Mn.clicked.connect(lambda: self.ml_gen_elem('Mn'))
+
+        hbox_elem = QHBoxLayout()
+        hbox_elem.addWidget(lb_ml_elem)
+        hbox_elem.addWidget(self.tx_ml_elem)
+        hbox_elem.setAlignment(QtCore.Qt.AlignLeft)
+        hbox_elem.addStretch()
+
+        hbox_elem_but = QHBoxLayout()
+        hbox_elem_but.addWidget(self.pb_ml_elem_Ni)
+        hbox_elem_but.addWidget(self.pb_ml_elem_Co)
+        hbox_elem_but.addWidget(self.pb_ml_elem_Mn)
+        hbox_elem_but.setAlignment(QtCore.Qt.AlignLeft)
+        hbox_elem_but.addStretch()
+
+        hbox_num = QHBoxLayout()
+        hbox_num.addWidget(lb_ml_num)
+        hbox_num.addWidget(self.tx_ml_num)
+        hbox_num.setAlignment(QtCore.Qt.AlignLeft)
+        hbox_num.addStretch()
+
+        hbox_eng = QHBoxLayout()
+        hbox_eng.addWidget(lb_ml_edge)
+        hbox_eng.addWidget(self.tx_ml_edge)
+        hbox_eng.setAlignment(QtCore.Qt.AlignLeft)
+        hbox_eng.addStretch()
+
+        hbox_stack_sz = QHBoxLayout()
+        hbox_stack_sz.addWidget(lb_ml_stack_sz)
+        hbox_stack_sz.addWidget(self.tx_ml_stack_sz)
+        hbox_stack_sz.setAlignment(QtCore.Qt.AlignLeft)
+        hbox_stack_sz.addStretch()
+
+        vbox1 = QVBoxLayout()
+        vbox1.addWidget(lb_prod)
+        vbox1.addLayout(hbox_num)
+        vbox1.addLayout(hbox_eng)
+        vbox1.addLayout(hbox_stack_sz)
+
+        vbox1.addWidget(lb_space1)
+        vbox1.addLayout(hbox_elem)
+        vbox1.addLayout(hbox_elem_but)
+        vbox1.addWidget(lb_space1)
+        vbox1.addWidget(self.pb_ml_prep)
+        vbox1.setAlignment(QtCore.Qt.AlignTop)
+        vbox1.addStretch()
+
+        return vbox1
+
+
+    def layout_ml_train(self):
+        w_open = 60
+        w_dir = 280
+        w_l = 85
+
+        lb_ml_train = QLabel()
+        lb_ml_train.setText('Train network')
+        lb_ml_train.setFont(self.font1)
+        lb_ml_train.setFixedWidth(100)
+        lb_ml_train.setFixedHeight(40)
+
+        # raw (whole) xanes image stack
+        lb_ml_raw_img = QLabel()
+        lb_ml_raw_img.setText('Raw XANES:')
+        lb_ml_raw_img.setFont(self.font2)
+        lb_ml_raw_img.setFixedWidth(w_l)
+
+        self.tx_ml_raw_img = QLineEdit()
+        self.tx_ml_raw_img.setFixedWidth(w_dir + w_open + 8)
+        self.tx_ml_raw_img.setFont(self.font2)
+
+        hbox_fn_raw = QHBoxLayout()
+        hbox_fn_raw.addWidget(lb_ml_raw_img)
+        hbox_fn_raw.addWidget(self.tx_ml_raw_img)
+        hbox_fn_raw.setAlignment(QtCore.Qt.AlignLeft)
+        hbox_fn_raw.addStretch()
+
+        # fn_root
+        lb_fn_root = QLabel()
+        lb_fn_root.setText('Root dir.')
+        lb_fn_root.setFont(self.font2)
+        lb_fn_root.setFixedWidth(w_l)
+
+        self.tx_ml_fn_root = QLineEdit()
+        self.tx_ml_fn_root.setFixedWidth(w_dir)
+        self.tx_ml_fn_root.setFont(self.font2)
+
+        self.pb_ml_fn_root = QPushButton('Open')
+        self.pb_ml_fn_root.setFixedWidth(w_open)
+        self.pb_ml_fn_root.setFont(self.font2)
+        self.pb_ml_fn_root.clicked.connect(lambda:self.ml_open_directory('root'))
+
+        hbox_fn_root = QHBoxLayout()
+        hbox_fn_root.addWidget(lb_fn_root)
+        hbox_fn_root.addWidget(self.tx_ml_fn_root)
+        hbox_fn_root.addWidget(self.pb_ml_fn_root)
+        hbox_fn_root.setAlignment(QtCore.Qt.AlignLeft)
+        hbox_fn_root.addStretch()
+
+        # fn_img_gt
+        lb_fn_gt = QLabel()
+        lb_fn_gt.setText('GT dir.')
+        lb_fn_gt.setFont(self.font2)
+        lb_fn_gt.setFixedWidth(w_l)
+
+        self.tx_ml_fn_gt = QLineEdit()
+        self.tx_ml_fn_gt.setFixedWidth(w_dir)
+        self.tx_ml_fn_gt.setFont(self.font2)
+
+        self.pb_ml_fn_gt = QPushButton('Open')
+        self.pb_ml_fn_gt.setFixedWidth(w_open)
+        self.pb_ml_fn_gt.setFont(self.font2)
+        self.pb_ml_fn_gt.clicked.connect(lambda: self.ml_open_directory('gt'))
+
+        hbox_fn_gt = QHBoxLayout()
+        hbox_fn_gt.addWidget(lb_fn_gt)
+        hbox_fn_gt.addWidget(self.tx_ml_fn_gt)
+        hbox_fn_gt.addWidget(self.pb_ml_fn_gt)
+        hbox_fn_gt.setAlignment(QtCore.Qt.AlignLeft)
+        hbox_fn_gt.addStretch()
+
+        # fn_img_blur
+        lb_fn_blur = QLabel()
+        lb_fn_blur.setText('Blur dir.')
+        lb_fn_blur.setFont(self.font2)
+        lb_fn_blur.setFixedWidth(w_l)
+
+        self.tx_ml_fn_blur = QLineEdit()
+        self.tx_ml_fn_blur.setFixedWidth(w_dir)
+        self.tx_ml_fn_blur.setFont(self.font2)
+
+        self.pb_ml_fn_blur = QPushButton('Open')
+        self.pb_ml_fn_blur.setFixedWidth(w_open)
+        self.pb_ml_fn_blur.setFont(self.font2)
+        self.pb_ml_fn_blur.clicked.connect(lambda: self.ml_open_directory('blur'))
+
+        hbox_fn_blur = QHBoxLayout()
+        hbox_fn_blur.addWidget(lb_fn_blur)
+        hbox_fn_blur.addWidget(self.tx_ml_fn_blur)
+        hbox_fn_blur.addWidget(self.pb_ml_fn_blur)
+        hbox_fn_blur.setAlignment(QtCore.Qt.AlignLeft)
+        hbox_fn_blur.addStretch()
+
+        # fn_eng_list
+        lb_fn_englist = QLabel()
+        lb_fn_englist.setText('X-eng dir.')
+        lb_fn_englist.setFont(self.font2)
+        lb_fn_englist.setFixedWidth(w_l)
+
+        self.tx_ml_fn_englist = QLineEdit()
+        self.tx_ml_fn_englist.setFixedWidth(w_dir)
+        self.tx_ml_fn_englist.setFont(self.font2)
+
+        self.pb_ml_fn_englist = QPushButton('Open')
+        self.pb_ml_fn_englist.setFixedWidth(w_open)
+        self.pb_ml_fn_englist.setFont(self.font2)
+        self.pb_ml_fn_englist.clicked.connect(lambda: self.ml_open_directory('eng'))
+
+        hbox_fn_englist = QHBoxLayout()
+        hbox_fn_englist.addWidget(lb_fn_englist)
+        hbox_fn_englist.addWidget(self.tx_ml_fn_englist)
+        hbox_fn_englist.addWidget(self.pb_ml_fn_englist)
+        hbox_fn_englist.setAlignment(QtCore.Qt.AlignLeft)
+        hbox_fn_englist.addStretch()
+
+        # mask file
+        lb_fn_mask = QLabel()
+        lb_fn_mask.setText('Mask')
+        lb_fn_mask.setFont(self.font2)
+        lb_fn_mask.setFixedWidth(w_l)
+
+        self.tx_ml_fn_mask = QLineEdit()
+        self.tx_ml_fn_mask.setFixedWidth(w_dir)
+        self.tx_ml_fn_mask.setFont(self.font2)
+
+        self.pb_ml_fn_mask = QPushButton('Open')
+        self.pb_ml_fn_mask.setFixedWidth(w_open)
+        self.pb_ml_fn_mask.setFont(self.font2)
+        self.pb_ml_fn_mask.clicked.connect(self.ml_load_mask)
+
+        hbox_fn_mask = QHBoxLayout()
+        hbox_fn_mask.addWidget(lb_fn_mask)
+        hbox_fn_mask.addWidget(self.tx_ml_fn_mask)
+        hbox_fn_mask.addWidget(self.pb_ml_fn_mask)
+        hbox_fn_mask.setAlignment(QtCore.Qt.AlignLeft)
+        hbox_fn_mask.addStretch()
+
+
+        # assemble directory
+        vbox_dir = QVBoxLayout()
+        vbox_dir.addLayout(hbox_fn_raw)
+        vbox_dir.addLayout(hbox_fn_root)
+        vbox_dir.addLayout(hbox_fn_gt)
+        vbox_dir.addLayout(hbox_fn_blur)
+        vbox_dir.addLayout(hbox_fn_englist)
+        vbox_dir.addLayout(hbox_fn_mask)
+        vbox_dir.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignTop)
+        vbox_dir.addStretch()
+
+        # num_train_data
+        lb_ml_n_train = QLabel()
+        lb_ml_n_train.setText('Num. train data:')
+        lb_ml_n_train.setFixedWidth(120)
+        lb_ml_n_train.setFont(self.font2)
+
+        self.tx_ml_n_train = QLineEdit()
+        self.tx_ml_n_train.setText('50')
+        self.tx_ml_n_train.setFont(self.font2)
+        self.tx_ml_n_train.setFixedWidth(40)
+
+        # num_epoch
+        lb_ml_n_epoch = QLabel()
+        lb_ml_n_epoch.setText('Epochs:')
+        lb_ml_n_epoch.setFixedWidth(120)
+        lb_ml_n_epoch.setFont(self.font2)
+        lb_ml_n_epoch.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+
+        self.tx_ml_n_epoch = QLineEdit()
+        self.tx_ml_n_epoch.setText('10')
+        self.tx_ml_n_epoch.setFont(self.font2)
+        self.tx_ml_n_epoch.setFixedWidth(40)
+
+        hbox_n_train = QHBoxLayout()
+        hbox_n_train.addWidget(lb_ml_n_train)
+        hbox_n_train.addWidget(self.tx_ml_n_train)
+        hbox_n_train.addWidget(lb_ml_n_epoch)
+        hbox_n_train.addWidget(self.tx_ml_n_epoch)
+        hbox_n_train.setAlignment(QtCore.Qt.AlignLeft)
+        hbox_n_train.addStretch()
+
+        # learning rate and tv_ratio
+        lb_ml_learn_r = QLabel()
+        lb_ml_learn_r.setText('Learning rate:')
+        lb_ml_learn_r.setFixedWidth(120)
+        lb_ml_learn_r.setFont(self.font2)
+
+        self.tx_ml_learn_r = QLineEdit()
+        self.tx_ml_learn_r.setText('2e-5')
+        self.tx_ml_learn_r.setFont(self.font2)
+        self.tx_ml_learn_r.setFixedWidth(40)
+
+        lb_ml_ratio = QLabel()
+        lb_ml_ratio.setText('MSE ratio:')
+        lb_ml_ratio.setFixedWidth(120)
+        lb_ml_ratio.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+        lb_ml_ratio.setFont(self.font2)
+
+        self.tx_ml_ratio = QLineEdit()
+        self.tx_ml_ratio.setText('0.99')
+        self.tx_ml_ratio.setFont(self.font2)
+        self.tx_ml_ratio.setFixedWidth(40)
+
+        hbox_learn = QHBoxLayout()
+        hbox_learn.addWidget(lb_ml_learn_r)
+        hbox_learn.addWidget(self.tx_ml_learn_r)
+        hbox_learn.addWidget(lb_ml_ratio)
+        hbox_learn.addWidget(self.tx_ml_ratio)
+        hbox_learn.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+        hbox_learn.addStretch()
+
+        # thickness update rate and loss coef
+        self.lb_ml_thick_update = QLabel()
+        self.lb_ml_thick_update.setText('Thick update rate:')
+        self.lb_ml_thick_update.setFixedWidth(120)
+        self.lb_ml_thick_update.setFont(self.font2)
+
+        self.tx_ml_thick_update = QLineEdit()
+        self.tx_ml_thick_update.setText('2')
+        self.tx_ml_thick_update.setFont(self.font2)
+        self.tx_ml_thick_update.setFixedWidth(40)
+
+        lb_ml_loss_ssim = QLabel()
+        lb_ml_loss_ssim.setText('Loss SSIM:')
+        lb_ml_loss_ssim.setFixedWidth(120)
+        lb_ml_loss_ssim.setFont(self.font2)
+        lb_ml_loss_ssim.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+
+        self.tx_ml_loss_ssim = QLineEdit()
+        self.tx_ml_loss_ssim.setText('1e-4')
+        self.tx_ml_loss_ssim.setFont(self.font2)
+        self.tx_ml_loss_ssim.setFixedWidth(40)
+        self.tx_ml_loss_ssim.setValidator(QDoubleValidator())
+
+        lb_ml_loss_tv = QLabel()
+        lb_ml_loss_tv.setText('TV:')
+        lb_ml_loss_tv.setFixedWidth(40)
+        lb_ml_loss_tv.setFont(self.font2)
+        lb_ml_loss_tv.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+
+        self.tx_ml_loss_tv = QLineEdit()
+        self.tx_ml_loss_tv.setText('1e-9')
+        self.tx_ml_loss_tv.setFont(self.font2)
+        self.tx_ml_loss_tv.setFixedWidth(40)
+        self.tx_ml_loss_tv.setValidator(QDoubleValidator())
+
+        hbox_thick_update = QHBoxLayout()
+        hbox_thick_update.addWidget(self.lb_ml_thick_update)
+        hbox_thick_update.addWidget(self.tx_ml_thick_update)
+        hbox_thick_update.addWidget(lb_ml_loss_ssim)
+        hbox_thick_update.addWidget(self.tx_ml_loss_ssim)
+        hbox_thick_update.addWidget(lb_ml_loss_tv)
+        hbox_thick_update.addWidget(self.tx_ml_loss_tv)
+        hbox_thick_update.setAlignment(QtCore.Qt.AlignLeft)
+        hbox_thick_update.addStretch()
+
+
+        # reference for training
+        self.chkbox_ml_ref = QCheckBox('Train use reference')
+        self.chkbox_ml_ref.setFont(self.font2)
+        self.chkbox_ml_ref.setFixedWidth(155)
+        self.chkbox_ml_ref.setChecked(False)
+        self.chkbox_ml_ref.stateChanged.connect(self.ml_check_fit_use_ref)
+
+        self.pb_ml_open_ref = QPushButton('Load')
+        self.pb_ml_open_ref.setFont(self.font2)
+        self.pb_ml_open_ref.setFixedWidth(75)
+        self.pb_ml_open_ref.setEnabled(False)
+        self.pb_ml_open_ref.clicked.connect(self.ml_load_ref)
+
+        self.pb_ml_reset_ref = QPushButton('Reset')
+        self.pb_ml_reset_ref.setFont(self.font2)
+        self.pb_ml_reset_ref.setFixedWidth(75)
+        self.pb_ml_reset_ref.setEnabled(False)
+        self.pb_ml_reset_ref.clicked.connect(self.ml_reset_ref)
+
+        self.lb_ml_ref = QLabel()
+        self.lb_ml_ref.setFont(self.font2)
+        self.lb_ml_ref.setStyleSheet('color: rgb(200, 50, 50);')
+        self.lb_ml_ref.setVisible(False)
+        self.lb_ml_ref.setFixedWidth(200)
+        self.lb_ml_ref.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignTop)
+
+        lb_empty_ref = QLabel()
+        lb_empty_ref.setFixedWidth(20)
+
+        hbox_ref_load_reset = QHBoxLayout()
+        hbox_ref_load_reset.addWidget(self.pb_ml_open_ref)
+        hbox_ref_load_reset.addWidget(self.pb_ml_reset_ref)
+        hbox_ref_load_reset.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignTop)
+        hbox_ref_load_reset.addStretch()
+
+        vbox_ref = QVBoxLayout()
+        vbox_ref.addWidget(self.chkbox_ml_ref)
+        vbox_ref.addLayout(hbox_ref_load_reset)
+        vbox_ref.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignTop)
+        vbox_ref.addStretch()
+
+        hbox_ref = QHBoxLayout()
+        hbox_ref.addLayout(vbox_ref)
+        hbox_ref.addWidget(lb_empty_ref)
+        hbox_ref.addWidget(self.lb_ml_ref)
+        hbox_ref.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignTop)
+        hbox_ref.addStretch()
+
+        self.pb_ml_train_prod = QPushButton('Train')
+        self.pb_ml_train_prod.setFont(self.font2)
+        self.pb_ml_train_prod.setFixedWidth(155)
+        self.pb_ml_train_prod.clicked.connect(self.ml_train_prod)
+
+        # assemble param
+        vbox_param = QVBoxLayout()
+        vbox_param.addLayout(hbox_n_train)
+        vbox_param.addLayout(hbox_learn)
+        vbox_param.addLayout(hbox_thick_update)
+        vbox_param.addLayout(hbox_ref)
+        vbox_param.addWidget(self.pb_ml_train_prod)
+        vbox_param.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignTop)
+        vbox_param.addStretch()
+
+        # assemble all
+        vbox_train_all = QVBoxLayout()
+        vbox_train_all.addWidget(lb_ml_train)
+        vbox_train_all.addLayout(vbox_dir)
+        vbox_train_all.addLayout(vbox_param)
+        vbox_train_all.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignTop)
+        vbox_train_all.addStretch()
+
+        return vbox_train_all
+
+    def layout_ml_msg(self):
+        lb_ml_msg = QLabel()
+        lb_ml_msg.setText('Massage: ')
+        lb_ml_msg.setFont(self.font1)
+        lb_ml_msg.setFixedWidth(90)
+        lb_ml_msg.setStyleSheet('color: rgb(200, 50, 50);')
+
+        self.lb_ml_msg = QLabel()
+        self.lb_ml_msg.setText('')
+        self.lb_ml_msg.setFont(self.font2)
+        self.lb_ml_msg.setFixedWidth(900)
+
+        hbox1 = QHBoxLayout()
+        hbox1.addWidget(lb_ml_msg)
+        hbox1.addWidget(self.lb_ml_msg)
+        hbox1.setAlignment(QtCore.Qt.AlignLeft)
+        hbox1.addStretch()
+        return hbox1
+
+    def layout_ml_denoise(self):
+        lb_space = QLabel()
+        lb_space.setFixedHeight(30)
+
+        hbox_ml_msg = self.layout_ml_msg()
+        hbox_model_path = self.layout_ml_denoise_load_model()
+        hbox_img_path = self.layout_ml_denoise_load_img()
+        hbox_eng_path = self.layout_ml_denoise_load_energy()
+        hbox_crop = self.layout_ml_denoise_crop_img()
+        hbox_func = self.layout_ml_denoise_function()
+        self.ml_load_model_path(self.ml_model_path) # load default model
+
+        vbox = QVBoxLayout()
+        vbox.addLayout(hbox_model_path)
+        vbox.addLayout(hbox_img_path)
+        vbox.addLayout(hbox_eng_path)
+        vbox.addLayout(hbox_crop)
+        vbox.addLayout(hbox_ml_msg)
+        vbox.addWidget(lb_space)
+        vbox.addLayout(hbox_func)
+        vbox.setAlignment(QtCore.Qt.AlignTop)
+        return vbox
+
+
+    def layout_canvas_ml(self):
+        from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
+        lb_empty = QLabel()
+        lb_empty2 = QLabel()
+        lb_empty2.setFixedWidth(10)
+        self.canvas_ml = MyCanvas(obj=self, width=5, height=5)
+        self.toolbar = NavigationToolbar(self.canvas_ml, self)
+        self.sl1_ml = QScrollBar(QtCore.Qt.Horizontal)
+        self.sl1_ml.setMaximum(0)
+        self.sl1_ml.setMinimum(0)
+        self.sl1_ml.valueChanged.connect(lambda:self.sliderval(self.canvas_ml))
+
+        self.cb1_ml = QComboBox()
+        self.cb1_ml.setFont(self.font2)
+        self.cb1_ml.addItem('Raw image')
+        self.cb1_ml.setFixedWidth(307)
+        self.cb1_ml.currentIndexChanged.connect(self.ml_update_canvas_img)
+
+        self.pb_ml_save_img_stack = QPushButton('Save image stack')
+        self.pb_ml_save_img_stack.setFont(self.font2)
+        self.pb_ml_save_img_stack.clicked.connect(lambda:self.save_img_stack(self.canvas_ml))
+        self.pb_ml_save_img_stack.setFixedWidth(150)
+
+        self.pb_ml_move_img_stack = QPushButton('Move to 2D-XANES')
+        self.pb_ml_move_img_stack.setFont(self.font2)
+        self.pb_ml_move_img_stack.clicked.connect(lambda: self.move_canvas_img_stack(self.canvas_ml, self.canvas1))
+        self.pb_ml_move_img_stack.setFixedWidth(150)
+
+        hbox_can_l = QHBoxLayout()
+        hbox_can_l.addWidget(self.cb1_ml)
+        hbox_can_l.addWidget(self.pb_ml_save_img_stack)
+        hbox_can_l.addWidget(self.pb_ml_move_img_stack)
+        hbox_can_l.setAlignment(QtCore.Qt.AlignLeft)
+
+        lb_cmap = QLabel()
+        lb_cmap.setFont(self.font2)
+        lb_cmap.setText('colormap: ')
+        lb_cmap.setFixedWidth(80)
+
+        cmap = ['gray', 'bone', 'viridis', 'terrain', 'gnuplot', 'bwr', 'plasma', 'PuBu', 'summer', 'rainbow', 'jet']
+        self.cb_ml_cmap = QComboBox()
+        self.cb_ml_cmap.setFont(self.font2)
+        for i in cmap:
+            self.cb_ml_cmap.addItem(i)
+        self.cb_ml_cmap.setCurrentText('viridis')
+        self.cb_ml_cmap.currentIndexChanged.connect(lambda:self.change_colormap(self.canvas_ml))
+        self.cb_ml_cmap.setFixedWidth(80)
+
+        self.pb_ml_adj_cmap = QPushButton('Auto Contrast')
+        self.pb_ml_adj_cmap.setFont(self.font2)
+        self.pb_ml_adj_cmap.clicked.connect(lambda:self.auto_contrast(self.canvas_ml))
+        self.pb_ml_adj_cmap.setEnabled(True)
+        self.pb_ml_adj_cmap.setFixedWidth(120)
+
+        lb_cmax = QLabel()
+        lb_cmax.setFont(self.font2)
+        lb_cmax.setText('cmax: ')
+        lb_cmax.setFixedWidth(40)
+        lb_cmin = QLabel()
+        lb_cmin.setFont(self.font2)
+        lb_cmin.setText('cmin: ')
+        lb_cmin.setFixedWidth(40)
+
+        self.tx_ml_cmax = QLineEdit(self)
+        self.tx_ml_cmax.setFont(self.font2)
+        self.tx_ml_cmax.setFixedWidth(80)
+        self.tx_ml_cmax.setText('1.')
+        self.tx_ml_cmax.setValidator(QDoubleValidator())
+        self.tx_ml_cmax.setEnabled(True)
+
+        self.tx_ml_cmin = QLineEdit(self)
+        self.tx_ml_cmin.setFont(self.font2)
+        self.tx_ml_cmin.setFixedWidth(80)
+        self.tx_ml_cmin.setText('0.')
+        self.tx_ml_cmin.setValidator(QDoubleValidator())
+        self.tx_ml_cmin.setEnabled(True)
+
+        self.pb_ml_set_cmap = QPushButton('Set')
+        self.pb_ml_set_cmap.setFont(self.font2)
+        self.pb_ml_set_cmap.clicked.connect(lambda:self.set_contrast(self.canvas_ml))
+        self.pb_ml_set_cmap.setEnabled(True)
+        self.pb_ml_set_cmap.setFixedWidth(60)
+
+        hbox_cmap = QHBoxLayout()
+        hbox_cmap.addWidget(lb_cmap)
+        hbox_cmap.addWidget(self.cb_ml_cmap)
+        hbox_cmap.addWidget(self.pb_ml_adj_cmap)
+        hbox_cmap.addWidget(lb_cmin)
+        hbox_cmap.addWidget(self.tx_ml_cmin)
+        hbox_cmap.addWidget(lb_cmax)
+        hbox_cmap.addWidget(self.tx_ml_cmax)
+        hbox_cmap.addWidget(self.pb_ml_set_cmap)
+        hbox_cmap.setAlignment(QtCore.Qt.AlignLeft)
+
+        vbox_can_ml = QVBoxLayout()
+        vbox_can_ml.addWidget(self.toolbar)
+        vbox_can_ml.addWidget(self.canvas_ml)
+        vbox_can_ml.addWidget(self.sl1_ml)
+        vbox_can_ml.addLayout(hbox_can_l)
+        vbox_can_ml.addLayout(hbox_cmap)
+        vbox_can_ml.setAlignment(QtCore.Qt.AlignLeft)
+        return vbox_can_ml
+
+    def update_ml_msg(self):
+        self.lb_ml_msg.setFont(self.font1)
+        self.lb_ml_msg.setText(self.ml_msg)
+        self.lb_ml_msg.setStyleSheet('color: rgb(200, 50, 50);')
+
+
+    def ml_clean_model_list(self):
+        self.ml_model_dict = {}
+        self.lst_ml_model.clear()
+
+    def ml_load_model(self):
+        options = QFileDialog.Option()
+        options |= QFileDialog.DontUseNativeDialog
+        file_type = 'pth files (*.pth)'
+        fn, _ = QFileDialog.getOpenFileName(xanes, "QFileDialog.getOpenFileName()", "", file_type, options=options)
+        if fn:
+            self.ml_load_model_path(fn)
+            '''
+            try:
+                print(fn)
+                self.ml_pre_defined_model = RRDBNet(1, 1, 16, 4, 32)
+                self.ml_model_path = fn
+                self.ml_add_model_to_list('Init model', fn)
+
+            except Exception as err:
+                print(err)
+                self.ml_model_path = ''
+            finally:
+                self.tx_ml_model_path.setText(self.ml_model_path)
+                QApplication.processEvents()
+            '''
+        else:
+            self_ml_model_path = ''
+
+
+    def ml_load_model_path(self, fn):
+        try:
+            print(fn)
+            self.ml_pre_defined_model = RRDBNet(1, 1, 16, 4, 32)
+            self.ml_model_path = fn
+            self.ml_add_model_to_list('Init model', fn)
+        except Exception as err:
+            print(err)
+            self.ml_model_path = ''
+        finally:
+            self.tx_ml_model_path.setText(self.ml_model_path)
+            QApplication.processEvents()
+
+
+    def ml_load_model_multiple(self):
+        options = QFileDialog.Option()
+        options |= QFileDialog.DontUseNativeDialog
+        file_type = '*.pth'
+        fn, _ = QFileDialog.getOpenFileName(xanes, "QFileDialog.getOpenFileName()", "", file_type, options=options)
+        fn_tmp = fn.split('/')
+        file_path = '/'.join(t for t in fn_tmp[:-1])
+        if fn:
+            try:
+                self.ml_pre_defined_model = RRDBNet(1, 1, 16, 4, 32)
+                fpath = np.sort(glob.glob(file_path+'/*.pth'))
+                n = len(fpath)
+                self.ml_clean_model_list()
+                for i in range(n):
+                    fn_model = fpath[i]
+                    model_name = (fn_model.split('/')[-1]).split('.')[0]
+                    self.ml_model_path = fn_model
+                    self.ml_add_model_to_list(model_name, fn_model)
+                self.ml_msg = f'{n} model loaded'
+            except Exception as err:
+                print(err)
+                self.ml_msg = str(err)
+            finally:
+                self.update_ml_msg()
+
+
+
+    def ml_load_img(self):
+        options = QFileDialog.Option()
+        options |= QFileDialog.DontUseNativeDialog
+        file_type = 'tiff files (*.tiff)'
+        fn, _ = QFileDialog.getOpenFileName(xanes, "QFileDialog.getOpenFileName()", "", file_type, options=options)
+        if fn:
+            try:
+                print(fn)
+                self.ml_img_path = fn
+                img_stack = io.imread(self.ml_img_path)
+                if len(img_stack.shape) == 2:
+                    img_stack = np.expand_dims(img_stack, axis=0)
+                self.ml_img_stack = img_stack.copy()
+                del img_stack
+                n_img = len(self.ml_img_stack)
+                self.lb_ml_msg_img.setText(f'Total: {n_img} slices')
+                self.cb1_ml.setCurrentText('Raw image')
+                self.ml_update_canvas_img()
+            except Exception as err:
+                print(err)
+                self.ml_img_path = ''
+                self.tx_ml_msg_img.setText('')
+            finally:
+                self.tx_ml_img_path.setText(self.ml_img_path)
+                self.tx_ml_raw_img.setText(self.ml_img_path)
+                QApplication.processEvents()
+
+
+
+    def ml_load_energy(self):
+        self.ml_eng = []
+        options = QFileDialog.Option()
+        options |= QFileDialog.DontUseNativeDialog
+        file_type = 'txt files (*.txt)'
+        fn, _ = QFileDialog.getOpenFileName(xanes, "QFileDialog.getOpenFileName()", "", file_type, options=options)
+        if fn:
+            try:
+                print(fn)
+                self.ml_eng_path = fn
+                self.ml_eng = np.loadtxt(self.ml_eng_path)
+                n_eng = len(self.ml_eng)
+                msg = f'{n_eng} energies: [{self.ml_eng[0]:2.4f}...{self.ml_eng[1]:2.4f}]'
+            except Exception as err:
+                print(err)
+                self.ml_eng_path = ''
+                msg = ''
+            finally:
+                self.tx_ml_eng_path.setText(self.ml_eng_path)
+                self.lb_ml_msg_eng.setText(msg)
+                QApplication.processEvents()
+
+
+    def ml_load_mask(self):
+        options = QFileDialog.Option()
+        options |= QFileDialog.DontUseNativeDialog
+        file_type = 'Tiff files (*.tiff)'
+        fn, _ = QFileDialog.getOpenFileName(xanes, "QFileDialog.getOpenFileName()", "", file_type, options=options)
+        if fn:
+            try:
+                print(fn)
+                self.tx_ml_fn_mask.setText(fn)
+
+            except Exception as err:
+                print(err)
+                self.tx_ml_fn_mask.setText('')
+        else:
+            self.tx_ml_fn_mask.setText('')
+
+    def ml_crop_roi(self, current_canvas):
+        x_s, x_e, y_s, y_e = self.get_crop_roi(current_canvas)
+        image = current_canvas.img_stack
+        try:
+            self.ml_img_update = image[:, y_s:y_e, x_s:x_e]
+            if self.cb1_ml.findText('Image updated') < 0:
+                self.cb1_ml.addItem('Image updated')
+            self.cb1_ml.setCurrentText('Image updated')
+            self.ml_update_canvas_img()
+        except Exception as err:
+            print(err)
+
+
+    def ml_select_model_from_list(self):
+        device = self.cb_ml_device.currentText()
+        item = self.lst_ml_model.selectedItems()
+        model_exist = 0
+        if len(item):
+            model_prod = self.ml_pre_defined_model.to(device)
+            model_name = item[0].text()
+            self.ml_model_path = self.ml_model_dict[model_name]
+            model_path = self.ml_model_path
+            model_prod.load_state_dict(torch.load(model_path, map_location=torch.device(device)))
+            model_exist = 1
+        else:
+            model_exist = 0
+            model_prod = None
+        return model_exist, model_prod, device, model_name
+
+    def ml_apply_img(self):
+        try:
+            self.pb_ml_apply.setEnabled(False)
+            self.pb_ml_apply.setText('Calculating...')
+            self.pb_ml_apply.setEnabled(False)
+            self.ml_msg = 'Applying selected model to image stack. Wait ...'
+            self.update_ml_msg()
+            QApplication.processEvents()
+
+            f_norm = float(self.tx_ml_norm_factor.text())
+            img_raw = self.canvas_ml.img_stack.copy()
+            img_raw = img_raw / f_norm
+            s = img_raw.shape
+            img_rescale = pyxas.crop_scale_image(img_raw, output_size=(256, 256))
+            model_exist, model_prod, device, model_name = self.ml_select_model_from_list()
+            n_iter = int(self.tx_ml_iter.text())
+            filt_sz = int(self.tx_ml_filter_sz.text())
+            if model_exist:
+                img_output_scale, img_bkg_scale = apply_model_to_stack(img_rescale, model_prod, device, n_iter, gaussian_filter=filt_sz)
+                img_output = pyxas.crop_scale_image(img_output_scale, (s[1], s[2]))
+                img_bkg = pyxas.crop_scale_image(img_bkg_scale, (s[1], s[2]))
+                self.ml_output_img = img_output.copy()
+                self.ml_output_bkg = img_bkg.copy()
+                if self.cb1_ml.findText('ML output image') < 0:
+                    self.cb1_ml.addItem('ML output image')
+                if self.cb1_ml.findText('ML output bkg') < 0:
+                    self.cb1_ml.addItem('ML output bkg')
+                if not self.cb1_ml.currentText() == 'ML output image':
+                    self.cb1_ml.setCurrentText('ML output image')
+                self.ml_update_canvas_img()
+                self.ml_msg = 'Finished'
+            else:
+                self.ml_msg = 'model not exist'
+                print('model not exist')
+        except Exception as err:
+            self.ml_msg = str(err)
+            print(err)
+        finally:
+            self.pb_ml_apply.setEnabled(True)
+            self.pb_ml_apply.setText('Apply to stack')
+            self.update_ml_msg()
+
+
+    def ml_apply_img_single(self):
+        try:
+            model_exist, model_prod, device, model_name = self.ml_select_model_from_list()
+            f_norm = float(self.tx_ml_norm_factor.text())
+            img_raw = self.canvas_ml.current_img.copy()
+            img_raw = img_raw / f_norm
+            s = img_raw.shape
+            img_rescale = pyxas.crop_scale_image(img_raw, output_size=(256, 256))
+            device = self.cb_ml_device.currentText()
+
+            if model_exist:
+                img_output_scale = check_image_fitting(model_prod, img_rescale, device, plot_flag=0, clim=[0, 1], title=model_name)
+                img_output = pyxas.crop_scale_image(img_output_scale, (s[0], s[1]))
+                clim = [0,1]
+                plt.figure(figsize=(12, 12))
+                plt.subplot(221)
+                plt.imshow(img_raw, clim=clim)
+                plt.title('raw image')
+                plt.subplot(222)
+                plt.imshow(img_output, clim=clim)
+                plt.show()
+                plt.title('ML output Bkg.')
+                plt.subplot(223)
+                plt.imshow(img_raw/img_output, clim=clim)
+                plt.title('ML output Img.')
+            else:
+                print('model not exist')
+        except Exception as err:
+            print(err)
+            self.ml_msg = str(err)
+            self.update_ml_msg()
+
+    def ml_add_model_to_list(self, model_name, model_path):
+        exist_model_name = list(self.ml_model_dict.keys())
+        self.ml_model_dict[model_name] = model_path
+        item = QListWidgetItem(model_name)
+        model_exist = False
+        for k in exist_model_name:
+            if model_name == k:
+                model_exist = True
+        if not model_exist:
+            self.lst_ml_model.addItem(item)
+        self.lst_ml_model.setCurrentItem(item)
+
+
+    def ml_clear_model(self):
+        self.lst_ml_model.clear()
+        self.ml_model_dict = {}
+        for selectItem in self.lst_ml_model.selectedItems():
+            self.lst_ml_model.removeItemWidget(selectItem)
+
+
+    def _ml_get_eng_exclude(self):
+        try:
+            tx = self.tx_ml_edge.text()
+            tx = tx.replace('[', '')
+            tx = tx.replace(']', '')
+            tx = tx.split(',')
+            eng_exclude = [float(k.strip()) for k in tx]
+        except:
+            eng_exclude = []
+        return eng_exclude
+
+
+    def ml_prep_prod_dataset(self):
+        try:
+            self.pb_ml_prep.setEnabled(False)
+            self.ml_msg = 'Generating training data ...'
+            self.update_ml_msg()
+            QApplication.processEvents()
+            fn_img_xanes = self.ml_img_path
+            if not len(fn_img_xanes):
+                fn_img_xanes = '/tmp/tmp_image.tiff'
+            elem = self.tx_ml_elem.text()
+            eng = self.ml_eng
+            num_img = np.int(self.tx_ml_num.text())
+            f_norm = float(self.tx_ml_norm_factor.text())
+            eng_exclude = self._ml_get_eng_exclude()
+            n_stack = int(self.tx_ml_stack_sz.text())
+            prepare_production_training_dataset(fn_img_xanes, elem, eng, eng_exclude, num_img, f_norm, n_stack)
+
+            #root_dir = self.ml_img_path.split('/')
+            #self.ml_train_root_dir = '/'.join(k for k in root_dir[:-1]) + '/train_production'
+            self.ml_train_root_dir = fn_img_xanes.split('.')[0] + '_train_production'
+            self.ml_train_gt_dir = 'img_gt_stack'
+            self.ml_train_blur_dir = 'img_blur_stack'
+            self.ml_train_eng_dir = 'img_eng_list'
+            self.ml_update_train_dir()
+            self.ml_msg = f'Trainning data generated in "{self.ml_train_root_dir}"'
+        except Exception as err:
+            self.ml_msg = str(err)
+            print(err)
+        finally:
+            self.pb_ml_prep.setEnabled(True)
+            self.update_ml_msg()
+
+
+    def ml_gen_elem(self, elem):
+        try:
+            self.tx_ml_elem.setText(elem)
+            edge = xraylib.EdgeEnergy(xraylib.SymbolToAtomicNumber(elem), xraylib.K_SHELL)
+            eng_edge = np.round([edge - 0.02, edge + 0.08], 2)
+            self.tx_ml_edge.setText(f'[{eng_edge[0]}, {eng_edge[1]}]')
+        except Exception as err:
+            print(err)
+            self.ml_msg = str(err)
+            self.update_ml_msg()
+
+    def ml_update_train_dir(self):
+        self.tx_ml_fn_root.setText(self.ml_train_root_dir)
+        self.tx_ml_fn_gt.setText(self.ml_train_gt_dir)
+        self.tx_ml_fn_blur.setText(self.ml_train_blur_dir)
+        self.tx_ml_fn_englist.setText(self.ml_train_eng_dir)
+
+
+    def ml_open_directory(self, mode):
+        dir_name = QFileDialog.getExistingDirectory(self, "Select a Directory")
+        if dir_name:
+            dir_short = dir_name.split('/')[-1]
+            if mode == 'root':
+                self.ml_train_root_dir = dir_name
+                dir_exist = np.sort(glob.glob(dir_name + '/*'))
+                n = len(dir_exist)
+                for i in range(n):
+                    if 'img_gt_stack' in dir_exist[i]:
+                        self.ml_train_gt_dir = dir_exist[i].split('/')[-1]
+                    if 'img_blur_stack' in dir_exist[i]:
+                        self.ml_train_blur_dir = dir_exist[i].split('/')[-1]
+                    if 'img_eng_list' in dir_exist[i]:
+                        self.ml_train_eng_dir = dir_exist[i].split('/')[-1]
+            if mode == 'gt':
+                self.ml_train_gt_dir = dir_short
+            if mode == 'blur':
+                self.ml_train_blur_dir = dir_short
+            if mode == 'eng':
+                self.ml_train_eng_dir = dir_short
+            self.ml_update_train_dir()
+
+
+    def ml_check_train_dir_exist(self):
+        fn_root = self.tx_ml_fn_root.text()
+        fn_gt = self.tx_ml_fn_gt.text()
+        fn_blur = self.tx_ml_fn_blur.text()
+        fn_eng = self.tx_ml_fn_englist.text()
+        flag_exist = 1
+        if not os.path.exists(fn_root):
+            flag_exist = 0
+        if not os.path.exists(fn_root + '/' + fn_gt):
+            flag_exist = 0
+        if not os.path.exists(fn_root + '/' + fn_blur):
+            flag_exist = 0
+        if not os.path.exists(fn_root + '/' + fn_eng):
+            flag_exist = 0
+        if flag_exist:
+            self.ml_train_root_dir = fn_root
+            self.ml_train_gt_dir = fn_gt
+            self.ml_train_blur_dir = fn_blur
+            self.ml_train_eng_dir = fn_eng
+        return flag_exist
+
+
+    def ml_check_fit_use_ref(self):
+        if self.chkbox_ml_ref.isChecked():
+            self.pb_ml_open_ref.setEnabled(True)
+            self.pb_ml_reset_ref.setEnabled(True)
+            self.lb_ml_ref.setVisible(True)
+            self.tx_ml_ratio.setEnabled(False)
+            self.lb_ml_thick_update.setText('Fit update rate')
+        else:
+            self.pb_ml_open_ref.setEnabled(False)
+            self.pb_ml_reset_ref.setEnabled(False)
+            self.lb_ml_ref.setVisible(False)
+            self.tx_ml_ratio.setEnabled(True)
+            self.lb_ml_thick_update.setText('Thick update rate')
+
+
+    def ml_load_ref(self):
+        options = QFileDialog.Option()
+        options |= QFileDialog.DontUseNativeDialog
+        file_type = 'txt files (*.txt)'
+        fn, _ = QFileDialog.getOpenFileName(xanes, "QFileDialog.getOpenFileName()", "", file_type, options=options)
+        if fn:
+            try:
+                print(fn)
+                fn_ref = fn.split('/')[-1]
+                print(f'selected reference: {fn_ref}')
+                self.lb_ml_ref.setText(self.lb_ml_ref.text() + '\n' + f'ref #{self.ml_num_ref}: ' + fn_ref)
+                self.lb_ml_ref.setStyleSheet('color: rgb(200, 50, 50);')
+                QApplication.processEvents()
+
+                ref = np.loadtxt(fn)
+                ref = pyxas.rm_duplicate(ref)
+                self.ml_spectrum_ref[f'ref{self.num_ref}'] = ref
+                self.ml_num_ref += 1
+            except Exception as err:
+                self.ml_msg = str(err)
+                self.update_ml_msg()
+                print(f'un-supported xanes reference format. Error: {str(err)}')
+
+
+    def ml_reset_ref(self):
+        self.ml_num_ref = 0
+        self.lb_ml_ref.setText('')
+        self.ml_spectrum_ref = {}
+
+
+    def ml_train_prod(self):
+        try:
+            self.pb_ml_train_prod.setText('Training ...')
+            self.pb_ml_train_prod.setEnabled(False)
+            QApplication.processEvents()
+            dir_exist = self.ml_check_train_dir_exist()
+            model_exist, model_prod, device, model_name = self.ml_select_model_from_list()
+            n_train = int(self.tx_ml_n_train.text())
+            n_epoch = int(self.tx_ml_n_epoch.text())
+            ratio = float(self.tx_ml_ratio.text())
+            elem = self.tx_ml_elem.text()
+            lr = float(self.tx_ml_learn_r.text())
+            spectrum_ref = self.ml_spectrum_ref
+            thickness_update_rate = int(self.tx_ml_thick_update.text())
+            x_eng = self.ml_eng
+
+            thickness_elem = None
+            save_flag = True
+            fn_img_raw = self.tx_ml_raw_img.text()
+            #loss_mse = float(self.tx_ml_loss_mse.text())
+            loss_tv = float(self.tx_ml_loss_tv.text())
+            loss_ssim = float(self.tx_ml_loss_ssim.text())
+            loss_r = {}
+            loss_r['mse_fit_img'] = 1
+            loss_r['tv_bkg'] = loss_tv
+            loss_r['ssim_img'] = loss_ssim
+
+            try:
+                fn_mask = self.tx_ml_fn_mask.text()
+                mask = io.imread(fn_mask)
+            except:
+                mask = 1
+
+            self.ml_msg = 'train network now, check terminal for updates ...'
+            if not dir_exist:
+                self.ml_msg = 'train folder not exist'
+            if not model_exist:
+                self.ml_msg = 'neural network model not exist, check "Model path" on the top'
+            if not len(x_eng):
+                self.ml_msg = 'X_Eng not exist, check "X_Eng path" on the top'
+            if not len(elem):
+                self.ml_msg = 'Need to assign the "Elem", e.g., Ni'
+            self.update_ml_msg()
+            QApplication.processEvents()
+            if dir_exist and model_exist and len(x_eng) and len(elem):
+                img_raw = io.imread(fn_img_raw)
+                f_norm = float(self.tx_ml_norm_factor.text())
+                fn_root = self.ml_train_root_dir
+                gt_dir = self.ml_train_gt_dir
+                blur_dir = self.ml_train_blur_dir
+                eng_dir =self.ml_train_eng_dir
+                if self.chkbox_ml_ref.isChecked(): # use reference to fit
+                    '''
+                    main_train_xanes_bkg_production_with_reference(fn_root, img_raw, x_eng, model_prod, spectrum_ref,
+                                                                   loss_r, f_norm, blur_dir, gt_dir, eng_dir, lr, ratio,
+                                                                   mask, n_train, n_epoch, device, save_flag)
+                    '''
+                    self.ml_h_loss = main_train_production_with_fitted_param(fn_root, img_raw, x_eng, model_prod,
+                                                        spectrum_ref, loss_r, f_norm, blur_dir, gt_dir, eng_dir, lr,
+                                                    thickness_update_rate, mask, n_train, n_epoch, device, save_flag)
+                else:
+                    main_train_xanes_bkg_production(fn_root, img_raw, x_eng, elem, model_prod, loss_r, f_norm,
+                                                    gt_dir, blur_dir, eng_dir, thickness_elem, ratio, lr,
+                                                    thickness_update_rate, mask, n_train, n_epoch, device, save_flag)
+                self.ml_update_model_list_and_show_img(fn_root)
+                QApplication.processEvents()
+                self.ml_msg = 'training finished.'
+                torch.cuda.empty_cache()
+                gc.collect()
+        except Exception as err:
+            print(err)
+            self.ml_msg = str(err)
+        finally:
+            torch.cuda.empty_cache()
+            gc.collect()
+            self.update_ml_msg()
+            self.pb_ml_train_prod.setText('Train')
+            self.pb_ml_train_prod.setEnabled(True)
+
+
+    def ml_update_model_list_and_show_img(self, fn_root):
+        fpath_model = fn_root + '/model_saved'
+        fpath_img = fn_root + '/model_output'
+        f_model = np.sort(glob.glob(fpath_model + '/*.pth'))
+        n = len(f_model)
+        self.lst_ml_model.clear()
+        for i in range(n):
+            model_name = f_model[i].split('/')[-1]
+            model_name = model_name.split('.')[0]
+            model_path = f_model[i]
+            self.ml_add_model_to_list(model_name, model_path)
+        QApplication.processEvents()
+
+        n_iter = int(self.tx_ml_iter.text())
+        filt_sz = int(self.tx_ml_filter_sz.text())
+        model_exist, model_prod, device, model_name = self.ml_select_model_from_list()
+        img_raw = self.ml_img_stack
+        if model_exist:
+            img_output, img_bkg = apply_model_to_stack(img_raw, model_prod, device, n_iter, gaussian_filter=filt_sz)
+            self.ml_output_img = img_output.copy()
+            self.ml_output_bkg = img_bkg.copy()
+            if self.cb1_ml.findText('ML output image') < 0:
+                self.cb1_ml.addItem('ML output image')
+            if self.cb1_ml.findText('ML output bkg') < 0:
+                self.cb1_ml.addItem('ML output bkg')
+            if not self.cb1_ml.currentText() == 'ML output image':
+                self.cb1_ml.setCurrentText('ML output image')
+
+            if not self.ml_h_loss is None:
+                if self.cb1_ml.findText('ML train loss') < 0:
+                    self.cb1_ml.addItem('ML train loss')
+
+            self.ml_update_canvas_img()
+
+    def ml_extract_model_img(self, mode):
+        item = self.lst_ml_model.selectedItems()
+        if len(item):
+            model_name = item[0].text()
+            if model_name == 'Init model':
+                if mode == 'output_bkg':
+                    img = self.ml_output_bkg
+                else:
+                    img = self.ml_output_img
+                return img
+            else:
+                model_path = self.ml_model_dict[model_name]
+                fn_root = model_path.split('/')
+                fn_root = '/'.join(k for k in fn_root[:-2])
+                fpath_img = fn_root + '/model_output'
+                f_img = np.sort(glob.glob(fpath_img + '/output*'))
+                f_bkg = np.sort(glob.glob(fpath_img + '/bkg*'))
+
+                idx = (model_name.split('.')[0]).split('_')[-1]
+                idx = int(idx)
+
+                if mode == 'output_bkg':
+                    img = io.imread(f_bkg[idx])
+                elif mode == 'output_img':
+                    img = io.imread(f_img[idx])
+                return img
+        else:
+            return None
+
+    def move_canvas_img_stack(self, from_canvas, to_canvas):
+        self.img_external = from_canvas.img_stack.copy()
+        if to_canvas == self.canvas1:
+            if self.cb1.findText('Moved from external') < 0:
+                self.cb1.addItem('Moved from external')
+            self.cb1.setCurrentText('Moved from external')
+        if to_canvas == self.canvas_ml:
+            if self.cb1_ml.findText('Moved from external') < 0:
+                self.cb1_ml.addItem('Moved from external')
+            self.cb1_ml.setCurrentText('Moved from external')
+
+
+
+    def ml_update_canvas_img(self):
+        canvas = self.canvas_ml
+        slide = self.sl1_ml
+        type_index = self.cb1_ml.currentText()
+        QApplication.processEvents()
+        canvas.draw_line = False
+        self.pb_ml_adj_cmap.setEnabled(True)
+        self.pb_ml_set_cmap.setEnabled(True)
+        try:
+            if type_index == 'Raw image':
+                canvas.rgb_flag = 0
+                canvas.x, canvas.y = [], []
+                canvas.axes.clear()  # this is important, to clear the current image before another imshow()
+                sh = self.ml_img_stack.shape
+                canvas.img_stack = self.smooth(self.ml_img_stack)
+                canvas.special_info = None
+                canvas.current_img_index = self.sl1_ml.value()
+                canvas.title = [f'#{i:3d},   {self.ml_eng[i]:2.4f} keV' for i in range(len(self.ml_eng))]
+                canvas.update_img_stack()
+                slide.setMaximum(max(sh[0] - 1, 0))
+                self.current_image = self.ml_img_stack[0]
+
+            elif type_index == 'Image updated':
+                self.img_colormix_raw = np.array([])
+                canvas.rgb_flag = 0
+                img = self.ml_img_update
+                self.pb_roi_draw.setEnabled(True)
+                canvas.x, canvas.y = [], []
+                canvas.axes.clear()  # this is important, to clear the current image before another imshow()
+                sh = img.shape
+                canvas.img_stack = img.copy()
+                canvas.special_info = None
+                canvas.current_img_index = self.sl1_ml.value()
+                canvas.title = [f'#{i:3d},   {self.ml_eng[i]:2.4f} keV' for i in range(len(self.xanes_eng))]
+                canvas.update_img_stack()
+                slide.setMaximum(max(sh[0] - 1, 0))
+                self.current_image = img[0]
+
+            elif type_index == 'Moved from external':
+                self.img_colormix_raw = np.array([])
+                canvas.rgb_flag = 0
+                img = self.img_external
+                self.pb_roi_draw.setEnabled(True)
+                canvas.x, canvas.y = [], []
+                canvas.axes.clear()  # this is important, to clear the current image before another imshow()
+                sh = img.shape
+                canvas.img_stack = img.copy()
+                canvas.special_info = None
+                canvas.current_img_index = self.sl1_ml.value()
+                #canvas.title = [f'#{i:3d},   {self.ml_eng[i]:2.4f} keV' for i in range(len(self.xanes_eng))]
+                canvas.update_img_stack()
+                slide.setMaximum(max(sh[0] - 1, 0))
+                self.current_image = img[0]
+
+            elif type_index == 'ML output image':
+                self.img_colormix_raw = np.array([])
+                canvas.rgb_flag = 0
+                #img = self.ml_extract_model_img('output_img')
+                img = self.ml_output_img
+                self.pb_roi_draw.setEnabled(True)
+                canvas.x, canvas.y = [], []
+                canvas.axes.clear()  # this is important, to clear the current image before another imshow()
+                sh = img.shape
+                canvas.img_stack = img.copy()
+                canvas.special_info = None
+                canvas.current_img_index = self.sl1_ml.value()
+                canvas.title = [f'#{i:3d},   {self.ml_eng[i]:2.4f} keV' for i in range(len(self.xanes_eng))]
+                canvas.update_img_stack()
+                slide.setMaximum(max(sh[0] - 1, 0))
+                self.current_image = img[0]
+
+            elif type_index == 'ML output bkg':
+                self.img_colormix_raw = np.array([])
+                canvas.rgb_flag = 0
+                #img = self.ml_extract_model_img('output_bkg')
+                img = self.ml_output_bkg
+                self.pb_roi_draw.setEnabled(True)
+                canvas.x, canvas.y = [], []
+                canvas.axes.clear()  # this is important, to clear the current image before another imshow()
+                sh = img.shape
+                canvas.img_stack = img.copy()
+                canvas.special_info = None
+                canvas.current_img_index = self.sl1_ml.value()
+                canvas.title = [f'#{i:3d},   {self.ml_eng[i]:2.4f} keV' for i in range(len(self.xanes_eng))]
+                canvas.update_img_stack()
+                slide.setMaximum(max(sh[0] - 1, 0))
+                self.current_image = img[0]
+
+            elif type_index == 'ML train loss':
+                try:
+                    plot_h_loss(self.ml_h_loss)
+                    QApplication.processEvents()
+                except Exception as err:
+                    print(err)
+
+        except Exception as err:
+            print(err)
+
+###################
 class MyCanvas(FigureCanvas):
     def __init__(self, parent=None, width=5, height=3, dpi=120, obj=[]):
         self.obj = obj
@@ -10463,7 +12244,11 @@ class MyCanvas(FigureCanvas):
             self.update_img_one(self.current_img*self.mask, self.current_img_index)
 
     def auto_contrast(self):
-        img = self.current_img*self.mask
+        try:
+            img = self.current_img*self.mask
+        except:
+            print('image and mask has different shape, will not apply mask')
+            img = self.current_img.copy()
         self.cmax = np.max(img)
         self.cmin = np.min(img)
         self.colorbar_on_flag = True

@@ -1,0 +1,11 @@
+tmp_1499.pth:
+trained using "main_train_1_branch_bkg". 
+It is originally saved at office:/data/xanes_bkg_denoise/IMG_256_stack/Co3/model_tmp/tmp_1499.pth
+
+During training, first train ~50 iterations with loss_r['mse_identity_bkg'] = 1, then with (roughly, need constantly change):
+    loss_r['vgg_identity'] = 1
+    loss_r['vgg_fit'] = 1e-1        
+    loss_r['mse_identity_bkg'] = 1 
+    loss_r['mse_fit_coef'] = 1e10 
+    loss_r['mse_fit_self_consist'] =10
+    loss_r['l1_identity'] = 0 

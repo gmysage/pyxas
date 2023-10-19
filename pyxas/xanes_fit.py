@@ -40,7 +40,7 @@ def check_if_need_align(img_xanes, fit_param):
 def fit_2D_xanes_using_param(img_xanes, xanes_eng, fit_param, spectrum_ref):
     res = {}
     img_thickness = None
-    img_xanes_norm = img_xanes.copy()
+    #img_xanes_norm = img_xanes.copy()
 
     norm_txm_flag = fit_param['norm_txm_flag']
     pre_edge = fit_param['pre_edge']
@@ -61,7 +61,7 @@ def fit_2D_xanes_using_param(img_xanes, xanes_eng, fit_param, spectrum_ref):
     n_comp = fit_param['n_comp'] if mask_xanes_flag else 1
 
     # optional: aligning xanes_image_stack
-    img_xanes_norm = pyxas.check_if_need_align(img_xanes_norm, fit_param)
+    img_xanes_norm = pyxas.check_if_need_align(img_xanes, fit_param)
 
     # normalize by (-log)
     if norm_txm_flag:
@@ -158,51 +158,91 @@ def fit_2D_xanes_single_file(files_scan, xanes_eng, fit_param, spectrum_ref, fil
         img_xanes = pyxas.get_img_from_hdf_file(files_scan, hdf_attr)[hdf_attr]
     else:
         raise Exception('Un-supported file type.')
-
+    img_xanes[np.isnan(img_xanes)] = 0
     res = fit_2D_xanes_using_param(img_xanes, xanes_eng, fit_param, spectrum_ref)
     mask = pyxas.fit_xanes2D_generate_mask(res['xanes_fit_thickness'], res['xanes_fit_cost'], thresh_cost, thresh_thick)
     res['mask'] = mask
     color = fit_param['color'] if len(fit_param['color']) else 'r, g, b, c, y'
 
     save_xanes_fitting_image(res, file_save_path, files_scan, color)
-    for j in range(num_channel):
-        res[f'fitted_xanes_3D_ch{j}'] = np.squeeze(res['xanes_2d_fit'][j])
-        res[f'fitted_xanes_3D_ch{j}_norm'] = np.squeeze(res['xanes_2d_fit_norm'][j])
     print(f'{files_scan_short} taking time: {time.time() - time_start:05.1f}\n')
-    return res
+    tk = list(res.keys())
+    for k in tk:
+        del res[k]
+    del res, img_xanes, mask
+
+    #return res
 
 
 def fit_2D_xanes_series_file(files_scan, xanes_eng, fit_param, spectrum_ref, file_save_path):
     n = len(files_scan)
-    res = {}
+    #res = {}
     for i in trange(n):
-        res[i] = fit_2D_xanes_single_file(files_scan[i], xanes_eng, fit_param, spectrum_ref, file_save_path)
-    return res
+        #res[i] = fit_2D_xanes_single_file(files_scan[i], xanes_eng, fit_param, spectrum_ref, file_save_path)
+        fit_2D_xanes_single_file(files_scan[i], xanes_eng, fit_param, spectrum_ref, file_save_path)
+    #return res
 
 
-def combine_xanes_fit_results(file_path_fit, name=''):
+def compile_img_files(file_path, prefix, postfix):
     try:
-        files = pyxas.retrieve_file_type(file_path_fit, 'fit', 'tiff')
+        files = pyxas.retrieve_file_type(file_path, prefix, postfix)
         n = len(files)
         if n > 0:
             img = io.imread(files[0])
             s = img.shape
-
-            n_comp = s[0]
-            coef = np.zeros((n_comp, n, s[1], s[2]))
+            if len(s) == 3:
+                n_comp = s[0]
+            else:
+                n_comp = 1
+            img_comb = np.zeros([n_comp, n, s[-2], s[-1]])
             for i in trange(n):
-                img = io.imread(files[i])
-                for j in range(n_comp):
-                    coef[j, i] = img[j]
-            for j in range(n_comp):
-                if len(name):
-                    fsave = f'{file_path_fit}/coef_{name}_{j}.tiff'
+                fn = files[i]
+                img = io.imread(fn)
+                if n_comp > 1:
+                    for j in range(n_comp):
+                        img_comb[j, i] = img[j]
                 else:
-                    fsave = f'{file_path_fit}/coef_{j}.tiff'
-                io.imsave(fsave, coef[j].astype(np.float32))
-                print(fsave + ' saved')
+                    img_comb[0, i] = img
         else:
-            print(f'no image exist in {file_path_fit}')
+            print(f'no image exist in {file_path}')
+    except Exception as err:
+        img_comb = None
+        print(err)
+    return img_comb
+
+
+
+def combine_xanes_fit_results(file_path_fit, sub_folder, mask_folder='', name=''):
+    '''
+    If mask_folder is exist, it will compile the mask:
+    e.g., mask_folder='fitting_mask/mask_0'
+    '''
+    try:
+        if len(mask_folder):
+            file_path_mask = f'{file_path_fit}/{mask_folder}'
+            mask = compile_img_files(file_path_mask, 'mask', 'tiff')
+            mask = mask[0]
+        else:
+            mask = 1
+    except Exception as err:
+        print(f'Error in reading mask')
+        raise Exception(str(err))
+
+    try:
+        file_path_coef = f'{file_path_fit}/{sub_folder}'
+        fit_coef = compile_img_files(file_path_coef, 'fit', 'tiff')
+        n_comp = fit_coef.shape[0]
+        for j in range(n_comp):
+            if len(name):
+                fsave = f'{file_path_fit}/fit_coef_{name}_ref_{j}.tiff'
+                fsave_masked = f'{file_path_fit}/fit_coef_{name}_ref_{j}_masked.tiff'
+            else:
+                fsave = f'{file_path_fit}/fit_coef_ref_{j}.tiff'
+                fsave_masked = f'{file_path_fit}/fit_coef_ref_{j}_masked.tiff'
+            io.imsave(fsave, fit_coef[j].astype(np.float32))
+            io.imsave(fsave_masked, (fit_coef[j]*mask).astype(np.float32))
+            print(fsave + ' saved')
+            print(fsave_masked + ' saved')
     except Exception as err:
         raise Exception(str(err))
 
@@ -232,13 +272,17 @@ def save_xanes_fitting_image(res, file_save_path, fn, color='r,g,b'):
         create_directory(f'{file_save_mask}/mask_{n}')
 
     fn = fn.split('/')[-1].split('.')[0]
-    sli_id = int(fn.split('_')[-1]) # slice id
+    sli_id = fn.split('_')[-1] # slice id: string
+    try:
+        sli_id = f'{int(sli_id):04d}'
+    except:
+        pass
 
     # save to jpg image
     tmp_concentration = res['xanes_2d_fit_norm'] * res['xanes_fit_thickness']
     tmp_ratio = res['xanes_2d_fit_norm']
     tmp_f_concentration = pyxas.medfilt(tmp_concentration, 3)
-    tmp_f_ratio = pyxas.medfilt(tmp_ratio, 3)
+    #tmp_f_ratio = pyxas.medfilt(tmp_ratio, 3)
     img_color_concentration = pyxas.colormix(tmp_concentration, color=color, clim=[0, np.max(tmp_f_concentration)])
     img_color_ratio = pyxas.colormix(tmp_ratio, color=color, clim=[0, 1])
     # mask1 = np.expand_dims(np.squeeze(res['mask_0']), axis=2)
@@ -277,10 +321,12 @@ def save_xanes_fitting_image(res, file_save_path, fn, color='r,g,b'):
     fn_save = f'{file_save_fit_norm}/fit_norm_{fn}.tiff'
     io.imsave(fn_save, np.array(res['xanes_2d_fit_norm'], dtype=np.float32))
     # save combined RGB
-    file_jpg_save = file_save_comb + f'/fig_sli_{sli_id:04d}.jpg'
+    file_jpg_save = file_save_comb + f'/fig_sli_{sli_id}.jpg'
     plot_fitting_results(res, color, file_jpg_save, display_flag=0, save_flag=1)
+    del tmp_concentration, tmp_ratio, tmp_f_concentration
+    del img_color_concentration, img_color_ratio, mask1
 
-def fit_2D_xanes_file_mpi(file_path, file_prefix, fit_param, xanes_eng, spectrum_ref, file_range=[], save_hdf=0):
+def fit_2D_xanes_file_mpi(file_path, file_prefix, fit_param, xanes_eng, spectrum_ref, file_range=[]):
     '''
     batch processing xanes given xanes files
     '''
@@ -327,68 +373,23 @@ def fit_2D_xanes_file_mpi(file_path, file_prefix, fit_param, xanes_eng, spectrum
         n_comp = 1
 
     if num_cpu == 1:
-        res = fit_2D_xanes_series_file(files_scan, xanes_eng, fit_param, spectrum_ref, file_save_path)
+        fit_2D_xanes_series_file(files_scan, xanes_eng, fit_param, spectrum_ref, file_save_path)
 
     else:
-        #create_directory(f'{file_save_path}/fitted_single_xanes')
         pool = Pool(num_cpu)
         #res = pool.map(partial(pyxas.fit_2D_xanes_file_mpi_sub, fit_param=fit_param, xanes_eng=xanes_eng, spectrum_ref=spectrum_ref, file_save_path=file_save_path), files_scan)
-        res = pool.map(
+        pool.map(
             partial(fit_2D_xanes_single_file, xanes_eng=xanes_eng,
                     fit_param=fit_param,  spectrum_ref=spectrum_ref,
                     file_save_path=file_save_path), files_scan)
         #pool.join()
         pool.close()
-        # assembling mpi fitting results and saving to hdf file
-    if save_hdf:
-        thickness_3D = np.zeros([num_file, s[1], s[2]])
-        fitted_xanes_3D = np.zeros([num_channel, num_file, s[1], s[2]])
-        fitted_xanes_3D_norm = fitted_xanes_3D.copy()
-        fitting_cost_3D = np.zeros([num_file, s[1], s[2]])
-        fitting_offset_3D = np.zeros([num_file, s[1], s[2]])
-        #thresh_thick = fit_param['fit_mask_thickness_threshold'] # thickness < thick_thresh will be 0
-        #thresh_cost = fit_param['fit_mask_cost_threshold'] # fit_error > cost_thresh will be 0
-        mask_3D = np.ones([num_file, s[1], s[2]])
-
-        mask_3D_comp = np.ones([n_comp, num_file, s[1], s[2]])
-
-        for i in range(num_file):
-            mask_3D[i] = np.squeeze(res[i]['mask'])
-            thickness_3D[i] = np.squeeze(res[i]['xanes_fit_thickness'])
-            fitting_cost_3D[i] = np.squeeze(res[i]['xanes_fit_cost'])
-            fitting_offset_3D[i] = res[i]['xanes_2d_fit_offset']
-            for j in range(num_channel):
-                fitted_xanes_3D[j, i] = res[i][f'fitted_xanes_3D_ch{j}']
-                fitted_xanes_3D_norm[j, i] = res[i][f'fitted_xanes_3D_ch{j}_norm']
-            for n in range(n_comp):
-                mask_3D_comp[n, i] = res[i][f'mask_{n}']
-
-        fn_save = f'{file_save_path}/fitted_3d_xanes.h5'
-        print(f'saving fitted 3D xanes: {fn_save} ... ')
-        with h5py.File(fn_save, 'w') as hf:
-            hf.create_dataset('type', data = 'fit_3D_xanes')
-            hf.create_dataset('X_eng', data = xanes_eng)
-            hf.create_dataset('pre_edge', data = fit_param['pre_edge'])
-            hf.create_dataset('post_edge', data = fit_param['post_edge'])
-            hf.create_dataset('unit', data = 'keV')
-            hf.create_dataset('num_component', data = num_channel)
-            if save_hdf:
-                hf.create_dataset('xanes_fit_thickness', data=np.array(thickness_3D, dtype=np.float32))
-                hf.create_dataset('xanes_fit_cost', data=np.array(fitting_cost_3D, dtype=np.float32))
-                hf.create_dataset('xanes_fit_offset', data=np.array(fitting_offset_3D, dtype=np.float32))
-                hf.create_dataset('mask', data=np.array(mask_3D, dtype=np.int8))
-                for n in range(n_comp):
-                    hf.create_dataset(f'mask_{n}', data=np.array(mask_3D_comp[n], dtype=np.int8))
-                for j in range(num_channel):
-                    hf.create_dataset(f'xanes_fit_comp{j}', data=np.array(fitted_xanes_3D[j], dtype=np.float32))
-                    hf.create_dataset(f'xanes_fit_comp{j}_norm', data=np.array(fitted_xanes_3D_norm[j], dtype=np.float32))
-                    hf.create_dataset(f'ref{j}', data=np.array(fitted_xanes_3D[j], dtype=np.float32))
-
-
-    # group fitting coef.
+     # group fitting coef.
     print('group fitting coefficients seperately ... ')
-    combine_xanes_fit_results(file_save_path + '/fitting_result', name='')
-    combine_xanes_fit_results(file_save_path + '/fitting_result_norm', name='norm')
+    combine_xanes_fit_results(file_save_path, 'fitting_result',
+                              mask_folder='fitting_mask/mask_0', name='', )
+    combine_xanes_fit_results(file_save_path, 'fitting_result_norm',
+                              mask_folder='fitting_mask/mask_0', name='norm')
     print(f'total time elapsed: {time.time()-time_start:6.1f}')
 
 
