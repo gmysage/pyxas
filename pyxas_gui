@@ -119,7 +119,8 @@ class App(QWidget):
         self.setGeometry(self.left, self.top, self.width, self.height)
         self.font1 = QtGui.QFont('Arial', 11, QtGui.QFont.Bold)
         self.font2 = QtGui.QFont('Arial', 11, QtGui.QFont.Normal)
-        self.fpath = os.getcwd()
+        self.gui_fpath = __file__
+        self.fpath = '/'.join(self.gui_fpath.split('/')[:-1])
         self.roi_file_id = 0
         self.spectrum_ref = {}
         if self.torch_installed:
@@ -3374,6 +3375,11 @@ class App(QWidget):
         self.pb_rmbg.clicked.connect(self.remove_bkg)
         self.pb_rmbg.setFixedWidth(150)
 
+        self.chkbox_rmbg = QCheckBox('devide')
+        self.chkbox_rmbg.setFixedWidth(80)
+        self.chkbox_rmbg.setFont(self.font2)
+        self.chkbox_rmbg.setChecked(True)
+
         self.align_group = QButtonGroup()
         self.align_group.setExclusive(True)
         self.rd_ali1 = QRadioButton('StackReg')
@@ -3447,6 +3453,7 @@ class App(QWidget):
         hbox_prep = QHBoxLayout()
         hbox_prep.addWidget(self.pb_norm_txm)
         hbox_prep.addWidget(self.pb_rmbg)
+        hbox_prep.addWidget(self.chkbox_rmbg)
         hbox_prep.setAlignment(QtCore.Qt.AlignLeft)
 
         hbox_ali = QHBoxLayout()
@@ -5800,7 +5807,11 @@ class App(QWidget):
                 roi_spec += np.mean(np.mean(img_stack[:, y1:y2, x1:x2, ], axis=1), axis=1)
             roi_spec = roi_spec / num
             for i in range(img_stack.shape[0]):
-                img_stack[i] -= roi_spec[i]
+                if self.chkbox_rmbg.isChecked():
+                    img_stack[i] /= roi_spec[i]
+                    img_stack[i] = pyxas.rm_abnormal(img_stack[i])
+                else:
+                    img_stack[i] -= roi_spec[i]
             self.img_update = deepcopy(img_stack)
             del img_stack
             self.msg = 'Background removed '
