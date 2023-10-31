@@ -272,6 +272,7 @@ def main_train_xanes_bkg_production(f_root, img_raw, x_eng, elem, model_prod, lo
 
     if mask is None:
         mask = 1
+    mask = torch.tensor(mask).to(device)
     ############### calculate thickness
     img_all = img_raw[:, np.newaxis]
     img_all = torch.tensor(img_all).to(device)
@@ -279,10 +280,10 @@ def main_train_xanes_bkg_production(f_root, img_raw, x_eng, elem, model_prod, lo
     x_eng = torch.tensor(x_eng).to(device)
     if thickness_elem is None:
         thickness_elem = cal_thickness(elem, x_eng, img_all/f_norm, order=[-3, 0], rho=None, take_log=True, device=device)
-        thickness_elem = torch.tensor(thickness_elem * mask)
+        thickness_elem = thickness_elem * mask
     thickness = {}
     thickness[elem] = thickness_elem
-    mask = torch.tensor(mask)
+
     ##################### end thickness
 
     train_loader, valid_loader = get_train_valid_dataloader(blur_dir, gt_dir, eng_dir, n_train, trans_gt, trans_blur)
@@ -292,7 +293,11 @@ def main_train_xanes_bkg_production(f_root, img_raw, x_eng, elem, model_prod, lo
         if (epoch + 1) % thickness_update_rate == 0:
             print('\nupdate thickness\n')
             thickness_elem = update_thickness_elem(elem, img_all/f_norm, x_eng, model_prod, device, n_iter=1, gaussian_filter=2)
-            thickness[elem] = thickness_elem * mask
+            try:
+                thickness[elem] = thickness_elem * mask
+            except Exception as err:
+                print(err)
+
         img_output, img_bkg = apply_model_to_stack(img_raw/f_norm, model_prod, device, 1, gaussian_filter=1)
 
         h_loss_train, txt_t, psnr_train = extract_h_loss(h_loss_train, loss_summary_train, loss_r)

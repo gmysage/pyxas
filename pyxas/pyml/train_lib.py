@@ -256,6 +256,7 @@ def train_xanes_bkg_production(dataloader, loss_r, thickness_dict, model_prod, l
 
         # TV loss added on 11/20/2022
         loss_value['tv_bkg'] = tv_loss(output_bkg) * loss_r['tv_bkg']
+        loss_value['ssim_img'] = 1 - ssim_loss(output_img, y_fit_reshape)
 
         total_loss_gen = 0.0
         for k in keys:
@@ -316,14 +317,15 @@ def train_xanes_bkg_production_with_reference(dataloader, loss_r, model_prod, lr
         fit_para_dn, y_fit_dn = fit_element_with_reference(x_eng, output_img, spectrum_ref, order=[1, 0],
                                                            take_log=True, device=device)
         y_fit_reshape = y_fit_dn.reshape(s).type(torch.float32)
-        y_fit_reshape = torch.exp(-y_fit_reshape)
+        y_fit_reshape = torch.exp(-y_fit_reshape)*mask
 
-        mse_fit_img1 = mse_criterion(y_fit_reshape*mask, output_img)
-        mse_fit_img2 = mse_criterion(y_fit_reshape*mask, image_data)
+        mse_fit_img1 = mse_criterion(y_fit_reshape, output_img)
+        mse_fit_img2 = mse_criterion(y_fit_reshape, image_data)
         loss_value['mse_fit_img'] = ratio * mse_fit_img1 + (1 - ratio) * mse_fit_img2
 
         # TV loss added on 11/20/2022
         loss_value['tv_bkg'] = tv_loss(output_bkg) * loss_r['tv_bkg']
+        loss_value['ssim_img'] = 1 - ssim_loss(output_img, y_fit_reshape)
 
         total_loss_gen = 0.0
         for k in keys:
