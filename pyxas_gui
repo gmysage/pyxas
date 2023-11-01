@@ -11902,7 +11902,8 @@ class App(QWidget):
         fpath_img = fn_root + '/model_output'
         f_model = np.sort(glob.glob(fpath_model + '/*.pth'))
         n = len(f_model)
-        self.lst_ml_model.clear()
+        #self.lst_ml_model.clear()
+        self.ml_clear_model()
         fn_model_init = self.tx_ml_model_path.text()
         self.ml_add_model_to_list('Init model', fn_model_init)
         for i in range(n):
@@ -11968,10 +11969,13 @@ class App(QWidget):
             if self.cb1.findText('Moved from external') < 0:
                 self.cb1.addItem('Moved from external')
             self.cb1.setCurrentText('Moved from external')
+            self.update_canvas_img()
         if to_canvas == self.canvas_ml:
             if self.cb1_ml.findText('Moved from external') < 0:
                 self.cb1_ml.addItem('Moved from external')
             self.cb1_ml.setCurrentText('Moved from external')
+            self.ml_update_canvas_img()
+        QApplication.processEvents()
 
 
 
