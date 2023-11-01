@@ -319,6 +319,7 @@ class App(QWidget):
         self.ml_msg = ''
         self.ml_img_path = ''
         self.ml_model_path = f'{self.fpath}/pyxas/pyml/trained_model/pre_traind_model_xanes_denoise.pth'
+        self.ml_model_path_default = self.ml_model_path
         self.ml_train_root_dir = ''
         self.ml_train_gt_dir = ''
         self.ml_train_blur_dir = ''
@@ -10458,30 +10459,17 @@ class App(QWidget):
         self.pb_ml_model_open_multi.setFont(self.font2)
         self.pb_ml_model_open_multi.clicked.connect(self.ml_load_model_multiple)
 
-        lb_ml_device = QLabel()
-        lb_ml_device.setText('Device:')
-        lb_ml_device.setFont(self.font2)
-        lb_ml_device.setFixedWidth(60)
-
-        self.cb_ml_device = QComboBox()
-        self.cb_ml_device.setFont(self.font2)
-        self.cb_ml_device.setFixedWidth(85)
-        if self.gpu_count == 0:
-            self.cb_ml_device.addItem('cpu')
-        elif self.gpu_count == 1:
-            self.cb_ml_device.addItem('cuda')
-        else:
-            for i in range(self.gpu_count):
-                self.cb_ml_device.addItem(f'cuda:{i:d}')
+        self.pb_ml_model_open_default = QPushButton('Open default')
+        self.pb_ml_model_open_default.setFixedWidth(120)
+        self.pb_ml_model_open_default.setFont(self.font2)
+        self.pb_ml_model_open_default.clicked.connect(self.ml_load_model_default)
 
         hbox_path = QHBoxLayout()
         hbox_path.addWidget(lb_model)
         hbox_path.addWidget(self.tx_ml_model_path)
         hbox_path.addWidget(self.pb_ml_model_open)
         hbox_path.addWidget(self.pb_ml_model_open_multi)
-        hbox_path.addWidget(lb_space)
-        hbox_path.addWidget(lb_ml_device)
-        hbox_path.addWidget(self.cb_ml_device)
+        hbox_path.addWidget(self.pb_ml_model_open_default)
         hbox_path.setAlignment(QtCore.Qt.AlignLeft)
         hbox_path.addStretch()
         return hbox_path
@@ -10616,6 +10604,22 @@ class App(QWidget):
         self.pb_ml_crop_exec.setFixedWidth(120)
         self.pb_ml_crop_exec.clicked.connect(lambda:self.ml_crop_roi(self.canvas_ml))
 
+        lb_ml_device = QLabel()
+        lb_ml_device.setText('Device:')
+        lb_ml_device.setFont(self.font2)
+        lb_ml_device.setFixedWidth(60)
+
+        self.cb_ml_device = QComboBox()
+        self.cb_ml_device.setFont(self.font2)
+        self.cb_ml_device.setFixedWidth(85)
+        if self.gpu_count == 0:
+            self.cb_ml_device.addItem('cpu')
+        elif self.gpu_count == 1:
+            self.cb_ml_device.addItem('cuda')
+        else:
+            for i in range(self.gpu_count):
+                self.cb_ml_device.addItem(f'cuda:{i:d}')
+
         hbox_crop = QHBoxLayout()
         hbox_crop.addWidget(lb_crop)
         hbox_crop.addWidget(lb_crop_cen_x)
@@ -10631,6 +10635,9 @@ class App(QWidget):
         hbox_crop.addWidget(self.pb_ml_crop_display)
         #hbox_crop.addWidget(lb_space)
         hbox_crop.addWidget(self.pb_ml_crop_exec)
+        #hbox_crop.addWidget(lb_space)
+        hbox_crop.addWidget(lb_ml_device)
+        hbox_crop.addWidget(self.cb_ml_device)
         hbox_crop.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignLeft)
 
         return hbox_crop
@@ -11470,6 +11477,18 @@ class App(QWidget):
                 self.update_ml_msg()
 
 
+    def ml_load_model_default(self):
+        try:
+            print(f'load default model: {self.ml_model_path_default}')
+            self.ml_pre_defined_model = RRDBNet(1, 1, 16, 4, 32)
+            self.ml_model_path = self.ml_model_path_default
+            self.ml_add_model_to_list('Init model', self.ml_model_path_default)
+        except Exception as err:
+            print(err)
+            self.ml_model_path = ''
+        finally:
+            self.tx_ml_model_path.setText(self.ml_model_path)
+            QApplication.processEvents()
 
     def ml_load_img(self):
         options = QFileDialog.Option()
