@@ -6191,7 +6191,7 @@ class App(QWidget):
             y_cen = int(self.tx_crop_cen_y.text())
             x_size = int(self.tx_crop_size_x.text())
             y_size = int(self.tx_crop_size_y.text())
-        if current_canvas == self.canvas_ml:
+        elif current_canvas == self.canvas_ml:
             x_cen = int(self.tx_ml_crop_cen_x.text())
             y_cen = int(self.tx_ml_crop_cen_y.text())
             x_size = int(self.tx_ml_crop_size_x.text())
@@ -6500,7 +6500,7 @@ class App(QWidget):
             self.update_msg()
             if canvas == self.canvas1:
                 self.pb_save_img_stack.setEnabled(True)
-            if canvas == self.canvas_ml:
+            elif canvas == self.canvas_ml:
                 self.pb_ml_save_img_stack.setEnabled(True)
             QApplication.processEvents()
 
@@ -7029,7 +7029,7 @@ class App(QWidget):
         canvas = current_canvas
         if canvas == self.canvas1:
             img_index = self.sl1.value()
-        if canvas == self.canvas_ml:
+        elif canvas == self.canvas_ml:
             img_index = self.sl1_ml.value()
         canvas.current_img_index = img_index
         canvas.current_img = canvas.img_stack[img_index]
@@ -7772,7 +7772,7 @@ class App(QWidget):
         canvas = current_canvas
         if canvas == self.canvas1:
             cmap = self.cb_cmap.currentText()
-        if canvas == self.canvas_ml:
+        elif canvas == self.canvas_ml:
             cmap = self.cb_ml_cmap.currentText()
         canvas.colormap = cmap
         canvas.colorbar_on_flag = True
@@ -7801,7 +7801,7 @@ class App(QWidget):
         if current_canvas == self.canvas1:
             self.tx_cmax.setText(txt_max)
             self.tx_cmin.setText(txt_min)
-        if current_canvas == self.canvas_ml:
+        elif current_canvas == self.canvas_ml:
             self.tx_ml_cmax.setText(txt_max)
             self.tx_ml_cmin.setText(txt_min)
         QApplication.processEvents()
@@ -11989,7 +11989,7 @@ class App(QWidget):
                 self.cb1.addItem('Moved from external')
             self.cb1.setCurrentText('Moved from external')
             self.update_canvas_img()
-        if to_canvas == self.canvas_ml:
+        elif to_canvas == self.canvas_ml:
             if self.cb1_ml.findText('Moved from external') < 0:
                 self.cb1_ml.addItem('Moved from external')
             self.cb1_ml.setCurrentText('Moved from external')
