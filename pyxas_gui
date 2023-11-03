@@ -6878,9 +6878,13 @@ class App(QWidget):
                 self.lb_ip.setStyleSheet('color: rgb(200, 50, 50);')
                 if self.rd_hdf.isChecked():  # read hdf file
                     f = h5py.File(fn, 'r')
+                    flag_reverse_eng = 0
                     # read energy
                     try:
                         self.xanes_eng = np.round(np.array(f[dataset_eng]), 8)  # Generally, it is in unit of keV
+                        if self.xanes_eng[0] > self.xanes_eng[-1]: # energy is from high-to-low
+                            flag_reverse_eng = 1
+                            self.xanes_eng = self.xanes_eng[::-1]
                         # if min(self.xanes_eng) < 4000:  # make sure it is in unit of KeV
                         #     self.xanes_eng = self.xanes_eng * 1000
                         st = '{0:2.4f}, {1:2.4f}, ..., {2:2.4f} keV (totally, {3} energies)'.format(self.xanes_eng[0], self.xanes_eng[1], self.xanes_eng[-1], len(self.xanes_eng))
@@ -6905,7 +6909,8 @@ class App(QWidget):
                     try:
                         try:
                             self.img_xanes = pyxas.rm_abnormal(np.array(f[dataset_xanes]))
-
+                            if flag_reverse_eng:
+                                self.img_xanes = self.img_xanes[::-1]
                             if not self.chkbox_white_field_corr.isChecked():
                                 dataset_bkg = self.tx_hdf_xanes_bkg.text()
                                 dataset_dark = self.tx_hdf_xanes_dark.text()
