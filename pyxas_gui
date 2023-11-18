@@ -11660,10 +11660,10 @@ class App(QWidget):
                 plt.subplot(222)
                 plt.imshow(img_output, clim=clim)
                 plt.show()
-                plt.title('ML output Bkg.')
+                plt.title('ML output Img.')
                 plt.subplot(223)
                 plt.imshow(img_raw/img_output, clim=clim)
-                plt.title('ML output Img.')
+                plt.title('ML output Bkg.')
             else:
                 print('model not exist')
         except Exception as err:
