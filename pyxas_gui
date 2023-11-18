@@ -11643,11 +11643,15 @@ class App(QWidget):
             img_raw = img_raw / f_norm
             s = img_raw.shape
             img_rescale = pyxas.crop_scale_image(img_raw, output_size=(256, 256))
+            img_rescale = np.expand_dims(img_rescale, axis=0) # (1, 256, 256)
             device = self.cb_ml_device.currentText()
-
+            n_iter = int(self.tx_ml_iter.text())
+            filt_sz = int(self.tx_ml_filter_sz.text())
             if model_exist:
-                img_output_scale = check_image_fitting(model_prod, img_rescale, device, plot_flag=0, clim=[0, 1], title=model_name)
-                img_output = pyxas.crop_scale_image(img_output_scale, (s[0], s[1]))
+                #img_output_scale = check_image_fitting(model_prod, img_rescale, device, plot_flag=0, clim=[0, 1], title=model_name)
+                img_output_scale, img_bkg_scale = apply_model_to_stack(img_rescale, model_prod, device, n_iter, gaussian_filter=filt_sz)
+
+                img_output = pyxas.crop_scale_image(img_output_scale[0], (s[0], s[1]))
                 clim = [0,1]
                 plt.figure(figsize=(12, 12))
                 plt.subplot(221)
