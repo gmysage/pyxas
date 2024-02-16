@@ -158,8 +158,6 @@ def align_img3D(img_ref, img, align_flag=1):
         return shft[0], shft[1], shft[2]
 
 
-
-
 def move_3D_to_center(img, circle_mask_ratio=1):
     from scipy.ndimage import center_of_mass
     img0 = img
@@ -347,8 +345,6 @@ def get_tomo_image(fn, file_type='.h5', hdf_attr='img'):
         scan_id = 0
         X_eng = 0    
     return img, scan_id, X_eng
-    
-    
        
 
 def align_3D_tomo_image(img, img_ref, circle_mask_ratio=1, align_method=2, align_coarse=1):
@@ -362,7 +358,6 @@ def align_3D_tomo_image(img, img_ref, circle_mask_ratio=1, align_method=2, align
         img_ali, h_shft, r_shft, c_shft = align_img3D(img_ref, img, align_flag=1)
         print(f'h_shft = {h_shft:4.1f}, r_shft = {r_shft:4.1f}, c_shft = {c_shft:4.1f}')    
     return img_ali
-
 
 
 def align_3D_tomo_file_mpi_sub(files_recon, img_ref, file_path='.', binning=1, circle_mask_ratio=0.9, file_type='.h5', align_coarse=1, align_method=1, hdf_attr='img'):

@@ -101,7 +101,7 @@ def load_xanes_image_file(fn_image, fn_eng, h5_attri_xanes='img_xanes', h5_attri
 
 
 
-def retrieve_file_type(file_path='/home/mingyuan/Work/scan8538_8593', file_prefix='fly', file_type='.h5'):
+def retrieve_file_type(file_path, file_prefix='fly', file_type='.h5'):
     import os
     path = os.path.abspath(file_path)
     files = sorted(os.listdir(file_path))

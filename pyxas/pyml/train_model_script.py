@@ -24,8 +24,8 @@ def main_train_1_branch_bkg():
 
     #loss_r['mse_identity_img'] = 1  
     loss_r['mse_identity_bkg'] = 1 
-    loss_r['mse_fit_coef'] = 1e10           # (fit_coef_from_model_outputs vs. fit_coef_from_label); "1e8" for both "trainning" and "production"
-    loss_r['mse_fit_self_consist'] =10   # (fitting_output_from_model_output vs. model_outputs ); "1" for both "trainning" and "production"
+    loss_r['mse_fit_coef'] = 1e8           # (fit_coef_from_model_outputs vs. fit_coef_from_label); "1e8" for both "trainning" and "production"
+    loss_r['mse_fit_self_consist'] = 0   # (fitting_output_from_model_output vs. model_outputs ); "1" for both "trainning" and "production"
     loss_r['l1_identity'] = 0  
 
     global vgg19
@@ -65,7 +65,7 @@ def main_train_1_branch_bkg():
     model_save_path2 = '/data/xanes_bkg_denoise/IMG_256_stack/Co3/Co_bkg_256_new.pth'
    
     for epoch in range(20,100):
-        loss_summary_train = train_1_branch_bkg(train_loader, loss_r, device, train_fit=True)
+        loss_summary_train = train_1_branch_bkg(model_gen, train_loader, loss_r, vgg19, device, train_fit=False)
         print(f'epoch #{epoch}')
         h_loss_train, txt_t, psnr_train = extract_h_loss(h_loss_train, loss_summary_train, loss_r)
         
@@ -272,6 +272,7 @@ def main_train_xanes_bkg_production(f_root, img_raw, x_eng, elem, model_prod, lo
 
     if mask is None:
         mask = 1
+    mask = torch.tensor(mask).to(device)
     ############### calculate thickness
     img_all = img_raw[:, np.newaxis]
     img_all = torch.tensor(img_all).to(device)
@@ -279,10 +280,10 @@ def main_train_xanes_bkg_production(f_root, img_raw, x_eng, elem, model_prod, lo
     x_eng = torch.tensor(x_eng).to(device)
     if thickness_elem is None:
         thickness_elem = cal_thickness(elem, x_eng, img_all/f_norm, order=[-3, 0], rho=None, take_log=True, device=device)
-        thickness_elem = torch.tensor(thickness_elem * mask)
+        thickness_elem = thickness_elem * mask
     thickness = {}
     thickness[elem] = thickness_elem
-    mask = torch.tensor(mask)
+
     ##################### end thickness
 
     train_loader, valid_loader = get_train_valid_dataloader(blur_dir, gt_dir, eng_dir, n_train, trans_gt, trans_blur)
@@ -292,7 +293,11 @@ def main_train_xanes_bkg_production(f_root, img_raw, x_eng, elem, model_prod, lo
         if (epoch + 1) % thickness_update_rate == 0:
             print('\nupdate thickness\n')
             thickness_elem = update_thickness_elem(elem, img_all/f_norm, x_eng, model_prod, device, n_iter=1, gaussian_filter=2)
-            thickness[elem] = thickness_elem * mask
+            try:
+                thickness[elem] = thickness_elem * mask
+            except Exception as err:
+                print(err)
+
         img_output, img_bkg = apply_model_to_stack(img_raw/f_norm, model_prod, device, 1, gaussian_filter=1)
 
         h_loss_train, txt_t, psnr_train = extract_h_loss(h_loss_train, loss_summary_train, loss_r)

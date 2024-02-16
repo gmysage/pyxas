@@ -117,7 +117,8 @@ def img_psnr(img1, img2, d_range=None):
         data_range = max(np.max(img1), np.max(img2))
     else:
         data_range = d_range
-    return psnr(img1.astype(np.float32), img2.astype(np.float32), data_range=data_range)
+    #return psnr(img1.astype(np.float32), img2.astype(np.float32), data_range=data_range)
+    return psnr(img1.astype(np.float32), img2.astype(np.float32))
 
 
 def img_ssim(img_ref, img):
@@ -150,8 +151,14 @@ def rm_noise(img, noise_level=0.001, filter_size=3, patten='abs'):
 
 
 def psnr(label, outputs, max_val=1):
-    label = label.cpu().detach().numpy()
-    outputs = outputs.cpu().detach().numpy()
+    try:
+        label = label.cpu().detach().numpy()
+    except:
+        pass
+    try:
+        outputs = outputs.cpu().detach().numpy()
+    except:
+        pass
     max_val = max(np.max(label), np.max(outputs))
     img_diff = (outputs - label) / max_val
     rmse = math.sqrt(np.mean((img_diff)**2))
@@ -174,21 +181,21 @@ def plot_h_loss(h, method='log'):
             rate = h[k]['rate']
         except:
             data = h[k]
-            rate = -1
+            rate = [-1]
         plt.subplot(n_row, n_col, i)
         plt.plot(data, '.-')
         
         if method == 'log':
             plt.yscale('log')
-        if rate <1e3 and rate > 1e-3:
-            plt.title(f'{k} (r = {rate:3.1f})')
-        elif rate == 0:
+        if rate[0] <1e3 and rate[0] > 1e-3:
+            plt.title(f'{k} (r = {rate[0]:3.1f})')
+        elif rate[0] == 0:
             plt.title(f'{k} (r = 0)')
-        elif rate == -1:
+        elif rate[0] == -1:
             plt.yscale('linear')
             plt.title('psnr')
         else:
-            plt.title(f'{k} (r = {rate:.1e})')
+            plt.title(f'{k} (r = {rate[0]:.1e})')
         i += 1
     plt.show()
     plt.subplots_adjust(bottom=0.1, top=0.9, left=0.1, hspace=0.4, wspace=0.45)
@@ -205,7 +212,7 @@ def extract_h_loss(h_loss, loss_summary, loss_r):
         rate = loss_r[k]
         
         h_loss[k]['value'].append(value)
-        h_loss[k]['rate'] = rate
+        h_loss[k]['rate'].append(rate)
         txt = txt + f' ({prefix}) ({rate:.1e}) {k} = {value:.3e}\n'
 
     for k in loss_summary.keys():
@@ -244,8 +251,29 @@ def show_tensor(img, idx=0):
 
 def load_json(fn_json):
     with open(fn_json) as js:
-        t = json.loadn(js)
+        t = json.load(js)
     return t
+
+
+def plot_loss(h_loss):
+    keys = list(h_loss.keys())
+    n = len(keys)
+    n_r = int(floor(np.sqrt(n)))
+    n_c = int(ceil(n / n_r))
+    fig, axes = plt.subplots(nrows=n_r, ncols=n_c)
+    for r in range(n_r):
+        for c in range(n_c):
+            idx = r * n_r + c
+            if idx >= n:
+                break
+            k = keys[idx]
+            rate = np.array(h_loss[k]['rate'])
+            rate[rate==0] = 1
+            val = np.array(h_loss[k]['value'])
+            val_scale = val / rate
+            axes[r, c].plot(val_scale, '-', label=k)
+            axes[r, c].legend()
+
 
 
 def get_train_valid_dataloader(blur_dir, gt_dir, eng_dir, num, transform_gt=None, transform_blur=None, split_ratio=0.8):

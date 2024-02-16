@@ -116,10 +116,18 @@ class App(QWidget):
 
     def initUI(self):
         self.setWindowTitle(self.title)
+        try:
+            self.setWindowIcon(QtGui.QIcon('icon.png'))
+        except:
+            pass
         self.setGeometry(self.left, self.top, self.width, self.height)
         self.font1 = QtGui.QFont('Arial', 11, QtGui.QFont.Bold)
         self.font2 = QtGui.QFont('Arial', 11, QtGui.QFont.Normal)
         self.gui_fpath = __file__
+        try:
+            self.gui_fpath = os.readlink(self.gui_fpath)
+        except:
+            pass
         self.fpath = '/'.join(self.gui_fpath.split('/')[:-1])
         self.roi_file_id = 0
         self.spectrum_ref = {}
@@ -182,6 +190,7 @@ class App(QWidget):
 
         self.layout = QVBoxLayout(self)
         self.layout.addWidget(tabs)
+
         self.setLayout(self.layout)
 
 
@@ -315,6 +324,7 @@ class App(QWidget):
         self.ml_msg = ''
         self.ml_img_path = ''
         self.ml_model_path = f'{self.fpath}/pyxas/pyml/trained_model/pre_traind_model_xanes_denoise.pth'
+        self.ml_model_path_default = self.ml_model_path
         self.ml_train_root_dir = ''
         self.ml_train_gt_dir = ''
         self.ml_train_blur_dir = ''
@@ -6186,7 +6196,7 @@ class App(QWidget):
             y_cen = int(self.tx_crop_cen_y.text())
             x_size = int(self.tx_crop_size_x.text())
             y_size = int(self.tx_crop_size_y.text())
-        if current_canvas == self.canvas_ml:
+        elif current_canvas == self.canvas_ml:
             x_cen = int(self.tx_ml_crop_cen_x.text())
             y_cen = int(self.tx_ml_crop_cen_y.text())
             x_size = int(self.tx_ml_crop_size_x.text())
@@ -6495,7 +6505,7 @@ class App(QWidget):
             self.update_msg()
             if canvas == self.canvas1:
                 self.pb_save_img_stack.setEnabled(True)
-            if canvas == self.canvas_ml:
+            elif canvas == self.canvas_ml:
                 self.pb_ml_save_img_stack.setEnabled(True)
             QApplication.processEvents()
 
@@ -6873,9 +6883,13 @@ class App(QWidget):
                 self.lb_ip.setStyleSheet('color: rgb(200, 50, 50);')
                 if self.rd_hdf.isChecked():  # read hdf file
                     f = h5py.File(fn, 'r')
+                    flag_reverse_eng = 0
                     # read energy
                     try:
                         self.xanes_eng = np.round(np.array(f[dataset_eng]), 8)  # Generally, it is in unit of keV
+                        if self.xanes_eng[0] > self.xanes_eng[-1]: # energy is from high-to-low
+                            flag_reverse_eng = 1
+                            self.xanes_eng = self.xanes_eng[::-1]
                         # if min(self.xanes_eng) < 4000:  # make sure it is in unit of KeV
                         #     self.xanes_eng = self.xanes_eng * 1000
                         st = '{0:2.4f}, {1:2.4f}, ..., {2:2.4f} keV (totally, {3} energies)'.format(self.xanes_eng[0], self.xanes_eng[1], self.xanes_eng[-1], len(self.xanes_eng))
@@ -6900,7 +6914,8 @@ class App(QWidget):
                     try:
                         try:
                             self.img_xanes = pyxas.rm_abnormal(np.array(f[dataset_xanes]))
-
+                            if flag_reverse_eng:
+                                self.img_xanes = self.img_xanes[::-1]
                             if not self.chkbox_white_field_corr.isChecked():
                                 dataset_bkg = self.tx_hdf_xanes_bkg.text()
                                 dataset_dark = self.tx_hdf_xanes_dark.text()
@@ -7024,7 +7039,7 @@ class App(QWidget):
         canvas = current_canvas
         if canvas == self.canvas1:
             img_index = self.sl1.value()
-        if canvas == self.canvas_ml:
+        elif canvas == self.canvas_ml:
             img_index = self.sl1_ml.value()
         canvas.current_img_index = img_index
         canvas.current_img = canvas.img_stack[img_index]
@@ -7767,7 +7782,7 @@ class App(QWidget):
         canvas = current_canvas
         if canvas == self.canvas1:
             cmap = self.cb_cmap.currentText()
-        if canvas == self.canvas_ml:
+        elif canvas == self.canvas_ml:
             cmap = self.cb_ml_cmap.currentText()
         canvas.colormap = cmap
         canvas.colorbar_on_flag = True
@@ -7796,7 +7811,7 @@ class App(QWidget):
         if current_canvas == self.canvas1:
             self.tx_cmax.setText(txt_max)
             self.tx_cmin.setText(txt_min)
-        if current_canvas == self.canvas_ml:
+        elif current_canvas == self.canvas_ml:
             self.tx_ml_cmax.setText(txt_max)
             self.tx_ml_cmin.setText(txt_min)
         QApplication.processEvents()
@@ -10454,30 +10469,17 @@ class App(QWidget):
         self.pb_ml_model_open_multi.setFont(self.font2)
         self.pb_ml_model_open_multi.clicked.connect(self.ml_load_model_multiple)
 
-        lb_ml_device = QLabel()
-        lb_ml_device.setText('Device:')
-        lb_ml_device.setFont(self.font2)
-        lb_ml_device.setFixedWidth(60)
-
-        self.cb_ml_device = QComboBox()
-        self.cb_ml_device.setFont(self.font2)
-        self.cb_ml_device.setFixedWidth(85)
-        if self.gpu_count == 0:
-            self.cb_ml_device.addItem('cpu')
-        elif self.gpu_count == 1:
-            self.cb_ml_device.addItem('cuda')
-        else:
-            for i in range(self.gpu_count):
-                self.cb_ml_device.addItem(f'cuda:{i:d}')
+        self.pb_ml_model_open_default = QPushButton('Open default')
+        self.pb_ml_model_open_default.setFixedWidth(120)
+        self.pb_ml_model_open_default.setFont(self.font2)
+        self.pb_ml_model_open_default.clicked.connect(self.ml_load_model_default)
 
         hbox_path = QHBoxLayout()
         hbox_path.addWidget(lb_model)
         hbox_path.addWidget(self.tx_ml_model_path)
         hbox_path.addWidget(self.pb_ml_model_open)
         hbox_path.addWidget(self.pb_ml_model_open_multi)
-        hbox_path.addWidget(lb_space)
-        hbox_path.addWidget(lb_ml_device)
-        hbox_path.addWidget(self.cb_ml_device)
+        hbox_path.addWidget(self.pb_ml_model_open_default)
         hbox_path.setAlignment(QtCore.Qt.AlignLeft)
         hbox_path.addStretch()
         return hbox_path
@@ -10612,6 +10614,22 @@ class App(QWidget):
         self.pb_ml_crop_exec.setFixedWidth(120)
         self.pb_ml_crop_exec.clicked.connect(lambda:self.ml_crop_roi(self.canvas_ml))
 
+        lb_ml_device = QLabel()
+        lb_ml_device.setText('Device:')
+        lb_ml_device.setFont(self.font2)
+        lb_ml_device.setFixedWidth(60)
+
+        self.cb_ml_device = QComboBox()
+        self.cb_ml_device.setFont(self.font2)
+        self.cb_ml_device.setFixedWidth(85)
+        if self.gpu_count == 0:
+            self.cb_ml_device.addItem('cpu')
+        elif self.gpu_count == 1:
+            self.cb_ml_device.addItem('cuda')
+        else:
+            for i in range(self.gpu_count):
+                self.cb_ml_device.addItem(f'cuda:{i:d}')
+
         hbox_crop = QHBoxLayout()
         hbox_crop.addWidget(lb_crop)
         hbox_crop.addWidget(lb_crop_cen_x)
@@ -10627,6 +10645,9 @@ class App(QWidget):
         hbox_crop.addWidget(self.pb_ml_crop_display)
         #hbox_crop.addWidget(lb_space)
         hbox_crop.addWidget(self.pb_ml_crop_exec)
+        #hbox_crop.addWidget(lb_space)
+        hbox_crop.addWidget(lb_ml_device)
+        hbox_crop.addWidget(self.cb_ml_device)
         hbox_crop.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignLeft)
 
         return hbox_crop
@@ -11072,7 +11093,7 @@ class App(QWidget):
         lb_ml_n_train.setFont(self.font2)
 
         self.tx_ml_n_train = QLineEdit()
-        self.tx_ml_n_train.setText('50')
+        self.tx_ml_n_train.setText('20')
         self.tx_ml_n_train.setFont(self.font2)
         self.tx_ml_n_train.setFixedWidth(40)
 
@@ -11084,7 +11105,7 @@ class App(QWidget):
         lb_ml_n_epoch.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
 
         self.tx_ml_n_epoch = QLineEdit()
-        self.tx_ml_n_epoch.setText('10')
+        self.tx_ml_n_epoch.setText('5')
         self.tx_ml_n_epoch.setFont(self.font2)
         self.tx_ml_n_epoch.setFixedWidth(40)
 
@@ -11466,6 +11487,18 @@ class App(QWidget):
                 self.update_ml_msg()
 
 
+    def ml_load_model_default(self):
+        try:
+            print(f'load default model: {self.ml_model_path_default}')
+            self.ml_pre_defined_model = RRDBNet(1, 1, 16, 4, 32)
+            self.ml_model_path = self.ml_model_path_default
+            self.ml_add_model_to_list('Init model', self.ml_model_path_default)
+        except Exception as err:
+            print(err)
+            self.ml_model_path = ''
+        finally:
+            self.tx_ml_model_path.setText(self.ml_model_path)
+            QApplication.processEvents()
 
     def ml_load_img(self):
         options = QFileDialog.Option()
@@ -11583,8 +11616,9 @@ class App(QWidget):
             filt_sz = int(self.tx_ml_filter_sz.text())
             if model_exist:
                 img_output_scale, img_bkg_scale = apply_model_to_stack(img_rescale, model_prod, device, n_iter, gaussian_filter=filt_sz)
-                img_output = pyxas.crop_scale_image(img_output_scale, (s[1], s[2]))
+                #img_output = pyxas.crop_scale_image(img_output_scale, (s[1], s[2]))
                 img_bkg = pyxas.crop_scale_image(img_bkg_scale, (s[1], s[2]))
+                img_output = img_raw / img_bkg
                 self.ml_output_img = img_output.copy()
                 self.ml_output_bkg = img_bkg.copy()
                 if self.cb1_ml.findText('ML output image') < 0:
@@ -11615,11 +11649,16 @@ class App(QWidget):
             img_raw = img_raw / f_norm
             s = img_raw.shape
             img_rescale = pyxas.crop_scale_image(img_raw, output_size=(256, 256))
+            img_rescale = np.expand_dims(img_rescale, axis=0) # (1, 256, 256)
             device = self.cb_ml_device.currentText()
-
+            n_iter = int(self.tx_ml_iter.text())
+            filt_sz = int(self.tx_ml_filter_sz.text())
             if model_exist:
-                img_output_scale = check_image_fitting(model_prod, img_rescale, device, plot_flag=0, clim=[0, 1], title=model_name)
-                img_output = pyxas.crop_scale_image(img_output_scale, (s[0], s[1]))
+                #img_output_scale = check_image_fitting(model_prod, img_rescale, device, plot_flag=0, clim=[0, 1], title=model_name)
+                img_output_scale, img_bkg_scale = apply_model_to_stack(img_rescale, model_prod, device, n_iter, gaussian_filter=filt_sz)
+                img_bkg = pyxas.crop_scale_image(img_bkg_scale[0], (s[0], s[1]))
+                #img_output = pyxas.crop_scale_image(img_output_scale[0], (s[0], s[1]))
+                img_output = img_raw / img_bkg
                 clim = [0,1]
                 plt.figure(figsize=(12, 12))
                 plt.subplot(221)
@@ -11628,10 +11667,10 @@ class App(QWidget):
                 plt.subplot(222)
                 plt.imshow(img_output, clim=clim)
                 plt.show()
-                plt.title('ML output Bkg.')
+                plt.title('ML output Img.')
                 plt.subplot(223)
                 plt.imshow(img_raw/img_output, clim=clim)
-                plt.title('ML output Img.')
+                plt.title('ML output Bkg.')
             else:
                 print('model not exist')
         except Exception as err:
@@ -11898,7 +11937,10 @@ class App(QWidget):
         fpath_img = fn_root + '/model_output'
         f_model = np.sort(glob.glob(fpath_model + '/*.pth'))
         n = len(f_model)
-        self.lst_ml_model.clear()
+        #self.lst_ml_model.clear()
+        self.ml_clear_model()
+        fn_model_init = self.tx_ml_model_path.text()
+        self.ml_add_model_to_list('Init model', fn_model_init)
         for i in range(n):
             model_name = f_model[i].split('/')[-1]
             model_name = model_name.split('.')[0]
@@ -11962,10 +12004,13 @@ class App(QWidget):
             if self.cb1.findText('Moved from external') < 0:
                 self.cb1.addItem('Moved from external')
             self.cb1.setCurrentText('Moved from external')
-        if to_canvas == self.canvas_ml:
+            self.update_canvas_img()
+        elif to_canvas == self.canvas_ml:
             if self.cb1_ml.findText('Moved from external') < 0:
                 self.cb1_ml.addItem('Moved from external')
             self.cb1_ml.setCurrentText('Moved from external')
+            self.ml_update_canvas_img()
+        QApplication.processEvents()
 
 
 
@@ -12156,6 +12201,7 @@ class MyCanvas(FigureCanvas):
                 else:
                     self.axes.set_title('current image: ' + str(img_index))
                 self.axes.title.set_fontsize(10)
+
                 if self.colorbar_on_flag:
                     self.add_colorbar()
                     self.colorbar_on_flag = False

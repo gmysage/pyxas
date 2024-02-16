@@ -20,8 +20,8 @@ def get_features_vgg19(image, model_feature, layers=None):
             features[layers[str(idx)]] = x
     return features
 
-def vgg_loss(outputs, label, model_feature=[], device='cuda'):
-    global vgg19
+def vgg_loss(outputs, label, vgg19, model_feature=[], device='cuda'):
+    #global vgg19
     if not torch.is_tensor(outputs):
         out = torch.tensor(outputs)
     else:
