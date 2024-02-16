@@ -11,7 +11,8 @@ import sys
 import gc
 import h5py
 import matplotlib as mpl
-mpl.use('Qt5Agg')
+#mpl.use('Qt5Agg')
+mpl.use('qtagg')
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -5331,8 +5332,17 @@ class App(QWidget):
             except Exception as err:
                 print(err)
                 x0_id = 0
+
+            if self.xanes_eng[-1] < self.xanes_eng[0]:
+                t = xs_id
+                xs_id = xe_id
+                xe_id = t
+
             x = x[xs_id: xe_id]
             y = y[xs_id: xe_id]
+            if x[-1] < x[0]:
+                x = x[::-1]
+                y = y[::-1]
             w = float(self.tx_pre_edge_wt.text())
             wt = np.ones(len(x))
             wt[:x0_id - xs_id] = w
@@ -5342,6 +5352,7 @@ class App(QWidget):
             else:
                 factor = -1
             if self.fit_peak_method == 1:             # spline
+
                 res = pyxas.fit_peak_curve_spline(x, y*factor, fit_order=k, smooth=edge_smooth, weight=wt)
                 spl = res['spl']
                 xx = res['xx']
@@ -5420,13 +5431,22 @@ class App(QWidget):
                 print(err)
                 x0_id = 0
             eng = self.xanes_eng
+            if eng[-1] < eng[0]:
+                t = xs_id
+                xs_id = xe_id
+                xe_id = t
 
             img = img[xs_id:xe_id]
             s = img.shape
+
             if len(eng):
                 x = eng[xs_id:xe_id]
             else:
                 x = np.arange(len(img))
+
+            if x[-1] < x[0]:
+                x = x[::-1]
+                img = img[::-1]
             self.xanes_edge_fit = np.zeros([1, s[1], s[2]])
             self.xanes_peak_fit = np.zeros([1, s[1], s[2]])
             self.xanes_peak_fit_height = np.zeros([1, s[1], s[2]])
@@ -11659,6 +11679,8 @@ class App(QWidget):
                 img_bkg = pyxas.crop_scale_image(img_bkg_scale[0], (s[0], s[1]))
                 #img_output = pyxas.crop_scale_image(img_output_scale[0], (s[0], s[1]))
                 img_output = img_raw / img_bkg
+
+                img_output = pyxas.crop_scale_image(img_output_scale[0], (s[0], s[1]))
                 clim = [0,1]
                 plt.figure(figsize=(12, 12))
                 plt.subplot(221)
@@ -11721,7 +11743,7 @@ class App(QWidget):
                 fn_img_xanes = '/tmp/tmp_image.tiff'
             elem = self.tx_ml_elem.text()
             eng = self.ml_eng
-            num_img = np.int(self.tx_ml_num.text())
+            num_img = np.int16(self.tx_ml_num.text())
             f_norm = float(self.tx_ml_norm_factor.text())
             eng_exclude = self._ml_get_eng_exclude()
             n_stack = int(self.tx_ml_stack_sz.text())
