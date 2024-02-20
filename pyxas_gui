@@ -22,14 +22,8 @@ import time
 import textwrap
 import json
 from multiprocessing import cpu_count
-from PyQt5 import QtGui
-from PyQt5.QtWidgets import (QMainWindow, QFileDialog, QRadioButton, QApplication,QWidget, QPlainTextEdit,
-                             QLineEdit, QWidget, QPushButton, QLabel, QCheckBox, QGroupBox, QSystemTrayIcon,
-                             QScrollBar, QVBoxLayout, QHBoxLayout, QGridLayout, QTabWidget, QMenu,
-                             QListWidget, QListWidgetItem, QAbstractItemView, QScrollArea, QAction,
-                             QSlider, QComboBox, QButtonGroup, QMessageBox, QSizePolicy)
-from PyQt5.QtGui import QIntValidator, QDoubleValidator, QIcon
-from PyQt5 import QtCore
+
+
 from scipy.ndimage import shift
 from scipy.signal import medfilt2d, medfilt
 from scipy import ndimage
@@ -40,6 +34,26 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from copy import deepcopy
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+import sys
+if 'PyQt5' in sys.modules:
+    from PyQt5 import QtGui
+    from PyQt5.QtWidgets import (QMainWindow, QFileDialog, QRadioButton, QApplication,QWidget, QPlainTextEdit,
+                                 QLineEdit, QWidget, QPushButton, QLabel, QCheckBox, QGroupBox, QSystemTrayIcon,
+                                 QScrollBar, QVBoxLayout, QHBoxLayout, QGridLayout, QTabWidget, QMenu,
+                                 QListWidget, QListWidgetItem, QAbstractItemView, QScrollArea, QAction,
+                                 QSlider, QComboBox, QButtonGroup, QMessageBox, QSizePolicy)
+    from PyQt5.QtGui import QIntValidator, QDoubleValidator, QIcon
+    from PyQt5 import QtCore
+else:
+    from PySide2 import QtGui
+    from PySide2.QtWidgets import (QMainWindow, QFileDialog, QRadioButton, QApplication, QWidget, QPlainTextEdit,
+                                 QLineEdit, QWidget, QPushButton, QLabel, QCheckBox, QGroupBox, QSystemTrayIcon,
+                                 QScrollBar, QVBoxLayout, QHBoxLayout, QGridLayout, QTabWidget, QMenu,
+                                 QListWidget, QListWidgetItem, QAbstractItemView, QScrollArea, QAction,
+                                 QSlider, QComboBox, QButtonGroup, QMessageBox, QSizePolicy)
+    from PySide2.QtGui import QIntValidator, QDoubleValidator, QIcon
+    from PySide2 import QtCore
+
 import pyxas
 
 import warnings
@@ -9998,7 +10012,7 @@ class App(QWidget):
                 circle_mask_ratio = np.float32(self.tx_3D_mask.text())
                 if circle_mask_ratio < 1:
                     img = pyxas.circ_mask(img, axis=0, ratio=circle_mask_ratio)
-                '''
+
                 try:
                     import napari
                     print('view in napari')
@@ -10009,13 +10023,14 @@ class App(QWidget):
                     plt.show()
                     QApplication.processEvents()
                     print('view in matplotlib')
-                '''
 
+                '''
                 plt.figure(f'circle_mask_ratio = {circle_mask_ratio}')
                 plt.imshow(img[s[0] // 2])
                 plt.show()
                 QApplication.processEvents()
                 print('view in matplotlib')
+                '''
 
         except Exception as err:
             print(err)

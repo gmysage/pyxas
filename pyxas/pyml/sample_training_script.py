@@ -1,6 +1,8 @@
+import matplotlib.pyplot as plt
+
 import pyxas
 import shutil
-
+import numpy as np
 import torch
 import torchvision
 import torch.nn as nn
@@ -75,6 +77,7 @@ def sample_train():
 
 
 def sample_train_more_constraints():
+    from skimage import io
     ####
     # load 100th model and add additional constraint
 
@@ -121,7 +124,6 @@ def sample_train_more_constraints():
 
     train_loader, valid_loader = pyxas.get_train_valid_dataloader(blur_dir, gt_dir, eng_dir, n_train, trans_gt, trans_blur)
 
-
     lr = 5e-4 # default 1e-4
     for epoch in range(20, 500):
         print(f'epoch = {epoch}:')
@@ -154,3 +156,117 @@ def sample_train_more_constraints():
     loss_valid = pyxas.load_json(fn_loss_valid)
     pyxas.plot_h_loss(loss_train)
     pyxas.plot_h_loss(loss_valid)
+
+def compare_loss(id_type=0, plot_psnr=False):
+    fn_root = '/data/xanes_bkg_denoise/IMG_256_stack/re_train_20240213'
+    fn_loss = {}
+    fn_loss[0] = f'{fn_root}/model_without_fitting_loss'
+    fn_loss[1] = f'{fn_root}/model_with_fitting_loss'
+    fn_loss[2] = f'{fn_root}/model_with_fitting_loss_lr_5e-4'
+
+    loss_train = {}
+    loss_valid = {}
+    n = {}
+    for i in range(3):
+        loss_train[i] = pyxas.load_json(fn_loss[i] + '/h_loss_train.json')
+        loss_valid[i] = pyxas.load_json(fn_loss[i] + '/h_loss_valid.json')
+        n[i] = len(loss_train[i]['psnr'])
+
+    keys = list(loss_train[1].keys())
+    # note that: the first ten iterations of model2 and model3 are directly loaded from training of model1
+    # append first 10 iters
+
+
+    # keys = ['vgg_identity', 'vgg_fit', 'mse_identity_bkg', 'mse_fit_coef', 'mse_fit_self_consist', 'l1_identity', 'psnr']
+
+    train_value = {}
+    valid_value = {}
+    for i in range(3):
+        train_value[i] = {}
+        valid_value[i] = {}
+        for k in keys:
+            if k == 'psnr':
+                train_value[i][k] = loss_train[i][k]   # it is a list
+                valid_value[i][k] = loss_valid[i][k]
+            else:
+                rate = loss_train[i][k]['rate'][0]
+                if rate == 0: rate = 1
+                tmp = np.array(loss_train[i][k]['value']) / rate
+                train_value[i][k] = list(tmp)
+                tmp1 = np.array(loss_valid[i][k]['value']) / rate
+                valid_value[i][k] = list(tmp1)
+    # append first 10 iters
+    for k in keys:
+        train_value[1][k] = train_value[0][k][:10] + train_value[1][k]
+        train_value[2][k] = train_value[0][k][:10] + train_value[2][k]
+        valid_value[1][k] = valid_value[0][k][:10] + valid_value[1][k]
+        valid_value[2][k] = valid_value[0][k][:10] + valid_value[2][k]
+    n = len(keys)
+    #n_col = int(np.ceil(np.sqrt(n)))
+    #n_row = int(np.ceil(n/n_col))
+    # without "psnr", n_col = 2, n_row = 2
+    n_col, n_row = 3, 2
+
+    title = ['', '', '']
+    title[0] = 'w/o fitting loss, lr=1e-4'
+    title[1] = 'w/ fitting loss, lr=1e-4'
+    title[2] = 'w/ fitting loss, lr=5e-4'
+    if not plot_psnr:
+        #id_type = 2
+        plt.figure(figsize=(12, 10))
+        plt.rcParams.update({'font.size': 12})
+        plt.suptitle(title[id_type])
+        i = 1
+        for k in keys:
+            if k == 'psnr':
+                i = i - 1
+                continue
+            plt.subplot(n_row, n_col, i)
+            plt.plot(train_value[id_type][k], '-', label='train')
+            plt.plot(valid_value[id_type][k], '-', label='valid', alpha=0.3)
+            plt.legend()
+
+
+            plt.yscale('log')
+            rate = loss_train[id_type][k]['rate'][0]
+
+            if (not rate == 0) and (rate < 1e-3 or rate > 1e3):
+                rate = f'{rate:.1e}'
+            plt.title(k + f'  (r = {rate})', fontsize=13)
+            plt.xlabel('Epochs', fontsize=12)
+            i = i + 1
+        plt.subplots_adjust(bottom=0.1, top=0.9, left=0.1, hspace=0.3, wspace=0.25)
+
+    if plot_psnr:
+        # compare PSNR
+        plt.figure()
+        for i in range(3):
+            if i == 1: alpha = 0.95
+            else: alpha=0.8
+            plt.plot(train_value[i]['psnr'], '-', label=title[i], alpha=alpha)
+        plt.legend()
+        plt.xlabel('Epochs', fontsize=12)
+        plt.ylabel('PSNR (train)', fontsize=12)
+
+        plt.figure()
+        for i in range(3):
+            if i == 1: alpha = 0.5
+            else: alpha=0.4
+            plt.plot(valid_value[i]['psnr'], '-', label=title[i], alpha=alpha)
+        plt.legend()
+        plt.xlabel('Epochs', fontsize=12)
+        plt.ylabel('PSNR (valid)', fontsize=12)
+
+        plt.figure(figsize=(16, 5))
+        for i in range(3):
+            plt.subplot(1, 3, i+1)
+            plt.plot(train_value[i]['psnr'], '-', label='train')
+            plt.plot(valid_value[i]['psnr'], '-', label='valid', alpha=0.3)
+            t = plt.axis()
+            plt.axis([t[0]-20, t[1]+20, 16, 49])
+            plt.xlabel('Epochs', fontsize=12)
+            plt.ylabel('PSNR', fontsize=12)
+            plt.title(title[i])
+
+
+
