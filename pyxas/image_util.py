@@ -7,7 +7,7 @@ from skimage.restoration import denoise_nl_means, estimate_sigma
 from skimage.transform import resize
 from skimage.filters import threshold_otsu, threshold_yen
 from multiprocessing import Pool, cpu_count
-from tqdm import tqdm
+from tqdm import tqdm, trange
 from functools import partial
 
 def rm_abnormal(img):

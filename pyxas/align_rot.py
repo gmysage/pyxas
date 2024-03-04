@@ -8,6 +8,13 @@ from skimage.transform import warp_polar, rotate
 from skimage.util import img_as_float
 from scipy.ndimage import geometric_transform
 from scipy import ndimage
+from sklearn.metrics import mutual_info_score
+from skimage.transform import rescale, resize
+from scipy.signal import medfilt as mf
+from scipy.ndimage import gaussian_filter as gf
+from multiprocessing import Pool
+from functools import partial
+import psutil
 '''
 radius = 705
 angle = 35
@@ -303,7 +310,7 @@ def transform_3D(img3D, m, center=None, order=1, shifts=[0,0,0]):
     t = np.vstack((x-center[2], y-center[1], z-center[0]))
     r = m_t @ np.array(t)
     r[0] += (center[2] - shifts[2]) # x --> column
-    r[1] += (center[1] - shifts[1]) # y --> row
+    r[1] += (center[1] + shifts[1]) # y --> row: no matter what, '+' will shift downwards if positive number in shift[1]
     r[2] += (center[0] - shifts[0]) # z --> height
     r[1] = ymax - r[1]
     r[2] = zmax - r[2]
@@ -455,7 +462,7 @@ def rotate_3D_new(img3D, theta_x=0, theta_y=0, theta_z=0, center=None):
     '''
     return img3D_r
 
-def rotate_shift_3D_new(img3D, theta_x=0, theta_y=0, theta_z=0, center=None, shifts=[0,0,0]):
+def rotate_shift_3D_new(img3D, theta_x=0, theta_y=0, theta_z=0, center=None, shifts=[0,0,0], order=1):
     '''
     first rotate along x, then rotate along y, then rotate along z
     '''
@@ -466,7 +473,7 @@ def rotate_shift_3D_new(img3D, theta_x=0, theta_y=0, theta_z=0, center=None, shi
         center = np.array(s) / 2 - 0.5
     '''
     mm = get_rotation_matrix1(theta_x, theta_y, theta_z)
-    img3D_r = transform_3D(img3D, mm, center, shifts)
+    img3D_r = transform_3D(img3D, mm, center, order, shifts)
     return img3D_r
 
 
@@ -913,7 +920,241 @@ def align_3D_rotation_not_good(img_ref, img2, plot_flag=0):
     img3D_recover = pyxas.transform_3D(img2, m_t)
     img3D_recover, _, _, _ = pyxas.align_img3D(img_ref, img3D_recover)
 
+######
 
+def align_img3D_mutual_infor(img, img_ref,
+                             th_x_range=[-5, 5],
+                             th_y_range=[-5, 5],
+                             th_z_range=[-5, 5],
+                             n_thx=10,
+                             n_thy=10,
+                             n_thz=10,
+                             binning=1,
+                             filt_sz=1,
+                             n_iter=2,
+                             fn_save='',
+                             return_flag=True
+                             ):
+
+    img3D_ref = img_ref.copy()
+    img3D = img.copy()
+    if binning > 1:
+        img3D_ref = rescale(img3D_ref, 1./binning)
+        img3D = rescale(img3D, 1./binning)
+    if filt_sz >= 1:
+        img3D_ref = gf(img3D_ref, filt_sz)
+        img3D = gf(img3D, filt_sz)
+
+    rec = {'th_x':0, 'th_y':0, 'th_z':0}
+    rec['th_x_range'] = th_x_range
+    rec['th_y_range'] = th_y_range
+    rec['th_z_range'] = th_z_range
+    rec['n_thx'] = n_thx
+    rec['n_thy'] = n_thy
+    rec['n_thz'] = n_thz
+    mi_history = [0]
+
+    rec, mi_history = mi_search_th_xyz(img3D_ref, img3D, rec, n_iter, mi_history)
+
+    th_x_range1 = set_range(rec['th_x'], 1)
+    th_y_range1 = set_range(rec['th_y'], 1)
+    th_z_range1 = set_range(rec['th_z'], 1)
+    rec['th_x_range'] = th_x_range1
+    rec['th_y_range'] = th_y_range1
+    rec['th_z_range'] = th_z_range1
+    rec['n_thx'] = 10
+    rec['n_thy'] = 10
+    rec['n_thz'] = 10
+    rec, mi_history = mi_search_th_xyz(img3D_ref, img3D, rec, n_iter, mi_history)
+    #
+    img_rot = img.copy()
+    tx = rec['th_x']
+    ty = rec['th_y']
+    tz = rec['th_z']
+    '''
+    img_rot = rotate_3D_new(img_rot, tx, 0, 0, center=None)
+    img_rot = rotate_3D_new(img_rot, 0, ty, 0, center=None)
+    img_rot = rotate_3D_new(img_rot, 0, 0, tz, center=None)
+    '''
+    img_rot = rotate_3D_new(img_rot, tx, ty, tz, center=None)
+    img_ali, sli, r, c = pyxas.align_img3D(img_ref, img_rot)
+    print(f'angle: tx={tx}, ty={ty}, tz={tz}')
+    if len(fn_save):
+        io.imsave(fn_save, img_ali)
+    if return_flag:
+        return img_ali, tx, ty, tz, mi_history
+
+def align_img3D_mutual_infor_tiff_file(fn_and_fn_save, fn_ref,
+                             th_x_range=[-5, 5],
+                             th_y_range=[-5, 5],
+                             th_z_range=[-5, 5],
+                             n_thx=10,
+                             n_thy=10,
+                             n_thz=10,
+                             binning=1,
+                             filt_sz=1,
+                             n_iter=2):
+
+    fn = fn_and_fn_save[0]
+    fn_save = fn_and_fn_save[1]
+    img = io.imread(fn)
+    img_ref = io.imread(fn_ref)
+    align_img3D_mutual_infor(img, img_ref, th_x_range, th_y_range, th_z_range,
+                             n_thx, n_thy, n_thz, binning, filt_sz, n_iter, fn_save, False)
+def align_img3D_mutual_infor_mpi(img_stack, img_ref,
+                             th_x_range=[-5, 5],
+                             th_y_range=[-5, 5],
+                             th_z_range=[-5, 5],
+                             n_thx=10,
+                             n_thy=10,
+                             n_thz=10,
+                             binning=1,
+                             filt_sz=1,
+                             n_iter=2,
+                             n_cpu=4):
+    from multiprocessing import Pool
+    from functools import partial
+    n = len(img_stack)
+    pool = Pool(n_cpu)
+    res = []
+    partial_func = partial(align_img3D_mutual_infor,
+                           img_ref=img_ref,
+                           th_x_range=th_x_range,
+                           th_y_range=th_y_range,
+                           th_z_range=th_z_range,
+                           n_thx=n_thx,
+                           n_thy=n_thy,
+                           n_thz=n_thz,
+                           binning=binning,
+                           filt_sz=filt_sz,
+                           n_iter=n_iter)
+    for result in tqdm(pool.imap(func=partial_func, iterable=img_stack), total=n):
+        res.append(result)
+
+def align_img3D_mutual_infor_tiff_file_mpi(fn_all, fn_ref,
+                             th_x_range=[-5, 5],
+                             th_y_range=[-5, 5],
+                             th_z_range=[-5, 5],
+                             n_thx=10,
+                             n_thy=10,
+                             n_thz=10,
+                             binning=1,
+                             filt_sz=1,
+                             n_iter=2,
+                             n_cpu=4,
+                             fsave_prefix='pos'):
+
+    n = len(fn_all)
+    fn_and_fn_save_all = [(fn_all[i], f'ali_{fsave_prefix}_mi_{i:04d}.tiff') for i in range(n)]
+
+    pool = Pool(n_cpu)
+    res = []
+    partial_func = partial(align_img3D_mutual_infor_tiff_file,
+                           fn_ref=fn_ref, th_x_range=th_x_range, th_y_range=th_y_range, th_z_range=th_z_range,
+                           n_thx=n_thx, n_thy=n_thy, n_thz=n_thz,
+                           binning=binning, filt_sz=filt_sz, n_iter=n_iter)
+
+    for result in tqdm(pool.imap(func=partial_func, iterable=fn_and_fn_save_all), total=n):
+        res.append(result)
+    pool.close()
+    pool.join()
+
+
+def mi_search_thx(img_ref, img, th_x_range, n_thx, th_y, th_z, mi=0):
+    mi_history = []
+    if mi == 0:
+        mi = mutual_info_score(img_ref.ravel(), img.ravel())
+    theta_x = np.linspace(th_x_range[0], th_x_range[1], n_thx, endpoint=False)
+    best_tx = None
+    for th_x in theta_x:
+        img_rot = rotate_3D_new(img, th_x, th_y, th_z, center=None)
+        img_ali, sli, r, c = pyxas.align_img3D(img_ref, img_rot)
+        mi_current = mutual_info_score(img_ref.ravel(), img_ali.ravel())
+        if mi_current > mi:
+            mi = mi_current
+            best_tx = th_x
+            mi_history.append(mi_current)
+            #print(f'theta_x: {th_x:.2f} \n mi={mi_current}')
+    return best_tx, mi_history
+
+def mi_search_thy(img_ref, img, th_y_range, n_thy, th_x, th_z, mi=0):
+    mi_history = []
+    if mi == 0:
+        mi = mutual_info_score(img_ref.ravel(), img.ravel())
+    theta_y = np.linspace(th_y_range[0], th_y_range[1], n_thy, endpoint=False)
+    best_ty = None
+    for th_y in theta_y:
+        img_rot = rotate_3D_new(img, th_x, th_y, th_z, center=None)
+        img_ali, sli, r, c = pyxas.align_img3D(img_ref, img_rot)
+        mi_current = mutual_info_score(img_ref.ravel(), img_ali.ravel())
+        if mi_current > mi:
+            mi = mi_current
+            best_ty = th_y
+            mi_history.append(mi_current)
+            #print(f'theta_y: {th_y:.2f} \n mi={mi_current}')
+    return best_ty, mi_history
+
+def mi_search_thz(img_ref, img, th_z_range, n_thz, th_x, th_y, mi=0):
+    mi_history = []
+    if mi == 0:
+        mi = mutual_info_score(img_ref.ravel(), img.ravel())
+    theta_z = np.linspace(th_z_range[0], th_z_range[1], n_thz, endpoint=False)
+    best_tz = None
+    for th_z in theta_z:
+        img_rot = rotate_3D_new(img, th_x, th_y, th_z, center=None)
+        img_ali, sli, r, c = pyxas.align_img3D(img_ref, img_rot)
+        mi_current = mutual_info_score(img_ref.ravel(), img_ali.ravel())
+        if mi_current > mi:
+            mi = mi_current
+            best_tz = th_z
+            mi_history.append(mi_current)
+            #print(f'theta_z: {th_z:.2f} \n mi={mi_current}')
+    return best_tz, mi_history
+
+def mi_search_th_xyz(img3D_ref, img3D, rec={}, n_iter=3, mi_history=[0]):
+    if len(rec) == 0:
+        rec = {'th_x':0, 'th_y':0, 'th_z':0}
+        rec['th_x_range'] = [-5, 5]
+        rec['th_y_range'] = [-5, 5]
+        rec['th_z_range'] = [-5, 5]
+        rec['n_thx'] = 20
+        rec['n_thy'] = 20
+        rec['n_thz'] = 20
+
+    th_x_range = rec['th_x_range']
+    th_y_range = rec['th_y_range']
+    th_z_range = rec['th_z_range']
+    n_thx = rec['n_thx']
+    n_thy = rec['n_thy']
+    n_thz = rec['n_thz']
+
+    for _ in range(n_iter):
+        best_tx = rec['th_x']
+        best_ty = rec['th_y']
+        best_tz = rec['th_z']
+
+        tmp_tx, mi = mi_search_thx(img3D_ref, img3D, th_x_range, n_thx, best_ty, best_tz, mi_history[-1])
+        if not tmp_tx is None:
+            best_tx = tmp_tx
+            mi_history += mi
+
+        tmp_ty, mi = mi_search_thy(img3D_ref, img3D, th_y_range, n_thy, best_tx, best_tz, mi_history[-1])
+        if not tmp_ty is None:
+            best_ty = tmp_ty
+            mi_history += mi
+
+        tmp_tz, mi = mi_search_thz(img3D_ref, img3D, th_z_range, n_thz, best_tx, best_ty, mi_history[-1])
+        if not tmp_tz is None:
+            best_tz = tmp_tz
+            mi_history += mi
+        rec['th_x'] = best_tx
+        rec['th_y'] = best_ty
+        rec['th_z'] = best_tz
+    return rec, mi_history
+
+
+def set_range(x_cen, x_span):
+    return([x_cen-x_span/2, x_cen+x_span/2])
 ######
 
 def test3D_2():

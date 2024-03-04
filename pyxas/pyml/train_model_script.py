@@ -251,7 +251,7 @@ def main_train_xanes_bkg_production(f_root, img_raw, x_eng, elem, model_prod, lo
     h_loss_train = {}
     keys = list(loss_r.keys())
     for k in keys:
-        h_loss_train[k] = {'value': [], 'rate': ''}
+        h_loss_train[k] = {'value': [], 'rate': []}
 
     if len(blur_dir):
         blur_dir = f_root + '/' + blur_dir
@@ -280,8 +280,9 @@ def main_train_xanes_bkg_production(f_root, img_raw, x_eng, elem, model_prod, lo
     x_eng = torch.tensor(x_eng).to(device)
     if thickness_elem is None:
         thickness_elem = cal_thickness(elem, x_eng, img_all/f_norm, order=[-3, 0], rho=None, take_log=True, device=device)
-        thickness_elem = thickness_elem * mask
+
     thickness = {}
+    thickness_elem = thickness_elem * mask
     thickness[elem] = thickness_elem
 
     ##################### end thickness

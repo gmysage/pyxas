@@ -230,12 +230,12 @@ def cal_thickness(elem, x_eng, img_xanes, order=[-3, 0], rho=None, take_log=True
     thickness = thickness.to(device)
     return thickness
 
-def update_thickness_elem(elem, img, x_eng, model, device, n_iter=3, gaussian_filter=1):
+def update_thickness_elem(elem, img, x_eng, model, device, n_iter=3, gaussian_filter=1, take_log=True):
     img_output, _ = apply_model_to_stack(img, model, device, n_iter)
     if len(img_output.shape) == 3:
         img_output = img_output[:, np.newaxis]
     img_output = torch.tensor(img_output).to(device)
-    thickness_tmp = cal_thickness(elem, x_eng, img_output, order=[-3, 0], rho=None, take_log=True, device=device)
+    thickness_tmp = cal_thickness(elem, x_eng, img_output, order=[-3, 0], rho=None, take_log=take_log, device=device)
 
     return thickness_tmp
 
