@@ -313,6 +313,7 @@ def main_train_xanes_bkg_production(f_root, img_raw, x_eng, elem, model_prod, lo
             torch.save(model_prod.state_dict(), ftmp)
             with open(f_root + f'/model_saved/h_loss.json', 'w') as f:
                 json.dump(h_loss_train, f)
+    return h_loss_train
 
 
 def main_train_xanes_bkg_production_with_reference(f_root, img_raw, x_eng, model_prod, spectrum_ref, loss_r=None,

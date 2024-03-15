@@ -11950,7 +11950,7 @@ class App(QWidget):
                                                         spectrum_ref, loss_r, f_norm, blur_dir, gt_dir, eng_dir, lr,
                                                     thickness_update_rate, mask, n_train, n_epoch, device, save_flag)
                 else:
-                    main_train_xanes_bkg_production(fn_root, img_raw, x_eng, elem, model_prod, loss_r, f_norm,
+                    self.ml_h_loss = main_train_xanes_bkg_production(fn_root, img_raw, x_eng, elem, model_prod, loss_r, f_norm,
                                                     gt_dir, blur_dir, eng_dir, thickness_elem, ratio, lr,
                                                     thickness_update_rate, mask, n_train, n_epoch, device, save_flag)
                 self.ml_update_model_list_and_show_img(fn_root)
@@ -12376,5 +12376,6 @@ if __name__ == '__main__':
     app = QApplication(sys.argv)
     xanes = App()
     xanes.show()
+
 
     sys.exit(app.exec_())

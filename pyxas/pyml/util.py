@@ -303,13 +303,14 @@ def mkdirs(fn_folder):
         os.makedirs(fn_folder)
 
 
-def prepare_production_training_dataset(fn_img_xanes, elem, eng, eng_edge=[], num_img=50, f_norm=1.0, n_stack=16):
+def prepare_production_training_dataset(fn_img_xanes, elem, eng, eng_edge=[], num_img=50, f_norm=1.0, n_stack=16, f_root=None):
     try:
         xraylib.SymbolToAtomicNumber(elem)
     except:
         raise Exception(f'Unrecognized element symbol: {elem}')
 
-    f_root = fn_img_xanes.split('.')[0] + '_train_production'
+    if f_root is None:
+        f_root = fn_img_xanes.split('.')[0] + '_train_production'
     mkdirs(f_root + '/img_gt_stack')
     mkdirs(f_root + '/img_blur_stack')
     mkdirs(f_root + '/img_eng_list')

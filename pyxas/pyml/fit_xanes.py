@@ -218,8 +218,13 @@ def cal_thickness(elem, x_eng, img_xanes, order=[-3, 0], rho=None, take_log=True
     eng_s = edge - 0.02
     eng_e = edge + 0.1
     s = img_xanes.shape
-    id1 = find_nearest(x_eng.cpu().numpy(), eng_s)
-    id2 = find_nearest(x_eng.cpu().numpy(), eng_e)
+    if type(x_eng) is torch.Tensor:
+        id1 = find_nearest(x_eng.cpu().numpy(), eng_s)
+        id2 = find_nearest(x_eng.cpu().numpy(), eng_e)
+    else:
+        id1 = find_nearest(x_eng, eng_s)
+        id2 = find_nearest(x_eng, eng_e)
+        x_eng = torch.tensor(x_eng, device=device)
     l1 = list(np.arange(id1))
     l2 = list(np.arange(id2,len(x_eng)))
     l = l1 + l2
