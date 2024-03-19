@@ -12330,7 +12330,8 @@ class MyCanvas(FigureCanvas):
         self.cmin = cmin
         self.colorbar_on_flag = True
         if self.rgb_flag:
-            img = (self.img_stack - cmin) / (cmax - cmin)
+            #img = (self.img_stack - cmin) / (cmax - cmin)
+            img = self.img_stack.copy()
             mask = deepcopy(self.mask)
             if len(mask.shape) == 2:
                 mask = np.expand_dims(mask,axis=2)
