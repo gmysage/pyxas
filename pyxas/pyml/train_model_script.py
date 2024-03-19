@@ -10,7 +10,7 @@ from .util import *
 from .train_lib import *
 from .fit_xanes import *
 from skimage import io
-from pyxas import kmean_mask
+from pyxas import kmean_mask, scale_img_xanes, img_denoise_nl_mpi, align_img_stack_stackreg
 
 
 
@@ -444,6 +444,96 @@ def main_train_production_with_fitted_param(f_root, img_raw, x_eng, model_prod, 
     return h_loss_train
 
 
+def ML_fit_xanes(img_xanes, param, x_eng, elem, eng_exclude=[], thickness_update_rate=5, fn_root='.', device='cuda'):
+    try:
+        if (not len(param)) or (not type(param) is dict):
+            param = ML_xanes_default_param()
+    except:
+        param = ML_xanes_default_param()
+
+    img_raw, f_scale, mask = scale_img_xanes(img_xanes)
+    img_raw[img_raw < 0] = 0
+
+    loss_r = param['loss_r']
+    n_train = param['n_train']
+    n_epoch = param['n_epoch']
+    lr = param['lr']
+    order = param['order']
+
+    h_loss_train = {}
+    keys = list(loss_r.keys())
+    for k in keys:
+        h_loss_train[k] = {'value': [], 'rate': []}
+
+    model_prod = DnCNN(channels=1, num_of_layers=17).to(device)
+    opt_prod = optim.Adam(model_prod.parameters(), lr=lr)
+
+    f_root = fn_root + '/tmp'
+    mk_directory(f_root)
+    fn_img_xanes = f_root + '/img_xanes.tiff'
+    io.imsave(fn_img_xanes, img_raw)
+
+    prepare_production_training_dataset(fn_img_xanes=fn_img_xanes,
+                                              elem=elem,
+                                              eng=x_eng,
+                                              eng_edge=eng_exclude,
+                                              num_img=n_train,
+                                              f_norm=1.0,
+                                              n_stack=16,
+                                              f_root=f_root)
+
+    blur_dir = f_root + '/img_blur_stack'
+    gt_dir = f_root + '/img_gt_stack'
+    eng_dir = f_root + '/img_eng_list'
+
+    best_psnr = 0
+    best_img = 1
+    best_model = None
+
+    mask = torch.tensor(mask, dtype=torch.float).to(device)
+    # mask = None
+
+    img_all = img_raw[:, np.newaxis]
+    img_all = torch.tensor(img_all).to(device)
+    img_output = img_raw.copy()
+
+    thickness = {}
+    thickness_elem = cal_thickness(elem, x_eng, img_all, order=order, rho=None, take_log=False, device=device)
+    thickness_elem[thickness_elem < 0] = 0
+    thickness[elem] = thickness_elem * mask
+
+    train_loader, valid_loader = get_train_valid_dataloader(blur_dir, gt_dir, eng_dir, n_train, None, None)
+    for epoch in range(n_epoch):
+        if epoch == n_epoch // 2:
+            lr = lr / 2
+        loss_summary_train, model_prod = train_xanes_3D_production(train_loader, loss_r, thickness, model_prod,
+                                                                   opt_prod, lr, device, mask, order)
+        if (epoch + 1) % thickness_update_rate == 0:
+            print('\nupdate thickness\n')
+            t = img_output[:, np.newaxis]
+            t = torch.tensor(t).to(device)
+            thickness_elem = cal_thickness(elem, x_eng, t, order=order, rho=None, take_log=False, device=device)
+            thickness_elem[thickness_elem < 0] = 0
+            thickness[elem] = thickness_elem * mask
+
+        _, img_output = apply_model_to_stack(img_raw, model_prod, device, 1, gaussian_filter=1)
+        img_output[img_output < 0] = 0
+
+        h_loss_train, txt_t, psnr_train = extract_h_loss(h_loss_train, loss_summary_train, loss_r)
+        if psnr_train > best_psnr:
+            best_psnr = psnr_train
+            best_img = img_output
+            best_model = model_prod
+
+        print(f'epoch #{epoch}')
+        print(txt_t)
+        io.imsave(f_root + f'/model_output/output_{epoch:03d}.tiff', img_output.astype(np.float32))
+        ftmp = f_root + f'/model_saved/m_prod_{epoch:04d}.pth'
+        torch.save(model_prod.state_dict(), ftmp)
+        with open(f_root + f'/model_saved/h_loss.json', 'w') as f:
+            json.dump(h_loss_train, f)
+    return best_img / f_scale, best_model, f_scale
+
 def example_train_prod():
     # on computer: office2
     f_root = '/data/quant_xanes/N77_NMC_comb/2023Q2/ML_train/train_Ni'
@@ -488,3 +578,46 @@ def example2_train_prod():
                                     gt_dir, blur_dir, eng_dir,
                                     thickness_elem, ratio, lr, thickness_update_rate,
                                     mask, n_train, n_epoch, device, save_flag)
+
+
+def xanes_3D_ml_denoise(img_xanes, x_eng, elem, eng_exclude, fn_root='',
+                          denoise_flag=False, align_flag=False,
+                          thickness_update_rate=20,
+                          n_epoch=20,
+                          n_train=20,
+                          lr=5e-4,
+                          order=[-3, -2, -1, 0, 1],
+                          save_flag=False,
+                          fn_save='',
+                          device='cuda'):
+
+    '''
+    xanes slice from 3D_xanes dataset
+    it is after -log(), like XRF xanes
+    '''
+
+    param = ML_xanes_default_param(n_epoch=n_epoch, n_train=n_train, lr=lr, order=order)
+    if not len(fn_root):
+        fn_root = '.'
+    img = img_xanes.copy()
+    if denoise_flag:
+        img = img_denoise_nl_mpi(img, patch_size=5, patch_distance=6, n_cpu=4)
+    if align_flag:
+        img = align_img_stack_stackreg(img, select_image_index=-1, method='translation')
+    img_ml, model_prod, _ = ML_fit_xanes(img,
+                                         param,
+                                         x_eng,
+                                         elem,
+                                         eng_exclude,
+                                         thickness_update_rate,
+                                         fn_root,
+                                         device)
+    if save_flag:
+        fn_save_root = fn_root + '/ML'
+        mk_directory(fn_save_root)
+        if not len(fn_save):
+            fn_save = 'ml_denoise.tiff'
+        fn_save = fn_save_root + '/' + fn_save
+        print(f'file saved to: {fn_save}')
+        io.imsave(fn_save, img_ml)
+    return img_ml, model_prod

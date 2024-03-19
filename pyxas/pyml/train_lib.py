@@ -510,3 +510,118 @@ def validate(model, dataloader, loss_r, vgg19, device='cuda:1', take_log=True):
         loss_summary[k] = running_loss[k] / len(dataloader.dataset)
     loss_summary['psnr'] = running_psnr / int(len(dataloader.dataset) / batch_size)
     return loss_summary
+
+
+def train_xanes_3D_production(dataloader, loss_r, thickness_dict, model_prod, opt_prod, lr,
+                              device='cuda:1', mask=None, order=[-3, 0]):
+    # the image data is from xanes_slice after 3D reconstruction.
+    # no need to take -log()
+
+    mse_criterion = MSELoss()
+
+    model_prod.train()
+
+    keys = list(loss_r.keys())
+    loss_value = {}
+    running_psnr = 0.0
+    running_psnr_raw = 0.0
+    running_loss = {}
+    for k in keys:
+        running_loss[k] = 0.0
+
+    batch_size = 1
+    if mask is None:
+        mask = 1
+    if not type(mask) is torch.Tensor:
+        mask = torch.tensor(mask).to(device)
+
+    for bi, data in tqdm(enumerate(dataloader), total=int(len(dataloader.dataset) / batch_size)):
+        image_data = data[0].to(device)  # (1, 16, 256, 256)
+        x_eng = data[2][0].to(device)
+        elem = data[3][0]  # e.g, 'Ni'
+        thickness = thickness_dict[elem]
+
+        s0 = image_data.size()
+        s = (s0[1], s0[0], s0[2], s0[3])
+        image_data = image_data.reshape(s)  # (16, 1, 256, 256)
+
+        #######################
+        ### adapt R2R method from:
+        ### "https://github.com/PangTongyao/Recorrupted-to-Recorrupted-Unsupervised-Deep-Learning-for-Image-Denoising/blob/main/train_AWGN.py"
+        input_train = torch.zeros(s)
+        target_train = torch.zeros(s)
+        eps = 0.1
+        alpha = 0.5
+        sz = image_data[0].size()
+        for i in range(s[0]):
+            std = torch.std(image_data[i])
+
+            pert = eps * torch.FloatTensor(sz).normal_(mean=0, std=std).to(device)
+            target_train[i] = image_data[i] + alpha * pert
+            input_train[i] = image_data[i] - pert / alpha
+        input_train = input_train.to(device)
+        target_train = target_train.to(device)
+        ### end R2R
+        #########################
+
+        # output_img = model_prod(image_data)
+        output_img = model_prod(input_train)
+        loss_value['mse_r2r'] = mse_criterion(output_img, target_train)
+
+        fit_para_dn, y_fit_dn = fit_element_xraylib_barn_fix_thickness(elem, x_eng, output_img, thickness,
+                                                                             order=order, rho=None, take_log=False,
+                                                                             device=device)
+        y_fit_reshape = y_fit_dn.reshape(s).type(torch.float32)
+        y_fit_reshape = y_fit_reshape * mask
+
+        loss_value['mse_fit_img'] = mse_criterion(y_fit_reshape, output_img)
+
+        # TV loss added on 11/20/2022
+        loss_value['tv_img'] = tv_loss(output_img) * loss_r['tv_img']
+        loss_value['ssim_img'] = 1 - ssim_loss(output_img, y_fit_reshape)
+
+        # L1 loss
+        loss_value['l1_img'] = l1_loss(output_img, y_fit_reshape)
+
+        total_loss_gen = 0.0
+        for k in keys:
+            if loss_r[k] > 0:
+                total_loss_gen += loss_value[k] * loss_r[k]
+
+        model_prod.zero_grad()
+        opt_prod.zero_grad()
+
+        total_loss_gen.backward()
+        opt_prod.step()
+
+        for k in keys:
+            if loss_r[k] > 0:
+                running_loss[k] += loss_value[k].item() * loss_r[k]
+            else:
+                running_loss[k] += loss_value[k].item()
+        batch_psnr = psnr(output_img, y_fit_reshape)
+        batch_psnr_raw = psnr(output_img, image_data)
+        running_psnr += batch_psnr
+        running_psnr_raw += batch_psnr_raw
+
+    loss_summary = {}
+    for k in running_loss.keys():
+        loss_summary[k] = running_loss[k] / len(dataloader.dataset)
+    loss_summary['psnr'] = running_psnr / int(len(dataloader.dataset) / batch_size)
+    loss_summary['psnr_raw'] = running_psnr_raw / int(len(dataloader.dataset) / batch_size)
+    return loss_summary, model_prod
+
+def ML_xanes_default_param(n_epoch=100, n_train=50, lr=2e-4, order=[0, 1]):
+    loss_r = {}
+    loss_r['mse_r2r'] = 1
+    loss_r['mse_fit_img'] = 1e2
+    loss_r['tv_img'] = 0  # 1e-3
+    loss_r['ssim_img'] = 0
+    loss_r['l1_img'] = 0
+    param = {}
+    param['loss_r'] = loss_r
+    param['n_train'] = n_train
+    param['lr'] = lr
+    param['n_epoch'] = n_epoch
+    param['order'] = order
+    return param
