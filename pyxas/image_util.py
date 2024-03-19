@@ -542,6 +542,19 @@ def crop_scale_image(img_stack, output_size=(256, 256)):
     return np.squeeze(img_resize)
 
 
+def scale_img_xanes(img_xanes):
+    smart_mask, img_labels = kmean_mask(img_xanes, 2)
+    mask = smart_mask[0]
+    n = img_xanes.shape[0]
+    img_mean = np.sum(img_xanes * mask, axis=0) / n
+    img_sum = np.sum(img_mean)
+    val = img_sum / np.sum(mask)
+
+    f_scale = 1. / val * 0.8
+    img_scale = img_xanes * f_scale
+    return img_scale, f_scale, mask
+
+
 from PIL import Image
 _errstr = "Mode is unknown or incompatible with input array shape."
 

@@ -131,10 +131,7 @@ class App(QWidget):
 
     def initUI(self):
         self.setWindowTitle(self.title)
-        try:
-            self.setWindowIcon(QtGui.QIcon('icon.png'))
-        except:
-            pass
+
         self.setGeometry(self.left, self.top, self.width, self.height)
         self.font1 = QtGui.QFont('Arial', 11, QtGui.QFont.Bold)
         self.font2 = QtGui.QFont('Arial', 11, QtGui.QFont.Normal)
@@ -144,6 +141,11 @@ class App(QWidget):
         except:
             pass
         self.fpath = '/'.join(self.gui_fpath.split('/')[:-1])
+        path_icon = self.fpath + '/icon.png'
+        try:
+            self.setWindowIcon(QtGui.QIcon(path_icon))
+        except:
+            pass
         self.roi_file_id = 0
         self.spectrum_ref = {}
         if self.torch_installed:

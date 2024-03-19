@@ -19,3 +19,6 @@ try:
     from .pyml import *
 except:
     pass
+
+import warnings
+warnings.filterwarnings('ignore')

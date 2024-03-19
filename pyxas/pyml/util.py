@@ -358,3 +358,4 @@ def prepare_production_training_dataset(fn_img_xanes, elem, eng, eng_edge=[], nu
             io.imsave(fsave_gt, img_list.astype(np.float32))
             io.imsave(fsave_bl, img_list.astype(np.float32))
             np.savetxt(fsave_en, eng_list)
+
