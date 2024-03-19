@@ -9,3 +9,7 @@ During training, first train ~50 iterations with loss_r['mse_identity_bkg'] = 1,
     loss_r['mse_fit_coef'] = 1e10 
     loss_r['mse_fit_self_consist'] =10
     loss_r['l1_identity'] = 0 
+
+re_trained_2024.pth:
+re-trained with fitting loss
+Originally saved at: office2:/data/xanes_bkg_denoise/IMG_256_stack/re_train_20240213/model_with_fitting_loss/model_1039.pth
