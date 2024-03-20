@@ -3632,6 +3632,7 @@ class App(QWidget):
         self.tx_cmax.setFixedWidth(80)
         self.tx_cmax.setText('1.')
         self.tx_cmax.setValidator(QDoubleValidator())
+        self.tx_cmax.returnPressed.connect(self.cmin_cmax_pressed1)
         self.tx_cmax.setEnabled(True)
 
         self.tx_cmin = QLineEdit(self)
@@ -3639,6 +3640,7 @@ class App(QWidget):
         self.tx_cmin.setFixedWidth(80)
         self.tx_cmin.setText('0.')
         self.tx_cmin.setValidator(QDoubleValidator())
+        self.tx_cmin.returnPressed.connect(self.cmin_cmax_pressed2)
         self.tx_cmin.setEnabled(True)
 
         self.pb_set_cmap = QPushButton('Set')
@@ -7653,6 +7655,7 @@ class App(QWidget):
                 canvas.img_stack = self.smooth(img)
                 canvas.special_info = None
                 canvas.current_img_index = 0
+                '''
                 try:
                     canvas.cmin = float(self.tx_edge_s.text())
                     self.tx_cmin.setText(f'{canvas.cmin}')
@@ -7660,6 +7663,7 @@ class App(QWidget):
                     self.tx_cmax.setText(f'{canvas.cmax}')
                 except Exception as err:
                     print(err)
+                '''
                 # canvas.current_img_index = self.sl1.value()
                 canvas.title = []
                 canvas.update_img_stack()
@@ -7852,6 +7856,11 @@ class App(QWidget):
             self.tx_ml_cmin.setText(txt_min)
         QApplication.processEvents()
 
+    def cmin_cmax_pressed1(self):
+        return self.set_contrast(self.canvas1)
+
+    def cmin_cmax_pressed2(self):
+        return self.set_contrast(self.canvas1)
 
     def set_contrast(self, current_canvas):
         try:
