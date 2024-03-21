@@ -545,6 +545,19 @@ def train_xanes_3D_production(dataloader, loss_r, thickness_dict, model_prod, op
         s = (s0[1], s0[0], s0[2], s0[3])
         image_data = image_data.reshape(s)  # (16, 1, 256, 256)
 
+        ################################
+        # scale individual image
+        if torch.sum(mask) == 1:
+            mask = torch.ones((s[2], s[3])).to(device)
+        scale_forward = torch.ones(s[0]).to(device)
+
+        mask_sum = torch.sum(mask)
+        for i in range(s[0]):
+             scale_forward[i] = torch.sum(image_data[i] * mask) / mask_sum
+             image_data[i] /= scale_forward[i]
+        # end of scale individual image
+        ################################
+
         #######################
         ### adapt R2R method from:
         ### "https://github.com/PangTongyao/Recorrupted-to-Recorrupted-Unsupervised-Deep-Learning-for-Image-Denoising/blob/main/train_AWGN.py"
@@ -555,7 +568,6 @@ def train_xanes_3D_production(dataloader, loss_r, thickness_dict, model_prod, op
         sz = image_data[0].size()
         for i in range(s[0]):
             std = torch.std(image_data[i])
-
             pert = eps * torch.FloatTensor(sz).normal_(mean=0, std=std).to(device)
             target_train[i] = image_data[i] + alpha * pert
             input_train[i] = image_data[i] - pert / alpha
@@ -564,20 +576,27 @@ def train_xanes_3D_production(dataloader, loss_r, thickness_dict, model_prod, op
         ### end R2R
         #########################
 
-        # output_img = model_prod(image_data)
         output_img = model_prod(input_train)
         loss_value['mse_r2r'] = mse_criterion(output_img, target_train)
 
-        fit_para_dn, y_fit_dn = fit_element_xraylib_barn_fix_thickness(elem, x_eng, output_img, thickness,
+
+        #############################
+        ### rescale output_img back to xanes_spectrum
+        output_img_clone = output_img.clone()
+        for i in range(s[0]):
+            output_img_clone[i] = output_img[i] * scale_forward[i]
+        #############################
+
+        fit_para_dn, y_fit_dn = fit_element_xraylib_barn_fix_thickness(elem, x_eng, output_img_clone, thickness,
                                                                              order=order, rho=None, take_log=False,
                                                                              device=device)
         y_fit_reshape = y_fit_dn.reshape(s).type(torch.float32)
         y_fit_reshape = y_fit_reshape * mask
 
-        loss_value['mse_fit_img'] = mse_criterion(y_fit_reshape, output_img)
+        loss_value['mse_fit_img'] = mse_criterion(y_fit_reshape, output_img_clone)
 
         # TV loss added on 11/20/2022
-        loss_value['tv_img'] = tv_loss(output_img) * loss_r['tv_img']
+        loss_value['tv_img'] = tv_loss(output_img)
         loss_value['ssim_img'] = 1 - ssim_loss(output_img, y_fit_reshape)
 
         # L1 loss
@@ -599,7 +618,7 @@ def train_xanes_3D_production(dataloader, loss_r, thickness_dict, model_prod, op
                 running_loss[k] += loss_value[k].item() * loss_r[k]
             else:
                 running_loss[k] += loss_value[k].item()
-        batch_psnr = psnr(output_img, y_fit_reshape)
+        batch_psnr = psnr(output_img_clone, y_fit_reshape)
         batch_psnr_raw = psnr(output_img, image_data)
         running_psnr += batch_psnr
         running_psnr_raw += batch_psnr_raw

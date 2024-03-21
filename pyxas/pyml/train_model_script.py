@@ -10,8 +10,8 @@ from .util import *
 from .train_lib import *
 from .fit_xanes import *
 from skimage import io
-from pyxas import kmean_mask, scale_img_xanes, img_denoise_nl_mpi, align_img_stack_stackreg
-
+from pyxas import kmean_mask, scale_img_xanes
+from copy import deepcopy
 
 
 def main_train_1_branch_bkg():
@@ -454,6 +454,15 @@ def ML_fit_xanes(img_xanes, param, x_eng, elem, eng_exclude=[], thickness_update
     img_raw, f_scale, mask = scale_img_xanes(img_xanes)
     img_raw[img_raw < 0] = 0
 
+    ## calculate scaled img_raw
+    s = img_raw.shape
+    img_raw_scale = np.ones(s)
+    scale_forward = np.ones(s[0])
+    mask_sum = np.sum(mask)
+    for i in range(s[0]):
+        scale_forward[i] = np.sum(img_raw[i] * mask) / mask_sum
+        img_raw_scale[i] = img_raw[i] / scale_forward[i]
+
     loss_r = param['loss_r']
     n_train = param['n_train']
     n_epoch = param['n_epoch']
@@ -487,7 +496,6 @@ def ML_fit_xanes(img_xanes, param, x_eng, elem, eng_exclude=[], thickness_update
     eng_dir = f_root + '/img_eng_list'
 
     best_psnr = 0
-    best_img = 1
     best_model = None
 
     mask = torch.tensor(mask, dtype=torch.float).to(device)
@@ -516,14 +524,15 @@ def ML_fit_xanes(img_xanes, param, x_eng, elem, eng_exclude=[], thickness_update
             thickness_elem[thickness_elem < 0] = 0
             thickness[elem] = thickness_elem * mask
 
-        _, img_output = apply_model_to_stack(img_raw, model_prod, device, 1, gaussian_filter=1)
+        _, img_output = apply_model_to_stack(img_raw_scale, model_prod, device, 1, gaussian_filter=1)
         img_output[img_output < 0] = 0
-
+        for i in range(s[0]):
+            img_output[i] *= scale_forward[i]
         h_loss_train, txt_t, psnr_train = extract_h_loss(h_loss_train, loss_summary_train, loss_r)
         if psnr_train > best_psnr:
             best_psnr = psnr_train
-            best_img = img_output
-            best_model = model_prod
+            best_img = img_output.copy()
+            best_model = deepcopy(model_prod)
 
         print(f'epoch #{epoch}')
         print(txt_t)
@@ -532,7 +541,8 @@ def ML_fit_xanes(img_xanes, param, x_eng, elem, eng_exclude=[], thickness_update
         torch.save(model_prod.state_dict(), ftmp)
         with open(f_root + f'/model_saved/h_loss.json', 'w') as f:
             json.dump(h_loss_train, f)
-    return best_img / f_scale, best_model, f_scale
+
+    return best_img / f_scale, best_model, f_scale, h_loss_train
 
 def example_train_prod():
     # on computer: office2
@@ -581,7 +591,6 @@ def example2_train_prod():
 
 
 def xanes_3D_ml_denoise(img_xanes, x_eng, elem, eng_exclude, fn_root='',
-                          denoise_flag=False, align_flag=False,
                           thickness_update_rate=20,
                           n_epoch=20,
                           n_train=20,
@@ -600,11 +609,8 @@ def xanes_3D_ml_denoise(img_xanes, x_eng, elem, eng_exclude, fn_root='',
     if not len(fn_root):
         fn_root = '.'
     img = img_xanes.copy()
-    if denoise_flag:
-        img = img_denoise_nl_mpi(img, patch_size=5, patch_distance=6, n_cpu=4)
-    if align_flag:
-        img = align_img_stack_stackreg(img, select_image_index=-1, method='translation')
-    img_ml, model_prod, _ = ML_fit_xanes(img,
+
+    img_ml, model_prod, _, h_loss_train = ML_fit_xanes(img,
                                          param,
                                          x_eng,
                                          elem,
@@ -620,4 +626,4 @@ def xanes_3D_ml_denoise(img_xanes, x_eng, elem, eng_exclude, fn_root='',
         fn_save = fn_save_root + '/' + fn_save
         print(f'file saved to: {fn_save}')
         io.imsave(fn_save, img_ml)
-    return img_ml, model_prod
+    return img_ml, model_prod, h_loss_train

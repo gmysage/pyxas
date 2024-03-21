@@ -13,7 +13,7 @@ from skimage import io
 from scipy.ndimage import gaussian_filter as gf
 from .dataset_lib import *
 from torch.utils.data import DataLoader, Dataset
-
+from pyxas import kmean_mask
 
 def apply_model_to_stack(img_stack, model, device, n_iter=1, gaussian_filter=1):
     if torch.is_tensor(img_stack):
@@ -35,6 +35,25 @@ def apply_model_to_stack(img_stack, model, device, n_iter=1, gaussian_filter=1):
             img_output[i] = img/img_bkg[i]
     return img_output, img_bkg
 
+
+def apply_model_to_stack_with_normalization(img_stack, model, device, n_iter=1, gaussian_filter=1):
+    if torch.is_tensor(img_stack):
+        img_stack = np.squeeze(img_stack.detach().cpu().numpy())
+    img_stack[img_stack<0] = 0
+    s = img_stack.shape
+    smart_mask, img_labels = kmean_mask(img_stack, 2)
+    mask = smart_mask[0]
+    mask_sum = np.sum(mask)
+    img_scale = np.zeros(s)
+    scales = np.ones(s[0])
+    for i in range(s[0]):
+        scales[i] = np.sum(img_stack[i] * mask) / mask_sum
+        img_scale[i] = img_stack[i] / scales[i]
+    _, img_output = apply_model_to_stack(img_scale, model, device, n_iter, gaussian_filter)
+    img_output[img_output<0] = 0
+    for i in range(s[0]):
+        img_output[i] *= scales[i]
+    return img_output
 
 def check_image_fitting(model, image, device='cuda', plot_flag=0, clim=[0,1], ax='off', title='', figsize=(14, 8)):
     if ax == 'off':
