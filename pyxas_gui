@@ -651,6 +651,8 @@ class App(QWidget):
         hbox1_ext.addWidget(self.chkbox_white_field_corr)
         hbox1_ext.addWidget(lb_hdf_bkg)
         hbox1_ext.addWidget(self.tx_hdf_xanes_bkg)
+
+
         #hbox1_ext.addWidget(lb_hdf_dark)
         #hbox1_ext.addWidget(self.tx_hdf_xanes_dark)
         hbox1_ext.addWidget(lb_empty)
@@ -1034,6 +1036,16 @@ class App(QWidget):
         self.pb_roi_load_last.clicked.connect(self.load_roi_last)
         self.pb_roi_load_last.setFixedWidth(w)
 
+        self.chkbox_multi_selec = QCheckBox('Multi selec')
+        self.chkbox_multi_selec.setFont(self.font2)
+        self.chkbox_multi_selec.setFixedWidth(w)
+        self.chkbox_multi_selec.setChecked(True)
+        self.chkbox_multi_selec.stateChanged.connect(self.enable_multi_selection)
+
+        self.pb_roi_sel_all = QPushButton('Select all')
+        self.pb_roi_sel_all.setFixedWidth(w)
+        self.pb_roi_sel_all.setFont(self.font2)
+        self.pb_roi_sel_all.clicked.connect(self.roi_selection_all)
 
         # crop image
         lb_crop = QLabel()
@@ -1121,6 +1133,9 @@ class App(QWidget):
         vbox_roi_save_load.addWidget(self.pb_roi_save)
         vbox_roi_save_load.addWidget(self.pb_roi_load)
         vbox_roi_save_load.addWidget(self.pb_roi_load_last)
+        vbox_roi_save_load.addWidget(lb_empty1)
+        vbox_roi_save_load.addWidget(self.chkbox_multi_selec)
+        vbox_roi_save_load.addWidget(self.pb_roi_sel_all)
         vbox_roi_save_load.setAlignment(QtCore.Qt.AlignTop)
 
         hbox_roi_list_save_load = QHBoxLayout()
@@ -6159,6 +6174,19 @@ class App(QWidget):
         except Exception as err:
             print(err)
 
+
+    def enable_multi_selection(self):
+        if self.chkbox_multi_selec.isChecked():
+            self.lst_roi.setSelectionMode(QAbstractItemView.MultiSelection)
+            self.pb_roi_sel_all.setEnabled(True)
+        else:
+            self.lst_roi.setSelectionMode(QAbstractItemView.SingleSelection)
+            self.lst_roi.clearSelection()
+            self.pb_roi_sel_all.setEnabled(False)
+
+    def roi_selection_all(self):
+        self.lst_roi.selectAll()
+
     def export_spectrum(self):
         self.show_roi()
         make_director_success = 1 # temporay to enable saving anyway
@@ -9301,7 +9329,7 @@ class App(QWidget):
     def layout_3D_fit_peak_only(self):
         gpbox = QGroupBox()
         gpbox.setFont(self.font1)
-        gpbox.setTitle('Fit Peak / Cluster Mask only')
+        gpbox.setTitle('Fit Peak / Cluster Mask only  ')
 
         lb_edge_range = QLabel()
         lb_edge_range.setFont(self.font1)
