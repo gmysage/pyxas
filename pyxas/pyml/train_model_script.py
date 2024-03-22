@@ -596,6 +596,11 @@ def xanes_3D_ml_denoise(img_xanes, x_eng, elem, eng_exclude, fn_root='',
                           n_train=20,
                           lr=5e-4,
                           order=[-3, -2, -1, 0, 1],
+                          loss_l1 = 0,
+                          loss_tv = 1e-5,
+                          loss_ssim = 0,
+                          loss_mse_r2r = 1,
+                          loss_mse_fit_img = 1e2,
                           save_flag=False,
                           fn_save='',
                           device='cuda'):
@@ -605,7 +610,8 @@ def xanes_3D_ml_denoise(img_xanes, x_eng, elem, eng_exclude, fn_root='',
     it is after -log(), like XRF xanes
     '''
 
-    param = ML_xanes_default_param(n_epoch=n_epoch, n_train=n_train, lr=lr, order=order)
+    #param = ML_xanes_default_param(n_epoch=n_epoch, n_train=n_train, lr=lr, order=order)
+    param = ML_xanes_default_param(n_epoch, n_train, lr, order, loss_mse_r2r, loss_mse_fit_img, loss_tv, loss_ssim, loss_l1)
     if not len(fn_root):
         fn_root = '.'
     img = img_xanes.copy()

@@ -630,13 +630,15 @@ def train_xanes_3D_production(dataloader, loss_r, thickness_dict, model_prod, op
     loss_summary['psnr_raw'] = running_psnr_raw / int(len(dataloader.dataset) / batch_size)
     return loss_summary, model_prod
 
-def ML_xanes_default_param(n_epoch=100, n_train=50, lr=2e-4, order=[0, 1]):
+def ML_xanes_default_param(n_epoch=100, n_train=50, lr=2e-4,
+                           order=[0, 1], loss_mse_r2r=1, loss_mse_fit_img=1e2,
+                           loss_tv=0, loss_ssim=0, loss_l1=0):
     loss_r = {}
-    loss_r['mse_r2r'] = 1
-    loss_r['mse_fit_img'] = 1e2
-    loss_r['tv_img'] = 0  # 1e-3
-    loss_r['ssim_img'] = 0
-    loss_r['l1_img'] = 0
+    loss_r['mse_r2r'] = loss_mse_r2r
+    loss_r['mse_fit_img'] = loss_mse_fit_img
+    loss_r['tv_img'] = loss_tv  # 1e-3
+    loss_r['ssim_img'] = loss_ssim
+    loss_r['l1_img'] = loss_l1
     param = {}
     param['loss_r'] = loss_r
     param['n_train'] = n_train
