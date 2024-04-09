@@ -3618,7 +3618,9 @@ class App(QWidget):
         lb_cmap.setText('colormap: ')
         lb_cmap.setFixedWidth(80)
 
-        cmap = ['gray', 'bone', 'viridis', 'terrain', 'gnuplot', 'bwr', 'plasma', 'PuBu', 'summer', 'rainbow', 'jet']
+        cmap = ['gray', 'bone', 'viridis', 'terrain', 'gnuplot', 'bwr', 'plasma', 'PuBu', 'summer',
+                'rainbow', 'jet', 'Spectral', 'Pastel1', 'Set2', 'tab20', 'tab20c', 'GnBu', 'YlOrRd',
+                'inferno', 'BuPu']
         self.cb_cmap = QComboBox()
         self.cb_cmap.setFont(self.font2)
         for i in cmap:

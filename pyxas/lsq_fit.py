@@ -69,6 +69,7 @@ def fit_peak_curve_poly(x, y, fit_order=3):
         res['matrix_X'] = XX
         res['matrix_A'] = A
         res['matrix_Y'] = YY
+        res['x_interp'] = xx
     else:
         res['peak_pos'] = peak_pos.get()
         res['fit_error'] = fit_error.get()
