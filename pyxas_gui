@@ -4529,6 +4529,7 @@ class App(QWidget):
                                                         bkg_polynomial_order, method, admm_iter, admm_rate)
                     res['mask'] = mask
                     self.save_multi_elem_batch_fit(fsave_root, fn, res, color_flag)
+                self.group_multi_elem_batch_fit(fsave_root)
             self.msg = 'batch fitting finished'
         except Exception as err:
             print(err)
@@ -4537,6 +4538,46 @@ class App(QWidget):
             self.pb_multi_elem_fit_batch.setEnabled(True)
             self.pb_multi_elem_fit_batch.setText('Batch fit')
             self.update_msg()
+
+
+    def group_multi_elem_batch_fit(self, fsave_root):
+        fsave_multi_img = f'{fsave_root}/multi_elem_fit/thickness'
+        fsave_multi_img_ratio = f'{fsave_root}/multi_elem_fit/thickness_ratio'
+
+        fn_all_ratio = np.sort(glob.glob(f'{fsave_multi_img_ratio}/ratio_fit_thick*'))
+        fn_all = np.sort(glob.glob(f'{fsave_multi_img_ratio}/fit_thick*'))
+
+        img_ratio = self.group_elem(fn_all_ratio)
+        img = self.group_elem(fn_all)
+
+        n_elem = len(img)
+        for i in range(n):
+            fsave = f'{fsave_multi_img}/fit_thick_elem_{i}.tiff'
+            io.imsave(fsave, img[i])
+            fsave_ratio = f'{fsave_multi_img}/ratio_fit_thick_elem_{i}.tiff'
+            io.imsave(fsave_ratio, img_ratio[i])
+
+    def group_elem(self, fn_all):
+        n = len(fn_all)
+        img = io.imread(fn_all[0])
+        s = img.shape  # e.g., s = (3, 600, 800), or (600, 800, 3)
+
+        swap_axis = False
+        if s[-1] < s[0]:  # in case s=(600, 800, 3), we need to swap the axis
+            swap_axis = True
+            s = (s[2], s[0], s[1])
+
+        img_elem = np.zeros((n, s[0], s[1], s[2]))
+        for i in trange(n):
+            fn = fn_all[i]
+            img = io.imread(fn)
+            if swap_axis:
+                img = np.swapaxes(img, 2, 1)
+                img = np.swapaxes(img, 1, 0)
+            img_elem[i] = img
+
+        img_elem = np.swapaxes(img_elem, 0, 1)
+        return img_elem
 
 
     def save_multi_elem_batch_fit(self, fsave_root, fn, res, color_flag):
@@ -8314,19 +8355,25 @@ class App(QWidget):
         lb_ali_method.setFont(self.font2)
         lb_ali_method.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
 
-        self.rd_3D_ali_method_translation = QRadioButton('Translation')
-        self.rd_3D_ali_method_translation.setFixedWidth(100)
+        self.rd_3D_ali_method_translation = QRadioButton('Trans.')
+        self.rd_3D_ali_method_translation.setFixedWidth(65)
         self.rd_3D_ali_method_translation.setChecked(True)
         self.rd_3D_ali_method_translation.setFont(self.font2)
 
         self.rd_3D_ali_method_rigid = QRadioButton('Rigid')
-        self.rd_3D_ali_method_rigid.setFixedWidth(80)
+        self.rd_3D_ali_method_rigid.setFixedWidth(65)
         self.rd_3D_ali_method_rigid.setFont(self.font2)
+
+        self.rd_3D_ali_method_rot = QRadioButton('Scale_rot')
+        self.rd_3D_ali_method_rot.setFixedWidth(100)
+        self.rd_3D_ali_method_rot.setFont(self.font2)
 
         self.ali_3D_group = QButtonGroup()
         self.ali_3D_group.setExclusive(True)
         self.ali_3D_group.addButton(self.rd_3D_ali_method_translation)
         self.ali_3D_group.addButton(self.rd_3D_ali_method_rigid)
+        self.ali_3D_group.addButton(self.rd_3D_ali_method_rot)
+        self.ali_3D_group.addButton(self.rd_3D_ali_method_rot)
 
         lb_ali_roi_rs = QLabel()
         lb_ali_roi_rs.setText('roi_r_start:')
@@ -8421,6 +8468,7 @@ class App(QWidget):
         hbox_2.addWidget(lb_ali_method)
         hbox_2.addWidget(self.rd_3D_ali_method_translation)
         hbox_2.addWidget(self.rd_3D_ali_method_rigid)
+        hbox_2.addWidget(self.rd_3D_ali_method_rot)
         hbox_2.addStretch()
 
         hbox_3 = QHBoxLayout()
@@ -10209,8 +10257,10 @@ class App(QWidget):
         align_roi_ratio = float(self.tx_3D_assemble_mask.text())
         if self.rd_3D_ali_method_translation.isChecked():
             align_method = 'translation'
-        else:
+        elif self.rd_3D_ali_method_rigid.isChecked():
             align_method = 'rigid'
+        else:
+            align_method = 'scaled rotation'
 
         num_cpu = int(self.tx_3D_assemble_cpu.text())
         roi_r_s = int(self.tx_3D_ali_roi_rs.text())
