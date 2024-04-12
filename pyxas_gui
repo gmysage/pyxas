@@ -29,7 +29,6 @@ from scipy.signal import medfilt2d, medfilt
 from scipy import ndimage
 from pathlib import Path
 from skimage import io
-
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from copy import deepcopy
@@ -55,11 +54,9 @@ else:
     from PySide2 import QtCore
 
 import pyxas
-
 import warnings
 from tqdm import trange
 from multiprocessing import cpu_count
-
 
 
 global xanes
@@ -84,11 +81,14 @@ class App(QWidget):
         self.top = (height - self.height) // 2
         self.system_cpu = cpu_count()
         self.check_torch_installed()
+        self.seg_flag = 0
         self.initUI()
         self.bkg_memory_check()
         self.default_layout()
         #self.defaul_layout_ml()
 
+    def refresh(self):
+        pass
 
     def closeEvent(self, *args, **kwargs):
         super().closeEvent(*args, **kwargs)
@@ -156,9 +156,7 @@ class App(QWidget):
                 self.gpu_count = 0
         else:
             self.gpu_count = 0
-
         self.lb_empty = QLabel()
-
         grid1 = QGridLayout()
         gpbox_prep = self.layout_GP_prepare()
         gpbox_msg = self.layout_msg()
@@ -217,6 +215,7 @@ class App(QWidget):
         except Exception as err:
             print(err)
         default_img = np.zeros([1,500, 500])
+        self.refresh(False)
         self.fn_raw_image = ''
         self.save_version = 0
         self.xanes_eng = np.array([0])
@@ -7998,7 +7997,7 @@ class App(QWidget):
         self.lb_3D_prep_msg = QLabel()
         self.lb_3D_prep_msg.setStyleSheet('color: rgb(200, 50, 50);')
         self.lb_3D_prep_msg.setFont(self.font2)
-        self.lb_3D_prep_msg.setFixedWidth(800)
+        self.lb_3D_prep_msg.setFixedWidth(1000)
 
         hbox_msg = QHBoxLayout()
         hbox_msg.addWidget(lb_msg)
@@ -8006,12 +8005,20 @@ class App(QWidget):
         hbox_msg.addStretch()
         hbox_msg.setAlignment(QtCore.Qt.AlignLeft)
 
+        hbox_bottom = QHBoxLayout()
+        hbox_bottom.addLayout(self.vbox_3D_load_tomo_file())
+        hbox_bottom.addLayout(self.vbox_seg_extract())
+        hbox_bottom.setAlignment(QtCore.Qt.AlignLeft)
+        hbox_bottom.addStretch()
+
         vbox_ali = QVBoxLayout()
         vbox_ali.addLayout(hbox_msg)
         vbox_ali.addWidget(lb_empty)
         vbox_ali.addLayout(self.vbox_3D_load_fxi_tomo())
         vbox_ali.addLayout(self.vbox_3D_assemble_xanes())
-        vbox_ali.addLayout(self.vbox_3D_load_tomo_file())
+        #vbox_ali.addLayout(self.vbox_3D_load_tomo_file())
+        vbox_ali.addWidget(lb_empty1)
+        vbox_ali.addLayout(hbox_bottom)
         vbox_ali.addStretch()
 
         return vbox_ali
@@ -8214,19 +8221,28 @@ class App(QWidget):
         lb_tomo_file = QLabel()
         lb_tomo_file.setFont(self.font1)
         lb_tomo_file.setFixedWidth(120)
-        lb_tomo_file.setText('Loaded files')
+        lb_tomo_file.setText('Tomo files')
 
         self.lst_3D_tomo = QListWidget()
         self.lst_3D_tomo.setFont(self.font2)
         self.lst_3D_tomo.itemClicked.connect(self.show_3D_h5_attr)
-        self.lst_3D_tomo.setFixedWidth(400)
+        self.lst_3D_tomo.setFixedWidth(240)
         self.lst_3D_tomo.setFixedHeight(400)
 
+        self.lb_tomo_file2 = QLabel()
+        self.lb_tomo_file2.setFont(self.font1)
+        self.lb_tomo_file2.setFixedWidth(120)
+        self.lb_tomo_file2.setText('Labeled files')
+
+        self.lst_3D_tomo2 = QListWidget()
+        self.lst_3D_tomo2.setFont(self.font2)
+        self.lst_3D_tomo2.setFixedWidth(240)
+        self.lst_3D_tomo2.setFixedHeight(400)
 
         lb_3D_h5_attr = QLabel()
         lb_3D_h5_attr.setFont(self.font2)
-        lb_3D_h5_attr.setFixedWidth(120)
-        lb_3D_h5_attr.setText('Insdie .h5 file: ')
+        lb_3D_h5_attr.setFixedWidth(140)
+        lb_3D_h5_attr.setText('Insdie .h5 tomo file: ')
 
         self.lb_3D_h5_attr = QLabel()
         self.lb_3D_h5_attr.setFont(self.font2)
@@ -8263,17 +8279,340 @@ class App(QWidget):
         vbox_1.addLayout(hbox_2)
         vbox_1.addStretch()
 
+        '''
         hbox_2 = QHBoxLayout()
         hbox_2.addWidget(self.lst_3D_tomo)
         hbox_2.addLayout(vbox_1)
         hbox_2.addStretch()
+        '''
+
+        vbox_file1 = QVBoxLayout()
+        vbox_file1.addWidget(lb_tomo_file)
+        vbox_file1.addWidget(self.lst_3D_tomo)
+        vbox_file1.addStretch()
+
+        vbox_file2 = QVBoxLayout()
+        vbox_file2.addWidget(self.lb_tomo_file2)
+        vbox_file2.addWidget(self.lst_3D_tomo2)
+        vbox_file2.addStretch()
+
+        hbox_file = QHBoxLayout()
+        hbox_file.addLayout(vbox_file1)
+        hbox_file.addLayout(vbox_file2)
+        hbox_file.addStretch()
 
         vbox_file = QVBoxLayout()
-        vbox_file.addWidget(lb_tomo_file)
-        vbox_file.addLayout(hbox_2)
+        vbox_file.addLayout(hbox_file)
+        vbox_file.addLayout(vbox_1)
         vbox_file.addStretch()
 
         return vbox_file
+
+
+    def vbox_segmentation(self):
+        self.lb_seg_title = QLabel()
+        self.lb_seg_title.setFixedWidth(200)
+        self.lb_seg_title.setText('Watershed segmentation')
+
+        self.pb_seg_select = QPushButton()
+        self.pb_seg_select.setText('Select all')
+        self.pb_seg_select.setFont(self.font2)
+        self.pb_seg_select.setFixedWidth(160)
+        self.pb_seg_select.clicked.connect(self.seg_select_all)
+
+        self.pb_seg_unselect = QPushButton()
+        self.pb_seg_unselect.setText('Clear selection')
+        self.pb_seg_unselect.setFont(self.font2)
+        self.pb_seg_unselect.setFixedWidth(160)
+        self.pb_seg_unselect.clicked.connect(self.seg_unselect_all)
+
+        self.pb_seg_go = QPushButton()
+        self.pb_seg_go.setText('Segment')
+        self.pb_seg_go.setFont(self.font2)
+        self.pb_seg_go.setFixedWidth(160)
+        self.pb_seg_go.clicked.connect(self.seg_seg)
+
+        self.lb_seg_gf = QLabel()
+        self.lb_seg_gf.setFixedWidth(110)
+        self.lb_seg_gf.setFont(self.font2)
+        self.lb_seg_gf.setText('Gaussian filter:')
+        self.lb_seg_gf.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+
+        self.tx_seg_gf = QLineEdit()
+        self.tx_seg_gf.setText('3')
+        self.tx_seg_gf.setFixedWidth(80)
+        self.tx_seg_gf.setFont(self.font2)
+        self.tx_seg_gf.setValidator(QIntValidator())
+
+        self.lb_seg_fs = QLabel()
+        self.lb_seg_fs.setFixedWidth(110)
+        self.lb_seg_fs.setFont(self.font2)
+        self.lb_seg_fs.setText('footpint size:')
+        self.lb_seg_fs.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+
+        self.tx_seg_fs = QLineEdit()
+        self.tx_seg_fs.setText('5')
+        self.tx_seg_fs.setFixedWidth(80)
+        self.tx_seg_fs.setFont(self.font2)
+        self.tx_seg_fs.setValidator(QIntValidator())
+
+        self.lb_seg_bin = QLabel()
+        self.lb_seg_bin.setFixedWidth(110)
+        self.lb_seg_bin.setFont(self.font2)
+        self.lb_seg_bin.setText('binning:')
+        self.lb_seg_bin.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+
+        self.tx_seg_bin = QLineEdit()
+        self.tx_seg_bin.setText('2')
+        self.tx_seg_bin.setFixedWidth(80)
+        self.tx_seg_bin.setFont(self.font2)
+        self.tx_seg_bin.setValidator(QIntValidator())
+
+        self.lb_seg_dis = QLabel()
+        self.lb_seg_dis.setFixedWidth(110)
+        self.lb_seg_dis.setFont(self.font2)
+        self.lb_seg_dis.setText('distance:')
+        self.lb_seg_dis.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+
+        self.tx_seg_dis = QLineEdit()
+        self.tx_seg_dis.setText('20')
+        self.tx_seg_dis.setFixedWidth(80)
+        self.tx_seg_dis.setFont(self.font2)
+        self.tx_seg_dis.setValidator(QIntValidator())
+
+
+        hbox_pb = QHBoxLayout()
+        hbox_pb.addWidget(self.pb_seg_select)
+        hbox_pb.addWidget(self.pb_seg_unselect)
+        hbox_pb.addWidget(self.pb_seg_go)
+        hbox_pb.setAlignment(QtCore.Qt.AlignLeft)
+        hbox_pb.addStretch()
+
+        hbox = QHBoxLayout()
+        hbox.addWidget(self.lb_seg_gf)
+        hbox.addWidget(self.tx_seg_gf)
+        hbox.addWidget(self.lb_seg_fs)
+        hbox.addWidget(self.tx_seg_fs)
+        hbox.setAlignment(QtCore.Qt.AlignLeft)
+        hbox.addStretch()
+
+        hbox2 = QHBoxLayout()
+        hbox2.addWidget(self.lb_seg_bin)
+        hbox2.addWidget(self.tx_seg_bin)
+        hbox2.addWidget(self.lb_seg_dis)
+        hbox2.addWidget(self.tx_seg_dis)
+        hbox2.setAlignment(QtCore.Qt.AlignLeft)
+        hbox2.addStretch()
+
+        vbox = QVBoxLayout()
+        vbox.addWidget(self.lb_seg_title)
+        vbox.addLayout(hbox)
+        vbox.addLayout(hbox2)
+        vbox.addLayout(hbox_pb)
+        vbox.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignLeft)
+        vbox.addStretch()
+        return vbox
+
+
+    def vbox_3D_extract_particle(self):
+        self.lb_extr_empty = QLabel()
+        self.lb_extr_empty.setFixedHeight(10)
+
+        self.lb_extr_title = QLabel()
+        self.lb_extr_title.setText('Extract particle')
+        self.lb_extr_title.setFont(self.font1)
+
+        self.lb_extr_info = QLabel()
+        self.lb_extr_info.setText('Hint: from assembled 2D slice of labeled image')
+        self.lb_extr_info.setFont(self.font2)
+
+        # open labeld folder
+        self.pb_extr_open_fn_label = QPushButton()
+        self.pb_extr_open_fn_label.setText('Load labeled files')
+        self.pb_extr_open_fn_label.setFont(self.font2)
+        self.pb_extr_open_fn_label.setFixedWidth(160)
+        self.pb_extr_open_fn_label.clicked.connect(self.extract_open_label)
+
+        # open 3D aligned folder
+        self.pb_extr_open_fn_tomo = QPushButton()
+        self.pb_extr_open_fn_tomo.setText('Load tomo files')
+        self.pb_extr_open_fn_tomo.setFont(self.font2)
+        self.pb_extr_open_fn_tomo.setFixedWidth(160)
+        self.pb_extr_open_fn_tomo.clicked.connect(self.extract_open_tomo)
+
+        hbox_load = QHBoxLayout()
+        hbox_load.addWidget(self.pb_extr_open_fn_tomo)
+        hbox_load.addWidget(self.pb_extr_open_fn_label)
+        hbox_load.setAlignment(QtCore.Qt.AlignLeft)
+        hbox_load.addStretch()
+        ##
+
+        # open labled xanes filer
+
+        self.tx_extr_open_fn_slice = QLineEdit()
+        self.tx_extr_open_fn_slice.setFont(self.font2)
+        self.tx_extr_open_fn_slice.setFixedWidth(330)
+
+        self.pb_extr_open_fn_slice = QPushButton()
+        self.pb_extr_open_fn_slice.setText('Open 2D label sli')
+        self.pb_extr_open_fn_slice.setFont(self.font2)
+        self.pb_extr_open_fn_slice.setFixedWidth(160)
+        self.pb_extr_open_fn_slice.clicked.connect(self.extract_open_slice)
+
+        hbox_slice = QHBoxLayout()
+        hbox_slice.addWidget(self.pb_extr_open_fn_slice)
+        hbox_slice.addWidget(self.tx_extr_open_fn_slice)
+        hbox_slice.setAlignment(QtCore.Qt.AlignLeft)
+        hbox_slice.addStretch()
+        ##
+
+        self.lb_extr_row = QLabel()
+        self.lb_extr_row.setFixedWidth(80)
+        self.lb_extr_row.setFont(self.font2)
+        self.lb_extr_row.setText('row:')
+        self.lb_extr_row.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+
+        self.tx_extr_row = QLineEdit()
+        self.tx_extr_row.setText('')
+        self.tx_extr_row.setFixedWidth(80)
+        self.tx_extr_row.setFont(self.font2)
+        self.tx_extr_row.setValidator(QIntValidator())
+
+        self.lb_extr_col = QLabel()
+        self.lb_extr_col.setFixedWidth(80)
+        self.lb_extr_col.setFont(self.font2)
+        self.lb_extr_col.setText('col:')
+        self.lb_extr_col.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+
+        self.tx_extr_col = QLineEdit()
+        self.tx_extr_col.setText('')
+        self.tx_extr_col.setFixedWidth(80)
+        self.tx_extr_col.setFont(self.font2)
+        self.tx_extr_col.setValidator(QIntValidator())
+
+        self.lb_extr_sz = QLabel()
+        self.lb_extr_sz.setFixedWidth(80)
+        self.lb_extr_sz.setFont(self.font2)
+        self.lb_extr_sz.setText('mask size:')
+        self.lb_extr_sz.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+
+        self.tx_extr_sz = QLineEdit()
+        self.tx_extr_sz.setText('150')
+        self.tx_extr_sz.setFixedWidth(80)
+        self.tx_extr_sz.setFont(self.font2)
+        self.tx_extr_sz.setValidator(QIntValidator())
+
+        self.lb_extr_dilation_iter = QLabel()
+        self.lb_extr_dilation_iter.setFixedWidth(80)
+        self.lb_extr_dilation_iter.setFont(self.font2)
+        self.lb_extr_dilation_iter.setText('dilation:')
+        self.lb_extr_dilation_iter.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+
+        self.tx_extr_dilation_iter = QLineEdit()
+        self.tx_extr_dilation_iter.setText('1')
+        self.tx_extr_dilation_iter.setFixedWidth(80)
+        self.tx_extr_dilation_iter.setFont(self.font2)
+        self.tx_extr_dilation_iter.setValidator(QIntValidator())
+
+        self.lb_extr_save_prefix = QLabel()
+        self.lb_extr_save_prefix.setFixedWidth(80)
+        self.lb_extr_save_prefix.setFont(self.font2)
+        self.lb_extr_save_prefix.setText('save prefix:')
+        self.lb_extr_save_prefix.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+
+        self.tx_extr_save_prefix = QLineEdit()
+        self.tx_extr_save_prefix.setText('pos1')
+        self.tx_extr_save_prefix.setFixedWidth(80)
+        self.tx_extr_save_prefix.setFont(self.font2)
+        self.tx_extr_save_prefix.setValidator(QIntValidator())
+
+        self.pb_extr_extr = QPushButton('Extract')
+        self.pb_extr_extr.setFixedWidth(160)
+        self.pb_extr_extr.setFont(self.font2)
+        self.pb_extr_extr.clicked.connect(self.extract_particle)
+
+        hbox1 = QHBoxLayout()
+        hbox1.addWidget(self.lb_extr_row)
+        hbox1.addWidget(self.tx_extr_row)
+        hbox1.addWidget(self.lb_extr_col)
+        hbox1.addWidget(self.tx_extr_col)
+        hbox1.addWidget(self.lb_extr_sz)
+        hbox1.addWidget(self.tx_extr_sz)
+        hbox1.setAlignment(QtCore.Qt.AlignLeft)
+        hbox1.addStretch()
+
+        hbox2 = QHBoxLayout()
+
+        hbox2.addWidget(self.lb_extr_dilation_iter)
+        hbox2.addWidget(self.tx_extr_dilation_iter)
+        hbox2.addWidget(self.lb_extr_save_prefix)
+        hbox2.addWidget(self.tx_extr_save_prefix)
+        hbox2.setAlignment(QtCore.Qt.AlignLeft)
+        hbox2.addStretch()
+
+        vbox = QVBoxLayout()
+        vbox.addWidget(self.lb_extr_title)
+        vbox.addWidget(self.lb_extr_info)
+        vbox.addWidget(self.lb_extr_empty)
+        vbox.addLayout(hbox_load)
+        vbox.addLayout(hbox_slice)
+        vbox.addLayout(hbox1)
+        vbox.addLayout(hbox2)
+        vbox.addWidget(self.pb_extr_extr)
+        vbox.setAlignment(QtCore.Qt.AlignLeft)
+        vbox.addStretch()
+
+        return vbox
+
+    def vbox_seg_extract(self):
+        lb_empty = QLabel()
+        lb_empty1 = QLabel()
+        lb_empty1.setFixedHeight(10)
+        vbox = QVBoxLayout()
+        vbox.addLayout(self.vbox_segmentation())
+        vbox.addWidget(lb_empty1)
+        vbox.addLayout(self.vbox_3D_extract_particle())
+        vbox.addWidget(lb_empty)
+        vbox.setAlignment(QtCore.Qt.AlignLeft)
+        vbox.addStretch()
+        return vbox
+
+    def refresh(self, mode=False):
+        self.lb_tomo_file2.setVisible(mode)
+        self.lst_3D_tomo2.setVisible(mode)
+
+        self.lb_seg_title.setVisible(mode)
+        self.pb_seg_select.setVisible(mode)
+        self.pb_seg_unselect.setVisible(mode)
+        self.pb_seg_go.setVisible(mode)
+        self.lb_seg_gf.setVisible(mode)
+        self.tx_seg_gf.setVisible(mode)
+        self.lb_seg_fs.setVisible(mode)
+        self.tx_seg_fs.setVisible(mode)
+        self.lb_seg_bin.setVisible(mode)
+        self.tx_seg_bin.setVisible(mode)
+        self.lb_seg_dis.setVisible(mode)
+        self.tx_seg_dis.setVisible(mode)
+
+        self.lb_extr_empty.setVisible(mode)
+        self.lb_extr_title.setVisible(mode)
+        self.lb_extr_info.setVisible(mode)
+        self.pb_extr_open_fn_label.setVisible(mode)
+        self.pb_extr_open_fn_tomo.setVisible(mode)
+        self.tx_extr_open_fn_slice.setVisible(mode)
+        self.pb_extr_open_fn_slice.setVisible(mode)
+        self.lb_extr_row.setVisible(mode)
+        self.tx_extr_row.setVisible(mode)
+        self.lb_extr_col.setVisible(mode)
+        self.tx_extr_col.setVisible(mode)
+        self.lb_extr_sz.setVisible(mode)
+        self.tx_extr_sz.setVisible(mode)
+        self.lb_extr_dilation_iter.setVisible(mode)
+        self.tx_extr_dilation_iter.setVisible(mode)
+        self.lb_extr_save_prefix.setVisible(mode)
+        self.tx_extr_save_prefix.setVisible(mode)
+        self.pb_extr_extr.setVisible(mode)
+        QApplication.processEvents()
 
 
     def vbox_3D_assemble_xanes(self):
@@ -10107,10 +10446,11 @@ class App(QWidget):
                     print('view in napari')
                     napari.view_image(img)
                 except Exception:
-                    plt.figure(f'circle_mask_ratio = {circle_mask_ratio}')
-                    plt.imshow(img[s[0]//2])
-                    plt.show()
-                    QApplication.processEvents()
+                    _ = pyxas.plot3D(img)
+                    #plt.figure(f'circle_mask_ratio = {circle_mask_ratio}')
+                    #plt.imshow(img[s[0]//2])
+                    #plt.show()
+                    #QApplication.processEvents()
                     print('view in matplotlib')
 
                 '''
@@ -10322,6 +10662,152 @@ class App(QWidget):
             self.enable_3D_fit_param(True)
         else:
             self.enable_3D_fit_param(False)
+
+
+    def seg_select_all(self):
+        self.lst_3D_tomo.setSelectionMode(QAbstractItemView.MultiSelection)
+        self.lst_3D_tomo.selectAll()
+
+    def seg_unselect_all(self):
+        self.lst_3D_tomo.clearSelection()
+        self.lst_3D_tomo.setSelectionMode(QAbstractItemView.SingleSelection)
+
+    def seg_seg(self):
+        try:
+            fn_all = self.tomo_file['files']
+            file_type = self.tomo_file['file_type']
+            file_path_root = self.tomo_file['file_path']
+            file_save_root = file_path_root + '/label'
+            mk_directory(file_save_root)
+            gf = int(self.tx_seg_gf.text())
+            fs = int(self.tx_seg_fs.text())
+            bin = int(self.tx_seg_bin.text())
+            dis = int(self.tx_seg_dis.text())
+
+            self.pb_seg_go.setEnabled(False)
+            items = self.lst_3D_tomo.selectedItems()
+            n = len(items)
+            for i in range(n):
+                self.pb_seg_go.setText(f'segment {i+1}/{n}')
+                QApplication.processEvents()
+                fn = items[i].text()
+                fn_short = fn.split('.')[0]
+                flag_exist = False
+                fn_idx = -1
+                for j in range(len(fn_all)):
+                    if fn in fn_all[j]:
+                        flag_exist = True
+                        fn_idx = j
+                        break
+                if flag_exist:
+                    fn_full = fn_all[fn_idx]
+                    if 'tif' in file_type:
+                        image = io.imread(fn_full)
+                    elif 'h5' in file_type:
+                        attr = self.tx_3D_attr_img.text()
+                        with h5py.File(fn_full, 'r') as f:
+                            image = np.array(f[attr])
+                    lb, bw = pyxas.watershed_mask(image,
+                                            binning=bin,
+                                            gf_size=gf,
+                                            fs=fs,
+                                            min_distance=dis)
+                    fn_save = file_save_root + f'/label_{fn_short}.tiff'
+                    io.imsave(fn_save, lb.astype(np.float32))
+                    self.lb_3D_prep_msg.setText(f'save file to: {fn_save}')
+                    QApplication.processEvents()
+        except Exception as err:
+            print(err)
+        finally:
+            self.pb_seg_go.setText('Segment')
+            self.pb_seg_go.setEnabled(True)
+
+
+    def extract_open_label(self):
+        self.label_file = {}
+
+        self.lst_3D_tomo2.clear()
+        options = QFileDialog.Option()
+        options |= QFileDialog.DontUseNativeDialog
+        file_type = '*.*'
+        fn, _ = QFileDialog.getOpenFileName(xanes, "QFileDialog.getOpenFileName()", "", file_type, options=options)
+        if fn:
+            fn_tmp = fn.split('/')
+            self.label_file['file_path'] = '/'.join(t for t in fn_tmp[:-1])
+            tmp_prefix = fn_tmp[-1][0:3]
+            self.label_file['file_prefix'] = fn_tmp[-1][0]
+            self.label_file['file_type'] = '.' + fn_tmp[-1].split('.')[-1]
+            self.label_file['files'] = pyxas.retrieve_file_type(self.label_file['file_path'],
+                                                               self.label_file['file_prefix'],
+                                                               self.label_file['file_type'])
+            num = len(self.label_file['files'])
+            self.lb_3D_prep_msg.setText(f'Totally {num} files loaded')
+            for i in range(num):
+                tmp = self.label_file['files'][i].split('/')[-1]
+                self.lst_3D_tomo2.addItem(tmp)
+
+
+    def extract_open_tomo(self):
+        self.load_3D_tomo_file('raw')
+
+    def extract_open_slice(self):
+        options = QFileDialog.Option()
+        options |= QFileDialog.DontUseNativeDialog
+        file_type = '*.*'
+        fn, _ = QFileDialog.getOpenFileName(xanes, "QFileDialog.getOpenFileName()", "", file_type, options=options)
+        if fn:
+            self.tx_extr_open_fn_slice.setText(fn)
+
+
+
+    def extract_particle(self):
+        try:
+            self.pb_extr_extr.setEnabled(False)
+
+            fn_sli = self.tx_extr_open_fn_slice.text()
+            row = int(self.tx_extr_row.text())
+            col = int(self.tx_extr_col.text())
+            dilation_iter = int(self.tx_extr_dilation_iter.text())
+            ms = int(self.tx_extr_sz.text())
+            save_prefix = self.tx_extr_save_prefix.text()
+
+            img_sli = io.imread(fn_sli)
+            val = img_sli[:, row, col]
+
+            file_label = self.label_file['files']
+            file_tomo = self.tomo_file['files']
+            type_tomo = self.tomo_file['file_type']
+            root_path = self.tomo_file['file_path']
+            root_save_path = root_path + '/' + save_prefix
+            pyxas.mk_directory(root_save_path)
+
+            n1 = len(file_label)
+            n = len(file_tomo)
+            assert n1==n, "number of tomo-files ({n}) not equal to  number of label-files ({n1})"
+
+            for i in trange(n):
+                self.pb_extr_extr.setText(f'Extracting {i+1}/{n}')
+                QApplication.processEvents()
+                fn_tomo = file_tomo[i]
+                fn_label = file_label[i]
+                if 'h5' in type_tomo:
+                    with h5py.File(fn_tomo, 'r') as hf:
+                        img = np.array(hf['img'])
+                else:
+                    img = io.imread(fn_tomo)
+                img[np.isnan(img)] = 0
+                img_label = io.imread(fn_label)
+                mask_img = pyxas.match_img_label(img, img_label, val[i], ms=ms, dilation_iter=dilation_iter)
+                fsave = root_save_path + f'/{save_prefix}_{i:04d}.tiff'
+                io.imsave(fsave, mask_img.astype(np.float32))
+            self.lb_3D_prep_msg.setText('Particle extraction finished')
+        except Exception as err:
+            self.lb_3D_prep_msg.setText(str(err))
+            print(err)
+        finally:
+            self.pb_extr_extr.setEnabled(True)
+            self.pb_extr_extr.setText('Extract')
+
 
 
     def enable_3D_fit_param(self, edge_norm_flag):

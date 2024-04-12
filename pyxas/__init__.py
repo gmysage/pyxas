@@ -12,6 +12,7 @@ from .misc import *
 from .align3D import *
 from .colormix import *
 from .align_tomo_proj import *
+from .seg import *
 
 from .pyml import *
 

@@ -9,6 +9,7 @@ from skimage.filters import threshold_otsu, threshold_yen
 from multiprocessing import Pool, cpu_count
 from tqdm import tqdm, trange
 from functools import partial
+from matplotlib.widgets import Slider
 
 def rm_abnormal(img):
     tmp = img.copy()
@@ -1283,7 +1284,32 @@ def spline_img_filter_stack(img, num_u=40, num_v=40, degree_u=3, degree_v=3):
     for i in trange(s[0]):
         img_r[i] = spline_img_filter(img[i], num_u, num_v, degree_u, degree_v, plot_flag=0)
     return img_r
-    
+
+
+def plot3D(data, axis=0, index_init=None):
+    fig, ax = plt.subplots()
+    if index_init is None:
+        index_init = int(data.shape[axis] // 2)
+    im = ax.imshow(data.take(index_init, axis=axis))
+    fig.subplots_adjust(bottom=0.15)
+    axslide = fig.add_axes([0.1, 0.03, 0.8, 0.03])
+    im_slider = Slider(
+        ax=axslide,
+        label='index',
+        valmin=0,
+        valmax=data.shape[axis] - 1,
+        valstep=1,
+        valinit=index_init,
+    )
+
+    def update(val):
+        im.set_data(data.take(val, axis=axis))
+        fig.canvas.draw_idle()
+
+    im_slider.on_changed(update)
+    plt.show()
+    return im_slider
+
 
     
 if (__name__ == '__main__'):
