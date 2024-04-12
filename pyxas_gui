@@ -8261,6 +8261,12 @@ class App(QWidget):
         self.pb_3D_plot_tomo.setFont(self.font2)
         self.pb_3D_plot_tomo.clicked.connect(self.plot_3D_tomo)
 
+        self.chkbox_napari = QCheckBox('View in napari')
+        self.chkbox_napari.setFont(self.font2)
+        self.chkbox_napari.setFixedWidth(155)
+        self.chkbox_napari.setChecked(False)
+
+
         hbox_1 = QHBoxLayout()
         hbox_1.addWidget(lb_3D_h5_attr)
         hbox_1.addWidget(self.lb_3D_h5_attr)
@@ -8275,6 +8281,7 @@ class App(QWidget):
         vbox_1 = QVBoxLayout()
         vbox_1.addLayout(hbox_1)
         vbox_1.addLayout(hbox_2)
+        vbox_1.addWidget(self.chkbox_napari)
         vbox_1.addStretch()
 
         '''
@@ -10441,17 +10448,20 @@ class App(QWidget):
                 if circle_mask_ratio < 1:
                     img = pyxas.circ_mask(img, axis=0, ratio=circle_mask_ratio)
 
-                try:
-                    import napari
-                    print('view in napari')
-                    napari.view_image(img)
-                except Exception:
-                    _ = pyxas.plot3D(img)
-                    #plt.figure(f'circle_mask_ratio = {circle_mask_ratio}')
-                    #plt.imshow(img[s[0]//2])
-                    #plt.show()
-                    #QApplication.processEvents()
-                    print('view in matplotlib')
+                if self.chkbox_napari.isChecked():
+                    try:
+                        import napari
+                        print('view in napari')
+                        napari.view_image(img)
+                    except Exception:
+                        self.slider_handler = pyxas.plot3D(img)
+                        #plt.figure(f'circle_mask_ratio = {circle_mask_ratio}')
+                        #plt.imshow(img[s[0]//2])
+                        #plt.show()
+                        #QApplication.processEvents()
+                        print('view in matplotlib')
+                else:
+                    self.slider_handler = pyxas.plot3D(img)
 
                 '''
                 plt.figure(f'circle_mask_ratio = {circle_mask_ratio}')
