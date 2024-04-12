@@ -81,14 +81,12 @@ class App(QWidget):
         self.top = (height - self.height) // 2
         self.system_cpu = cpu_count()
         self.check_torch_installed()
-        self.seg_flag = 0
+        self.seg_flag = False
         self.initUI()
         self.bkg_memory_check()
         self.default_layout()
         #self.defaul_layout_ml()
 
-    def refresh(self):
-        pass
 
     def closeEvent(self, *args, **kwargs):
         super().closeEvent(*args, **kwargs)
@@ -215,7 +213,7 @@ class App(QWidget):
         except Exception as err:
             print(err)
         default_img = np.zeros([1,500, 500])
-        self.refresh(False)
+        self.refresh(self.seg_flag)
         self.fn_raw_image = ''
         self.save_version = 0
         self.xanes_eng = np.array([0])
@@ -8578,6 +8576,8 @@ class App(QWidget):
         return vbox
 
     def refresh(self, mode=False):
+        self.seg_flag = mode
+
         self.lb_tomo_file2.setVisible(mode)
         self.lst_3D_tomo2.setVisible(mode)
 
