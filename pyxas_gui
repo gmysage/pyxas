@@ -8456,17 +8456,24 @@ class App(QWidget):
 
         self.tx_extr_open_fn_slice = QLineEdit()
         self.tx_extr_open_fn_slice.setFont(self.font2)
-        self.tx_extr_open_fn_slice.setFixedWidth(330)
+        self.tx_extr_open_fn_slice.setFixedWidth(345)
 
         self.pb_extr_open_fn_slice = QPushButton()
-        self.pb_extr_open_fn_slice.setText('Open 2D label sli')
+        self.pb_extr_open_fn_slice.setText('2D label-xanes sli')
         self.pb_extr_open_fn_slice.setFont(self.font2)
         self.pb_extr_open_fn_slice.setFixedWidth(160)
         self.pb_extr_open_fn_slice.clicked.connect(self.extract_open_slice)
 
+        self.pb_extr_view_sli = QPushButton()
+        self.pb_extr_view_sli.setText( 'V')
+        self.pb_extr_view_sli.setFont(self.font2)
+        self.pb_extr_view_sli.setFixedWidth(20)
+        self.pb_extr_view_sli.clicked.connect(self.extract_view_slice)
+
         hbox_slice = QHBoxLayout()
         hbox_slice.addWidget(self.pb_extr_open_fn_slice)
         hbox_slice.addWidget(self.tx_extr_open_fn_slice)
+        hbox_slice.addWidget(self.pb_extr_view_sli)
         hbox_slice.setAlignment(QtCore.Qt.AlignLeft)
         hbox_slice.addStretch()
         ##
@@ -8603,6 +8610,7 @@ class App(QWidget):
         self.lb_extr_empty.setVisible(mode)
         self.lb_extr_title.setVisible(mode)
         self.lb_extr_info.setVisible(mode)
+        self.pb_extr_view_sli.setVisible(mode)
         self.pb_extr_open_fn_label.setVisible(mode)
         self.pb_extr_open_fn_tomo.setVisible(mode)
         self.tx_extr_open_fn_slice.setVisible(mode)
@@ -10637,7 +10645,7 @@ class App(QWidget):
                 s1, s2, s3 = 0, 0, 0
             if not len(sli):
                 sli = [0, s1]
-
+            self.pb_3D_assemble.setEnabled(False)
             self.pb_3D_assemble.setText('Assembling ...')
             self.lb_3D_prep_msg.setText(f'assembling slice from {sli[0]} to {sli[1]} ...   Check terminal output for progress')
             QApplication.processEvents()
@@ -10662,6 +10670,7 @@ class App(QWidget):
             self.lb_3D_prep_msg.setText(msg)
         finally:
             self.pb_3D_assemble.setText('Assemble XANES')
+            self.pb_3D_assemble.setEnabled(True)
             self.lb_3D_prep_msg.setText(f'Assembling finished. Files are saved to {file_path}/xanes_assemble')
             QApplication.processEvents()
 
@@ -10767,6 +10776,14 @@ class App(QWidget):
         if fn:
             self.tx_extr_open_fn_slice.setText(fn)
 
+
+    def extract_view_slice(self):
+        try:
+            fn_sli = self.tx_extr_open_fn_slice.text()
+            img = io.imread(fn_sli)
+            self.slider_handler = pyxas.plot3D(img)
+        except Exception as err:
+            print(err)
 
 
     def extract_particle(self):
@@ -12735,6 +12752,9 @@ class App(QWidget):
         except Exception as err:
             print(err)
 
+def adv(mode):
+    xanes.refresh(mode)
+
 ###################
 class MyCanvas(FigureCanvas):
     def __init__(self, parent=None, width=5, height=3, dpi=120, obj=[]):
@@ -12955,6 +12975,7 @@ class MyCanvas(FigureCanvas):
             self.cb = self.fig.colorbar(self.im, cax=self.cax, orientation='vertical')
             self.cb.ax.tick_params(labelsize=10)
             self.draw()
+
 
 
 if __name__ == '__main__':
