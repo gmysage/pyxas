@@ -8529,7 +8529,6 @@ class App(QWidget):
         self.tx_extr_save_prefix.setText('pos1')
         self.tx_extr_save_prefix.setFixedWidth(80)
         self.tx_extr_save_prefix.setFont(self.font2)
-        self.tx_extr_save_prefix.setValidator(QIntValidator())
 
         self.pb_extr_extr = QPushButton('Extract')
         self.pb_extr_extr.setFixedWidth(160)
