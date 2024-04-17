@@ -385,6 +385,7 @@ def align_3D_tomo_file_mpi_sub(files_recon, img_ref, file_path='.', binning=1, c
         except:
             fn_save = fn_save.split('.')[0] + '.tiff'
             print(f'saving aligned file: {fn_save.split("/")[-1]}\n')
+            io.imsave(fn_save, img_ali.astype(np.float32))
     else:
         fn_save = f'{file_path}/ali_recon_{scan_id}{bin_info}.h5'  
         print(f'saving aligned file: {fn_save.split("/")[-1]}\n')
