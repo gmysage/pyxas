@@ -35,7 +35,7 @@ def extract_mask(img, cen, ts=[200, 200, 200]):
     return mask
 
 
-def watershed_mask(img_raw, binning=2, gf_size=7, fs=15, min_distance=5, thresh=None):
+def watershed_mask(img_raw, binning=2, gf_size=5, fs=15, min_distance=5, thresh=None):
     s = np.array(img_raw.shape)
     s = np.int16(s // 2 * 2)
     if len(s) == 3:
@@ -46,7 +46,8 @@ def watershed_mask(img_raw, binning=2, gf_size=7, fs=15, min_distance=5, thresh=
         img = bin_image(img, 2)
     s = img.shape
     print('gaussian filtering...')
-    img_gf = gf(img, gf_size)
+    #img_gf = gf(img, gf_size)
+    img_gf = mf(img, gf_size)
     if thresh is None:
         thresh = threshold_otsu(img_gf)
     bw = img_gf.copy()

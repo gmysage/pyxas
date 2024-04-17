@@ -377,10 +377,14 @@ def align_3D_tomo_file_mpi_sub(files_recon, img_ref, file_path='.', binning=1, c
         img1 = pyxas.bin_image(img1, binning)
         bin_info == f'_bin_{binning}'
     img_ali = align_3D_tomo_image(img1, img_ref, circle_mask_ratio, align_method, align_coarse)
-    if X_eng == 0: # read tiff file
-        fn_save = f'{file_path}/ali_{fn_short}'  
-        print(f'saving aligned file: {fn_save.split("/")[-1]}\n')
-        io.imsave(fn_save, img_ali.astype(np.float32))
+    if X_eng <= 0: # read tiff file
+        try:
+            fn_save = f'{file_path}/ali_{fn_short}'
+            print(f'saving aligned file: {fn_save.split("/")[-1]}\n')
+            io.imsave(fn_save, img_ali.astype(np.float32))
+        except:
+            fn_save = fn_save.split('.')[0] + '.tiff'
+            print(f'saving aligned file: {fn_save.split("/")[-1]}\n')
     else:
         fn_save = f'{file_path}/ali_recon_{scan_id}{bin_info}.h5'  
         print(f'saving aligned file: {fn_save.split("/")[-1]}\n')
