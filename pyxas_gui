@@ -8356,7 +8356,7 @@ class App(QWidget):
         self.lb_seg_fs.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
 
         self.tx_seg_fs = QLineEdit()
-        self.tx_seg_fs.setText('5')
+        self.tx_seg_fs.setText('15')
         self.tx_seg_fs.setFixedWidth(80)
         self.tx_seg_fs.setFont(self.font2)
         self.tx_seg_fs.setValidator(QIntValidator())
@@ -8380,7 +8380,7 @@ class App(QWidget):
         self.lb_seg_dis.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
 
         self.tx_seg_dis = QLineEdit()
-        self.tx_seg_dis.setText('20')
+        self.tx_seg_dis.setText('10')
         self.tx_seg_dis.setFixedWidth(80)
         self.tx_seg_dis.setFont(self.font2)
         self.tx_seg_dis.setValidator(QIntValidator())
