@@ -14,8 +14,6 @@ from .colormix import *
 from .align_tomo_proj import *
 from .seg import *
 
-from .pyml import *
-
 try:
     from .pyml import *
 except:
