@@ -530,8 +530,8 @@ def assemble_xanes_slice_from_tomo_mpi_sub(sli, file_path, files_recon, attr_img
                 except:
                     pass
     if flag_save_2d_xanes:
-        io.imsave(f'{file_path}/xanes_assemble/xanes_2D_slice_{sli:03d}.tiff', np.array(img_xanes, dtype=np.float32))
-        print(f'xanes_2D_slice_{sli:03d}.tiff saved, using time: {time.time()-time_s:4.1f}sec\n')
+        io.imsave(f'{file_path}/xanes_assemble/xanes_2D_slice_{sli:04d}.tiff', np.array(img_xanes, dtype=np.float32))
+        print(f'xanes_2D_slice_{sli:04d}.tiff saved, using time: {time.time()-time_s:4.1f}sec\n')
     res['mask'] = mask
     return res
 
@@ -679,7 +679,7 @@ def assemble_xanes_slice_from_tomo(file_path='.', file_prefix='ali_recon', file_
                     except:
                         pass
         if flag_save_2d_xanes:
-            io.imsave(f'{file_path}/xanes_assemble/xanes_2D_slice_{i:03d}.tiff', np.array(img_xanes, dtype=np.float32))
+            io.imsave(f'{file_path}/xanes_assemble/xanes_2D_slice_{i:04d}.tiff', np.array(img_xanes, dtype=np.float32))
     io.imsave(f'{file_path}/xanes_assemble/mask3D.tiff', np.array(mask3D, dtype=np.float32))
     if return_flag:
         return img_xanes, xanes_eng
