@@ -2,7 +2,6 @@ from __future__ import (absolute_import, division, print_function, unicode_liter
 
 import os
 import numpy as np
-#import tomopy
 import pyxas
 from copy import deepcopy
 from scipy.ndimage import shift, center_of_mass
@@ -11,6 +10,7 @@ from pyxas.image_util import dftregistration,idxmax
 from skimage import io
 from multiprocessing import Pool, cpu_count
 from tqdm import tqdm
+from functools import partial
 
 def align_img(img_ref, img, align_flag=1):
     img1_fft = np.fft.fft2(img_ref)
