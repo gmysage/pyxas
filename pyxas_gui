@@ -4537,7 +4537,7 @@ class App(QWidget):
                                                         bkg_polynomial_order, method, admm_iter, admm_rate)
                     res['mask'] = mask
                     self.save_multi_elem_batch_fit(fsave_root, fn, res, color_flag)
-                self.group_multi_elem_batch_fit(fsave_root)
+                self.group_multi_elem_batch_fit(fsave_root, fit_elem)
             self.msg = 'batch fitting finished'
         except Exception as err:
             print(err)
@@ -4548,21 +4548,21 @@ class App(QWidget):
             self.update_msg()
 
 
-    def group_multi_elem_batch_fit(self, fsave_root):
+    def group_multi_elem_batch_fit(self, fsave_root, fit_elem):
         fsave_multi_img = f'{fsave_root}/multi_elem_fit/thickness'
         fsave_multi_img_ratio = f'{fsave_root}/multi_elem_fit/thickness_ratio'
 
         fn_all_ratio = np.sort(glob.glob(f'{fsave_multi_img_ratio}/ratio_fit_thick*'))
-        fn_all = np.sort(glob.glob(f'{fsave_multi_img_ratio}/fit_thick*'))
+        fn_all = np.sort(glob.glob(f'{fsave_multi_img}/fit_thick*'))
 
         img_ratio = self.group_elem(fn_all_ratio)
         img = self.group_elem(fn_all)
 
         n_elem = len(img)
-        for i in range(n):
-            fsave = f'{fsave_multi_img}/fit_thick_elem_{i}.tiff'
+        for i in range(n_elem):
+            fsave = f'{fsave_root}/multi_elem_fit/{fit_elem[i]}_thickness.tiff'
             io.imsave(fsave, img[i])
-            fsave_ratio = f'{fsave_multi_img}/ratio_fit_thick_elem_{i}.tiff'
+            fsave_ratio = f'{fsave_root}/multi_elem_fit/{fit_elem[i]}_thickness_ratio.tiff'
             io.imsave(fsave_ratio, img_ratio[i])
 
     def group_elem(self, fn_all):
