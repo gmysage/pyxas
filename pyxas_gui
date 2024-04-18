@@ -268,6 +268,7 @@ class App(QWidget):
             self.load_eng_successful = 1
         except:
             self.eng = np.array([0, 20])
+            self.load_eng_successful = 0
 
         try:
             self.num_ref = self.num_ref
@@ -4537,7 +4538,11 @@ class App(QWidget):
                                                         bkg_polynomial_order, method, admm_iter, admm_rate)
                     res['mask'] = mask
                     self.save_multi_elem_batch_fit(fsave_root, fn, res, color_flag)
+                print('saving element_thickness fitting ... ')
                 self.group_multi_elem_batch_fit(fsave_root, fit_elem)
+                if mask_flag:
+                    print('save clustering mask ...')
+                    self.group_multi_elem_batch_fit_mask(fsave_root)
             self.msg = 'batch fitting finished'
         except Exception as err:
             print(err)
@@ -4546,6 +4551,30 @@ class App(QWidget):
             self.pb_multi_elem_fit_batch.setEnabled(True)
             self.pb_multi_elem_fit_batch.setText('Batch fit')
             self.update_msg()
+
+    def group_multi_elem_batch_fit_mask(self, fsave_root):
+        fpath_fit = f'{fsave_root}/multi_elem_fit'
+        fpath_mask = f'{fpath_fit}/cluster_mask'
+        fn_all_mask = np.sort(glob.glob(f'{fpath_mask}/mask*'))
+        n = len(fn_all_mask)
+        img = io.imread(fn_all_mask[0])
+        s = img.shape
+
+        mask = np.zeros((n, *s))
+        mask_fill_hole = np.zeros((n, *s))
+
+        for i in trange(n):
+            fn = fn_all_mask[i]
+            mask[i] = io.imread(fn)
+            mask_fill_hole[i], _ = pyxas.img_fillhole(mask[i])
+        fsave1 = f'{fpath_fit}/cluster_mask.tiff'
+        fsave2 = f'{fpath_fit}/cluster_mask_fill_hole.tiff'
+
+        io.imsave(fsave1, mask.astype(np.float32))
+        io.imsave(fsave2, mask_fill_hole.astype(np.float32))
+
+
+
 
 
     def group_multi_elem_batch_fit(self, fsave_root, fit_elem):
