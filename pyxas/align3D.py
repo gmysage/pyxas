@@ -59,8 +59,11 @@ def align_img_stackreg(img_ref, img, align_flag=1, method='translation'):
     else:
         return row_shift, col_shift, sr
 
-def align_img_stackreg2(img_comb):
-    sr = StackReg(StackReg.TRANSLATION)
+def align_img_stackreg2(img_comb, method='translation'):
+    if 'trans' in method:
+        sr = StackReg(StackReg.TRANSLATION)
+    else:
+        sr = StackReg(StackReg.RIGID_BODY)
     img = img_comb[0]
     img_roi = img_comb[1]
     img_ref = img_comb[2]
@@ -112,7 +115,7 @@ def align_img_stack_stackreg(img, img_mask=None, select_image_index=None, print_
                 print('aligning #{0}, rshift:{1:3.2f}, cshift:{2:3.2f}'.format(i, r, c))
     return img_align
 
-def align_img_stack_stackreg2_mpi(img, ref_index, img_roi, n_cpu=8):
+def align_img_stack_stackreg2_mpi(img, ref_index, img_roi, n_cpu=8, method='translation'):
     max_cpu = round(cpu_count() * 0.8)
     n_cpu = min(n_cpu, max_cpu)
     n_cpu = max(n_cpu, 1)
@@ -120,7 +123,9 @@ def align_img_stack_stackreg2_mpi(img, ref_index, img_roi, n_cpu=8):
     img_comb = ((img[i], img_roi[i], img_roi[ref_index]) for i in range(n))
     pool = Pool(n_cpu)
     res = []
-    for result in tqdm(pool.imap(func=align_img_stackreg2, iterable=img_comb), total=n):
+
+    func_partial = partial(align_img_stackreg2, method=method)
+    for result in tqdm(pool.imap(func=func_partial, iterable=img_comb), total=n):
         res.append(result)
     pool.close()
     pool.join()

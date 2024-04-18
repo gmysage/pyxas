@@ -3095,9 +3095,15 @@ class App(QWidget):
 
         # align image
         self.chkbox_multi_elem_align = QCheckBox('Align:')
-        self.chkbox_multi_elem_align.setFixedWidth(120)
+        self.chkbox_multi_elem_align.setFixedWidth(75)
         self.chkbox_multi_elem_align.setFont(self.font2)
         self.chkbox_multi_elem_align.setChecked(False)
+
+        self.cb_multi_elem_ali = QComboBox()
+        self.cb_multi_elem_ali.setFont(self.font2)
+        self.cb_multi_elem_ali.addItem('T')
+        self.cb_multi_elem_ali.addItem('R')
+        self.cb_multi_elem_ali.setFixedWidth(40)
 
         lb_multi_elem_align_roi = QLabel()
         lb_multi_elem_align_roi.setFont(self.font2)
@@ -3123,6 +3129,7 @@ class App(QWidget):
 
         hbox_multi_elem_align = QHBoxLayout()
         hbox_multi_elem_align.addWidget(self.chkbox_multi_elem_align)
+        hbox_multi_elem_align.addWidget(self.cb_multi_elem_ali)
         hbox_multi_elem_align.addWidget(lb_multi_elem_align_roi)
         hbox_multi_elem_align.addWidget(self.tx_multi_elem_align_roi)
         hbox_multi_elem_align.addWidget(lb_multi_elem_align_ref)
@@ -4427,6 +4434,10 @@ class App(QWidget):
         align_flag = 1 if self.chkbox_multi_elem_align.isChecked() else 0
         align_roi_index = int(self.tx_multi_elem_align_roi.text())
         align_ref_index = int(self.tx_multi_elem_align_ref.text())
+        if 'T' in self.cb_multi_elem_ali.currentText():
+            align_method = 'translation'
+        else:
+            align_method = 'rigid'
 
         nl_flag = 1 if self.chkbox_multi_elem_denoise.isChecked() else 0
         nl_filt_sz = int(self.tx_mulit_elem_nl_patch_size.text())
@@ -4465,7 +4476,7 @@ class App(QWidget):
                         self.update_msg()
                         QApplication.processEvents()
                         img_roi = self._get_roi_image(img_stack, roi_selected)
-                        img_stack = pyxas.align_img_stack_stackreg2_mpi(img_stack, align_ref_index, img_roi, n_cpu)
+                        img_stack = pyxas.align_img_stack_stackreg2_mpi(img_stack, align_ref_index, img_roi, n_cpu, align_method)
                         '''
                         for j in range(n_img):
                             self.msg = msg_current_file + f'aligning {j+1}/{n_img}'
