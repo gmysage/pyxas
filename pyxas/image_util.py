@@ -167,8 +167,8 @@ def img_fillhole(img, binary_threshold=0.5):
     img_b[np.isinf(img_b)] = 0
     img_b[img_b > binary_threshold] = 1
     img_b[img_b < 1] = 0
-
-    struct = ndimage.generate_binary_structure(2, 1)
+    n = len(img_b.shape)
+    struct = ndimage.generate_binary_structure(n, 1)
     mask = ndimage.binary_fill_holes(img_b, structure=struct).astype(img.dtype)
     img_fillhole = img * mask
     return mask, img_fillhole
@@ -181,8 +181,8 @@ def img_dilation(img, binary_threshold=0.5, iterations=2):
     img_b[np.isinf(img_b)] = 0
     img_b[img_b > binary_threshold] = 1
     img_b[img_b < 1] = 0
-
-    struct = ndimage.generate_binary_structure(2, 1)
+    n = len(img_b.shape)
+    struct = ndimage.generate_binary_structure(n, 1)
     mask = ndimage.binary_dilation(img_b, structure=struct, iterations=iterations).astype(img.dtype)
     img_dilated = img * mask
     return mask, img_dilated
@@ -194,8 +194,8 @@ def img_erosion(img, binary_threshold=0.5, iterations=2):
     img_b[np.isinf(img_b)] = 0
     img_b[img_b > binary_threshold] = 1
     img_b[img_b < 1] = 0
-
-    struct = ndimage.generate_binary_structure(2, 1)
+    n = len(img_b.shape)
+    struct = ndimage.generate_binary_structure(n, 1)
     mask = ndimage.binary_erosion(img_b, structure=struct, iterations=iterations).astype(img.dtype)
     img_erosion = img * mask
     return mask, img_erosion
