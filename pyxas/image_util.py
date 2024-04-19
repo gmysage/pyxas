@@ -6,6 +6,7 @@ from scipy.signal import medfilt2d
 from skimage.restoration import denoise_nl_means, estimate_sigma
 from skimage.transform import resize
 from skimage.filters import threshold_otsu, threshold_yen
+from skimage import exposure
 from multiprocessing import Pool, cpu_count
 from tqdm import tqdm, trange
 from functools import partial
@@ -167,8 +168,8 @@ def img_fillhole(img, binary_threshold=0.5):
     img_b[np.isinf(img_b)] = 0
     img_b[img_b > binary_threshold] = 1
     img_b[img_b < 1] = 0
-
-    struct = ndimage.generate_binary_structure(2, 1)
+    n = len(img_b.shape)
+    struct = ndimage.generate_binary_structure(n, 1)
     mask = ndimage.binary_fill_holes(img_b, structure=struct).astype(img.dtype)
     img_fillhole = img * mask
     return mask, img_fillhole
@@ -181,8 +182,8 @@ def img_dilation(img, binary_threshold=0.5, iterations=2):
     img_b[np.isinf(img_b)] = 0
     img_b[img_b > binary_threshold] = 1
     img_b[img_b < 1] = 0
-
-    struct = ndimage.generate_binary_structure(2, 1)
+    n = len(img_b.shape)
+    struct = ndimage.generate_binary_structure(n, 1)
     mask = ndimage.binary_dilation(img_b, structure=struct, iterations=iterations).astype(img.dtype)
     img_dilated = img * mask
     return mask, img_dilated
@@ -194,14 +195,21 @@ def img_erosion(img, binary_threshold=0.5, iterations=2):
     img_b[np.isinf(img_b)] = 0
     img_b[img_b > binary_threshold] = 1
     img_b[img_b < 1] = 0
-
-    struct = ndimage.generate_binary_structure(2, 1)
+    n = len(img_b.shape)
+    struct = ndimage.generate_binary_structure(n, 1)
     mask = ndimage.binary_erosion(img_b, structure=struct, iterations=iterations).astype(img.dtype)
     img_erosion = img * mask
     return mask, img_erosion
 
 
-
+def composite_images(imgs, equalize=False, aggregator=np.mean):
+    if equalize:
+        imgs = [exposure.equalize_hist(img) for img in imgs]
+    imgs = [img / img.max() for img in imgs]
+    if len(imgs) < 3:
+        imgs += [np.zeros(shape=imgs[0].shape)] * (3-len(imgs))
+    imgs = np.dstack(imgs)
+    return imgs
 
 
 
@@ -540,7 +548,7 @@ def crop_scale_image(img_stack, output_size=(256, 256)):
         img = np.expand_dims(img, axis=0)
     s = img.shape
     img_resize = resize(img, (s[0], output_size[0], output_size[1]))
-    return np.squeeze(img_resize)
+    return img_resize
 
 
 def scale_img_xanes(img_xanes):
