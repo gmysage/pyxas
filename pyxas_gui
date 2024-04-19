@@ -12331,23 +12331,30 @@ class App(QWidget):
             device = self.cb_ml_device.currentText()
             n_iter = int(self.tx_ml_iter.text())
             filt_sz = int(self.tx_ml_filter_sz.text())
+            cmin = float(self.tx_ml_cmin.text())
+            cmax = float(self.tx_ml_cmax.text())
+            cmap = self.cb_ml_cmap.currentText()
+
             if model_exist:
                 #img_output_scale = check_image_fitting(model_prod, img_rescale, device, plot_flag=0, clim=[0, 1], title=model_name)
                 img_output_scale, img_bkg_scale = apply_model_to_stack(img_rescale, model_prod, device, n_iter, gaussian_filter=filt_sz)
                 img_bkg = pyxas.crop_scale_image(img_bkg_scale[0], (s[0], s[1]))
                 img_output = img_raw / img_bkg
 
-                clim = [0,1]
-                plt.figure(figsize=(18, 6))
+                clim = [cmin, cmax]
+                plt.figure(figsize=(20, 5))
                 plt.subplot(131)
-                plt.imshow(np.squeeze(img_raw), clim=clim)
+                plt.imshow(np.squeeze(img_raw), clim=clim, cmap=cmap)
+                plt.colorbar()
                 plt.title('raw image')
                 plt.subplot(133)
-                plt.imshow(np.squeeze(img_output), clim=clim)
+                plt.imshow(np.squeeze(img_output), clim=clim, cmap=cmap)
+                plt.colorbar()
                 plt.show()
                 plt.title('ML output Img.')
                 plt.subplot(132)
-                plt.imshow(np.squeeze(img_bkg), clim=clim)
+                plt.imshow(np.squeeze(img_bkg), clim=clim, cmap=cmap)
+                plt.colorbar()
                 plt.title('ML output Bkg.')
             else:
                 print('model not exist')
