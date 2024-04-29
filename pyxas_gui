@@ -10736,7 +10736,7 @@ class App(QWidget):
             file_type = self.tomo_file['file_type']
             file_path_root = self.tomo_file['file_path']
             file_save_root = file_path_root + '/label'
-            mk_directory(file_save_root)
+            pyxas.mk_directory(file_save_root)
             gf = int(self.tx_seg_gf.text())
             fs = int(self.tx_seg_fs.text())
             bin = int(self.tx_seg_bin.text())
