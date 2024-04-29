@@ -53,6 +53,9 @@ def watershed_mask(img_raw, binning=2, gf_size=5, fs=15, min_distance=5, thresh=
     bw = img_gf.copy()
     bw[bw < thresh] = 0
     bw[bw >= thresh] = 1
+    n = len(bw.shape)
+    struct = generate_binary_structure(n, 1)
+    bw = binary_fill_holes(bw, structure=struct).astype(bw.dtype)
     print('cal. distance map...')
     distance = ndi.distance_transform_edt(bw)
     if len(s) == 3:

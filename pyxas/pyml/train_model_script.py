@@ -228,11 +228,12 @@ def main_train_production_single_elem(f_root, img_raw, x_eng, elem, thickness_el
 
 
 def mk_directory(fpath):
-    try:
-        os.makedirs(fpath)
-    except:
-        shutil.rmtree(fpath)
-        os.makedirs(fpath)
+    if not os.path.exists(fpath):
+        try:
+            os.makedirs(fpath)
+        except:
+            shutil.rmtree(fpath)
+            os.makedirs(fpath)
 
 
 def main_train_xanes_bkg_production(f_root, img_raw, x_eng, elem, model_prod, loss_r=None, f_norm=1,
