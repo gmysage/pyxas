@@ -10649,7 +10649,15 @@ class App(QWidget):
             sli = eval(self.tx_3D_assemble_sli.text())
         except Exception:
             sli = []
-        align_flag = eval(self.tx_3D_assemble_ali_flag.text())
+        align_flag = self.tx_3D_assemble_ali_flag.text()
+        if 'F' in align_flag:
+            align_flag = False
+            self.tx_3D_assemble_ali_flag.settext('False')
+        else:
+            align_flag = True
+            self.tx_3D_assemble_ali_flag.settext('True')
+        QApplication.processEvents()
+        #align_flag = eval(self.tx_3D_assemble_ali_flag.text())
         align_ref_index = int(self.tx_3D_assemble_ali_ref.text())
         align_roi_ratio = float(self.tx_3D_assemble_mask.text())
         if self.rd_3D_ali_method_translation.isChecked():
