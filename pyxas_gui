@@ -10652,10 +10652,10 @@ class App(QWidget):
         align_flag = self.tx_3D_assemble_ali_flag.text()
         if 'F' in align_flag:
             align_flag = False
-            self.tx_3D_assemble_ali_flag.settext('False')
+            self.tx_3D_assemble_ali_flag.setText('False')
         else:
             align_flag = True
-            self.tx_3D_assemble_ali_flag.settext('True')
+            self.tx_3D_assemble_ali_flag.setText('True')
         QApplication.processEvents()
         #align_flag = eval(self.tx_3D_assemble_ali_flag.text())
         align_ref_index = int(self.tx_3D_assemble_ali_ref.text())
