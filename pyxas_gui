@@ -348,6 +348,8 @@ class App(QWidget):
         self.ml_num_ref = 0
         self.ml_h_loss = None
 
+
+
     def layout_msg(self):
         self.lb_ip = QLabel()
         self.lb_ip.setFont(self.font2)
@@ -12807,6 +12809,8 @@ class App(QWidget):
 
 def adv(mode):
     xanes.refresh(mode)
+
+
 
 ###################
 class MyCanvas(FigureCanvas):
