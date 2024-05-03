@@ -35,6 +35,15 @@ def apply_model_to_stack(img_stack, model, device, n_iter=1, gaussian_filter=1):
             img_output[i] = img/img_bkg[i]
     return img_output, img_bkg
 
+def ml_denoise(img_stack, model, n_iter=1, gaussian_filter=1):
+    s = len(img_stack.shape)
+    if s == 2:
+        img_stack = np.expand_dims(img_stack, axis=0)
+    device = next(model.parameters())[0].device
+    img_out, img_bkg = apply_model_to_stack(img_stack, model, device, n_iter, gaussian_filter)
+    return img_out, img_bkg
+
+
 
 def apply_model_to_stack_with_normalization(img_stack, model, device, n_iter=1, gaussian_filter=1):
     if torch.is_tensor(img_stack):

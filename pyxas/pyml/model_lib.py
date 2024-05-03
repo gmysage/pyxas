@@ -224,3 +224,19 @@ class DnCNN(nn.Module):
         return x-out
 
 
+def default_model():
+    model = RRDBNet(1, 1, 16, 4, 32)
+    return model
+
+def default_model_path():
+    ml_path = __file__
+    ml_path = '/'.join(ml_path.split('/')[:-1])
+    ml_path = ml_path + '/trained_model/pre_traind_model_xanes_denoise.pth'
+    #print(ml_path)
+    return ml_path
+
+def load_default_model(device='cpu'):
+    model = default_model()
+    model_path = default_model_path()
+    model.load_state_dict(torch.load(model_path, map_location=torch.device(device)))
+    return model
