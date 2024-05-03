@@ -12,8 +12,8 @@ from skimage.metrics import structural_similarity as ssim
 from skimage import io
 from scipy.ndimage import gaussian_filter as gf
 from .dataset_lib import *
-from torch.utils.data import DataLoader, Dataset
-from pyxas import kmean_mask
+from torch.utils.data import DataLoader
+from pyxas import kmean_mask, crop_scale_image
 
 def apply_model_to_stack(img_stack, model, device, n_iter=1, gaussian_filter=1):
     if torch.is_tensor(img_stack):
@@ -39,9 +39,13 @@ def ml_denoise(img_stack, model, n_iter=1, gaussian_filter=1):
     s = len(img_stack.shape)
     if s == 2:
         img_stack = np.expand_dims(img_stack, axis=0)
+    s = img_stack.shape
+    img_rescale = crop_scale_image(img_stack, output_size=(256, 256))
     device = next(model.parameters())[0].device
-    img_out, img_bkg = apply_model_to_stack(img_stack, model, device, n_iter, gaussian_filter)
-    return img_out, img_bkg
+    img_out_scale, img_bkg_scale = apply_model_to_stack(img_rescale, model, device, n_iter, gaussian_filter)
+    img_bkg = crop_scale_image(img_bkg_scale, (s[1], s[2]))
+    img_output = img_stack / img_bkg
+    return img_output, img_bkg
 
 
 
