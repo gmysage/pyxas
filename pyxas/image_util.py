@@ -11,6 +11,7 @@ from multiprocessing import Pool, cpu_count
 from tqdm import tqdm, trange
 from functools import partial
 from matplotlib.widgets import Slider
+import bm3d
 
 def rm_abnormal(img):
     tmp = img.copy()
@@ -45,7 +46,6 @@ def img_smooth(img, kernal_size, axis=0):
         for i in range(img_stack.shape[2]):
             img_stack[:, :, i] = medfilt2d(img_stack[:,:, i], kernal_size)
     return img_stack
-
 
 def otsu_mask(img, kernal_size, iters=1, bins=256, erosion_iter=0):
     img_s = img.copy()
@@ -100,7 +100,7 @@ def rm_noise2(img, noise_level=0.02, filter_size=3):
     return img_m
     
     
-def img_denoise_bm3d(img, sigma=0.01):
+def img_denoise_bm3d(img, sigma=0.1):
     try:
         import bm3d
         s = img.shape
@@ -118,17 +118,18 @@ def img_denoise_bm3d(img, sigma=0.01):
         return img
 
 
-def img_denoise_nl_single(img, patch_size=5, patch_distance=6):
+def img_denoise_nl_single(img, patch_size=5, patch_distance=6, sigma_est=None):
     img_d = img.copy()
     patch_kw = dict(patch_size=patch_size,  # 5x5 patches
                     patch_distance=patch_distance,  # 13x13 search area
                     )
-    sigma_est = np.mean(estimate_sigma(img_d))
+    if sigma_est is None:
+        sigma_est = np.mean(estimate_sigma(img_d))
     img_d = denoise_nl_means(img_d, h=1.2 * sigma_est, sigma=sigma_est, fast_mode=True, **patch_kw)
     return img_d
 
 
-def img_denoise_nl(img, patch_size=5, patch_distance=6):
+def img_denoise_nl(img, patch_size=5, patch_distance=6, sigma=None):
     s = img.shape
     if len(s) == 2:
         img_stack = img.reshape(1, s[0], s[1])
@@ -137,7 +138,7 @@ def img_denoise_nl(img, patch_size=5, patch_distance=6):
     img_d = img_stack.copy()
     n = img_stack.shape[0]
     for i in range(n):
-        img_d[i] = img_denoise_nl_single(img_stack[i], patch_size, patch_distance)
+        img_d[i] = img_denoise_nl_single(img_stack[i], patch_size, patch_distance, sigma)
     return img_d
 
 

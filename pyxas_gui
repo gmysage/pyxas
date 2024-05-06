@@ -11,8 +11,8 @@ import sys
 import gc
 import h5py
 import matplotlib as mpl
-#mpl.use('Qt5Agg')
-mpl.use('qtagg')
+mpl.use('Qt5Agg')
+#mpl.use('qtagg')
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -34,24 +34,15 @@ from matplotlib.figure import Figure
 from copy import deepcopy
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import sys
-if 'PyQt5' in sys.modules:
-    from PyQt5 import QtGui
-    from PyQt5.QtWidgets import (QMainWindow, QFileDialog, QRadioButton, QApplication,QWidget, QPlainTextEdit,
+
+from PyQt5 import QtGui
+from PyQt5.QtWidgets import (QMainWindow, QFileDialog, QRadioButton, QApplication,QWidget, QPlainTextEdit,
                                  QLineEdit, QWidget, QPushButton, QLabel, QCheckBox, QGroupBox, QSystemTrayIcon,
                                  QScrollBar, QVBoxLayout, QHBoxLayout, QGridLayout, QTabWidget, QMenu,
                                  QListWidget, QListWidgetItem, QAbstractItemView, QScrollArea, QAction,
                                  QSlider, QComboBox, QButtonGroup, QMessageBox, QSizePolicy)
-    from PyQt5.QtGui import QIntValidator, QDoubleValidator, QIcon
-    from PyQt5 import QtCore
-else:
-    from PySide2 import QtGui
-    from PySide2.QtWidgets import (QMainWindow, QFileDialog, QRadioButton, QApplication, QWidget, QPlainTextEdit,
-                                 QLineEdit, QWidget, QPushButton, QLabel, QCheckBox, QGroupBox, QSystemTrayIcon,
-                                 QScrollBar, QVBoxLayout, QHBoxLayout, QGridLayout, QTabWidget, QMenu,
-                                 QListWidget, QListWidgetItem, QAbstractItemView, QScrollArea, QAction,
-                                 QSlider, QComboBox, QButtonGroup, QMessageBox, QSizePolicy)
-    from PySide2.QtGui import QIntValidator, QDoubleValidator, QIcon
-    from PySide2 import QtCore
+from PyQt5.QtGui import QIntValidator, QDoubleValidator, QIcon
+from PyQt5 import QtCore
 
 import pyxas
 import warnings
@@ -2014,14 +2005,14 @@ class App(QWidget):
         #############################################
         lb_iter_num = QLabel()
         lb_iter_num.setFont(self.font2)
-        lb_iter_num.setText('Maximum iteration:')
-        lb_iter_num.setFixedWidth(140)
+        lb_iter_num.setText('Iteration:')
+        lb_iter_num.setFixedWidth(105)
 
         self.tx_iter_num = QLineEdit(self)
         self.tx_iter_num.setFont(self.font2)
-        self.tx_iter_num.setText('100')
+        self.tx_iter_num.setText('10')
         self.tx_iter_num.setValidator(QIntValidator())
-        self.tx_iter_num.setFixedWidth(100)
+        self.tx_iter_num.setFixedWidth(105)
         self.tx_iter_num.setEnabled(False)
 
         hbox_fit_iter_num = QHBoxLayout()
@@ -2032,19 +2023,54 @@ class App(QWidget):
         ##############################################
         lb_fit_rate = QLabel()
         lb_fit_rate.setFont(self.font2)
-        lb_fit_rate.setText('Updating rate:')
-        lb_fit_rate.setFixedWidth(140)
+        lb_fit_rate.setText('Denoise level:')
+        lb_fit_rate.setFixedWidth(105)
 
         self.tx_fit_rate = QLineEdit(self)
         self.tx_fit_rate.setFont(self.font2)
-        self.tx_fit_rate.setText('0.2') # conjugate gradient updating rate
-        self.tx_fit_rate.setFixedWidth(100)
+        self.tx_fit_rate.setText('0.02') # conjugate gradient updating rate
+        self.tx_fit_rate.setFixedWidth(105)
         self.tx_fit_rate.setEnabled(False)
 
         hbox_fit_iter_rate = QHBoxLayout()
         hbox_fit_iter_rate.addWidget(lb_fit_rate)
         hbox_fit_iter_rate.addWidget(self.tx_fit_rate)
         hbox_fit_iter_rate.setAlignment(QtCore.Qt.AlignTop)
+        ##############################################
+
+        ##############################################
+        lb_fit_iter_method = QLabel()
+        lb_fit_iter_method.setFont(self.font2)
+        lb_fit_iter_method.setText('DN method:')
+        lb_fit_iter_method.setFixedWidth(105)
+
+        self.cb_fit_iter_method = QComboBox()
+        self.cb_fit_iter_method.setFont(self.font2)
+        self.cb_fit_iter_method.addItem('NL mean')
+        self.cb_fit_iter_method.addItem('BM3D')
+        self.cb_fit_iter_method.setEnabled(False)
+        self.cb_fit_iter_method.setFixedWidth(105)
+
+        lb_fit_iter_sigma = QLabel()
+        lb_fit_iter_sigma.setFont(self.font2)
+        lb_fit_iter_sigma.setText('Sigma:')
+        lb_fit_iter_sigma.setFixedWidth(60)
+
+        self.tx_fit_iter_sigma = QLineEdit(self)
+        self.tx_fit_iter_sigma.setFont(self.font2)
+        self.tx_fit_iter_sigma.setText('0.1')  # conjugate gradient updating rate
+        self.tx_fit_iter_sigma.setFixedWidth(60)
+        self.tx_fit_iter_sigma.setValidator(QDoubleValidator())
+        self.tx_fit_iter_sigma.setEnabled(False)
+
+
+        hbox_fit_iter_method = QHBoxLayout()
+        hbox_fit_iter_method.addWidget(lb_fit_iter_method)
+        hbox_fit_iter_method.addWidget(self.cb_fit_iter_method)
+        hbox_fit_iter_method.addWidget(lb_fit_iter_sigma)
+        hbox_fit_iter_method.addWidget(self.tx_fit_iter_sigma)
+        hbox_fit_iter_method.setAlignment(QtCore.Qt.AlignTop)
+
 
         vbox_fit_2d_method = QVBoxLayout()
         vbox_fit_2d_method.addWidget(lb_fit_2d)
@@ -2054,6 +2080,7 @@ class App(QWidget):
         vbox_fit_2d_method.addLayout(hbox_bkg_poly)
         vbox_fit_2d_method.addLayout(hbox_fit_iter_num)
         vbox_fit_2d_method.addLayout(hbox_fit_iter_rate)
+        vbox_fit_2d_method.addLayout(hbox_fit_iter_method)
         vbox_fit_2d_method.setAlignment(QtCore.Qt.AlignTop)
 
         return vbox_fit_2d_method
@@ -3781,6 +3808,8 @@ class App(QWidget):
             self.chkbox_bkg_poly5.setChecked(False)  # order = -3
             self.tx_iter_num.setEnabled(False)
             self.tx_fit_rate.setEnabled(False)
+            self.cb_fit_iter_method.setEnabled(False)
+            self.tx_fit_iter_sigma.setEnabled(False)
         if self.rd_fit_method2.isChecked():
             self.fitting_method = 'nnls'
             self.tx_iter_num.setEnabled(True)
@@ -3803,6 +3832,8 @@ class App(QWidget):
             self.chkbox_bkg_poly5.setChecked(False)  # order = -3
             self.tx_iter_num.setEnabled(True)
             self.tx_fit_rate.setEnabled(True)
+            self.cb_fit_iter_method.setEnabled(True)
+            self.tx_fit_iter_sigma.setEnabled(True)
 
 
     def choose_image_for_fittting(self):
@@ -3887,11 +3918,18 @@ class App(QWidget):
                                                                                                   self.spectrum_ref,
                                                                                                   n_iter)
         elif self.rd_fit_method3.isChecked():
-            fit_coef, cost, X, y_fit, y_offset, var, x_interp, y_interp = pyxas.fit_2D_xanes_admm(img_stack_s, eng_s,
+            if 'NL' in self.cb_fit_iter_method.currentText():
+                method = 'nl'
+            else:
+                method = 'bm3d'
+            sigma = float(self.tx_fit_iter_sigma.text())
+            fit_coef, cost, X, y_fit, y_offset, var, x_interp, y_interp = pyxas.fit_2D_xanes_admm_denoise(img_stack_s, eng_s,
                                                                                                   self.spectrum_ref,
                                                                                                   learning_rate, n_iter,
                                                                                                   [0, 1e10],
-                                                                                                  bkg_polynomial_order)
+                                                                                                  bkg_polynomial_order,
+                                                                                                  method,
+                                                                                                  sigma)
         return fit_coef, cost, X, y_fit, y_offset, var, x_interp, y_interp
 
 
@@ -5181,11 +5219,20 @@ class App(QWidget):
             img_stack_s = np.mean(np.mean(img_stack, axis=-1), axis=-1)
             img_stack_s = img_stack_s.reshape((len(eng), 1, 1))
 
-            fit_coef, cost, X, y_fit, y_offset, var, x_interp, y_interp = self.fit_2d_xanes_core(img_stack_s, eng, bkg_polynomial_order, n_iter, learning_rate)
+            #fit_coef, cost, X, y_fit, y_offset, var, x_interp, y_interp = self.fit_2d_xanes_core(img_stack_s, eng, bkg_polynomial_order, n_iter, learning_rate)
+            fit_coef, cost, X, y_fit, y_offset, var, x_interp, y_interp = self.fit_2d_xanes_core(img_stack, eng,
+                                                                                                 bkg_polynomial_order,
+                                                                                                 n_iter, learning_rate)
             fit_coef = np.squeeze(fit_coef)
-            cost = np.squeeze(cost)
+            fit_coef = np.mean(fit_coef, axis=(1,2))
+            cost = np.mean(cost)
             y_fit = np.squeeze(y_fit)
+            y_fit = np.mean(y_fit, axis=1)
+
             y_offset = np.squeeze(y_offset)
+            y_offset = np.mean(y_offset, axis=(1, 2))
+
+            y_interp_mean = np.mean(y_interp, axis=-1)
 
             title = self._get_roi_fit_title(fit_coef, roi_selected, elem)
             t_color = ['g', 'orange', 'm', 'c', 'y']
@@ -5193,7 +5240,7 @@ class App(QWidget):
             legend = []
             line_raw, = plt.plot(eng, np.squeeze(img_stack_s), 'b.', label='Experiment data')
             #line_fit = plt.plot(eng, y_fit, color='r', label='Fitted')
-            line_fit = plt.plot(x_interp, y_interp, color='r', label='Fitted')
+            line_fit = plt.plot(x_interp, y_interp_mean, color='r', label='Fitted')
             legend.append(line_raw)
             legend.append(line_fit)
             ref_offset = {}
@@ -9512,7 +9559,7 @@ class App(QWidget):
 
         self.tx_param_iter_num = QLineEdit(self)
         self.tx_param_iter_num.setFont(self.font2)
-        self.tx_param_iter_num.setText('100')
+        self.tx_param_iter_num.setText('10')
         self.tx_param_iter_num.setValidator(QIntValidator())
         self.tx_param_iter_num.setFixedWidth(100)
         self.tx_param_iter_num.setEnabled(True)
@@ -9525,14 +9572,26 @@ class App(QWidget):
         ##
         lb_param_fit_rate = QLabel()
         lb_param_fit_rate.setFont(self.font2)
-        lb_param_fit_rate.setText('Updating rate:')
+        lb_param_fit_rate.setText('Denoise level:')
         lb_param_fit_rate.setFixedWidth(140)
 
         self.tx_param_fit_rate = QLineEdit(self)
         self.tx_param_fit_rate.setFont(self.font2)
-        self.tx_param_fit_rate.setText('0.2')  # conjugate gradient updating rate
+        self.tx_param_fit_rate.setText('0.05')  # conjugate gradient updating rate
         self.tx_param_fit_rate.setFixedWidth(100)
         self.tx_param_fit_rate.setEnabled(True)
+
+        lb_param_fit_sigma = QLabel()
+        lb_param_fit_sigma.setFont(self.font2)
+        lb_param_fit_sigma.setText('Sigma:')
+        lb_param_fit_sigma.setFixedWidth(60)
+
+        self.tx_param_fit_sigma = QLineEdit(self)
+        self.tx_param_fit_sigma.setFont(self.font2)
+        self.tx_param_fit_sigma.setText('0.1')  # conjugate gradient updating rate
+        self.tx_param_fit_sigma.setFixedWidth(60)
+        self.tx_param_fit_sigma.setValidator(QDoubleValidator())
+        self.tx_param_fit_sigma.setEnabled(False)
 
         hbox_param_fit_iter_rate = QHBoxLayout()
         hbox_param_fit_iter_rate.addWidget(lb_param_fit_rate)
@@ -10085,6 +10144,12 @@ class App(QWidget):
             except:
                 self.fit_param['fit_iter_learning_rate'] = 0.02
                 self.tx_param_fit_rate.text('0.02')
+
+            try:
+                self.fit_param['fit_iter_sigma'] = float(self.tx_param_fit_sigma.text())
+            except:
+                self.fit_param['fit_iter_sigma'] = 0.1
+                self.tx_param_fit_sigma.setText('0.1')
 
             # mask
             self.fit_param['fit_mask_thickness_threshold'] = float(self.tx_param_threshold_thick.text())
@@ -12807,7 +12872,7 @@ class App(QWidget):
         except Exception as err:
             print(err)
 
-def adv(mode):
+def adv(mode=1):
     xanes.refresh(mode)
 
 
