@@ -9581,22 +9581,27 @@ class App(QWidget):
         self.tx_param_fit_rate.setFixedWidth(100)
         self.tx_param_fit_rate.setEnabled(True)
 
-        lb_param_fit_sigma = QLabel()
-        lb_param_fit_sigma.setFont(self.font2)
-        lb_param_fit_sigma.setText('Sigma:')
-        lb_param_fit_sigma.setFixedWidth(60)
-
-        self.tx_param_fit_sigma = QLineEdit(self)
-        self.tx_param_fit_sigma.setFont(self.font2)
-        self.tx_param_fit_sigma.setText('0.1')  # conjugate gradient updating rate
-        self.tx_param_fit_sigma.setFixedWidth(60)
-        self.tx_param_fit_sigma.setValidator(QDoubleValidator())
-        self.tx_param_fit_sigma.setEnabled(False)
-
         hbox_param_fit_iter_rate = QHBoxLayout()
         hbox_param_fit_iter_rate.addWidget(lb_param_fit_rate)
         hbox_param_fit_iter_rate.addWidget(self.tx_param_fit_rate)
         hbox_param_fit_iter_rate.setAlignment(QtCore.Qt.AlignTop)
+
+
+        lb_param_fit_sigma = QLabel()
+        lb_param_fit_sigma.setFont(self.font2)
+        lb_param_fit_sigma.setText('Sigma:')
+        lb_param_fit_sigma.setFixedWidth(140)
+
+        self.tx_param_fit_sigma = QLineEdit(self)
+        self.tx_param_fit_sigma.setFont(self.font2)
+        self.tx_param_fit_sigma.setText('0.1')  # conjugate gradient updating rate
+        self.tx_param_fit_sigma.setFixedWidth(100)
+        self.tx_param_fit_sigma.setValidator(QDoubleValidator())
+
+        hbox_param_fit_iter_sigma = QHBoxLayout()
+        hbox_param_fit_iter_sigma.addWidget(lb_param_fit_sigma)
+        hbox_param_fit_iter_sigma.addWidget(self.tx_param_fit_sigma)
+        hbox_param_fit_iter_sigma.setAlignment(QtCore.Qt.AlignTop)
 
 
         vbox_param_fit = QVBoxLayout()
@@ -9609,6 +9614,7 @@ class App(QWidget):
         vbox_param_fit.addLayout(hbox_param_bkg_poly)
         vbox_param_fit.addLayout(hbox_param_fit_iter_num)
         vbox_param_fit.addLayout(hbox_param_fit_iter_rate)
+        vbox_param_fit.addLayout(hbox_param_fit_iter_sigma)
         #vbox_param_fit.addWidget(self.chkbox_fit_iter)
         #vbox_param_fit.addLayout(hbox_param_fit_iter_p)
         #vbox_param_fit.addLayout(hbox_param_fit_iter_bounds)
