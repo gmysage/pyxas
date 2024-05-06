@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from copy import deepcopy
 from tqdm import trange
 from scipy.interpolate import UnivariateSpline
-
+from .image_util import img_denoise_nl, img_denoise_bm3d
 
 def fit_peak_curve_spline(x, y, fit_order=3, smooth=0.002, weight=[1]):
     if not len(weight) == len(x):
@@ -321,6 +321,8 @@ def admm_iter(A, y, rho=0.2, num_iters=10, X_guess=[], wgt=[], lasso_lamda=0.01,
             x = inv(c) @ (A.T @ np.diag(wgt) @ y + rho * (z - u))
         else:
             x = inv(c) @ (A.T @ y + rho * (z - u))
+
+        # z step: denoising
         if np.abs(rho) < 1e-4:
             z = x + u
         else:
@@ -384,6 +386,71 @@ def admm_iter2(A, y, rate=0.2, maxiter=100, low_bounds=[0], high_bounds=[1e12], 
     w = clip_with_bounds(w_updated, lb, hb, first_n_term)
     return w
 
+def admm_denoise(A, y, s_2d, n_ref, rho=0.2, num_iters=4, wgt=[], bounds=[], method='nl', sigma=0.1):
+    '''
+    bound constrain fitting based on ADMM
+    '''
+    from numpy.linalg import inv, norm
+    n_eng, n_spectra = A.shape
+    n_sample = y.shape[1]
+
+    z = np.zeros((n_spectra, n_sample))
+    u = np.zeros((n_spectra, n_sample))
+
+    offset = np.eye(n_spectra)
+    #for i in range(n_ref, n_spectra):
+    #    offset[i] = 0
+
+
+    if not len(wgt) == n_eng:
+        wgt_flag = 0
+        c = A.T @ A + offset * rho
+    else:
+        wgt_flag = 1
+        c = A.T @ np.diag(wgt) @ A + offset * rho
+
+    if not len(bounds) == 2:
+        bounds = [-1e16, 1e16]
+
+    convergency = np.zeros((num_iters, 1))
+
+    for i in range(num_iters):
+        print(f'iter #{i}')
+        temp = z.copy()
+        if wgt_flag:
+            x = inv(c) @ (A.T @ np.diag(wgt) @ y + rho * (z - u))
+        else:
+            x = inv(c) @ (A.T @ y + rho * (z - u))
+
+        # z step: denoising
+        z = z_denoise(x, s_2d, n_spectra, method, sigma)
+        for i in range(n_ref):
+            z[i][z[i] <= bounds[0]] = bounds[0]
+            z[i][z[i] >= bounds[1]] = bounds[1]
+        u = u + x - z
+        convergency[i] = (norm(z[:n_ref].flatten()) - norm(temp[:n_ref].flatten())) / norm(z[:n_ref].flatten())
+        if convergency[i] < 1e-3:
+            break
+    return z
+
+
+
+def z_denoise(z, s_2d, first_n_term, method='nl', sigma=0.1):
+    s0 = z.shape
+    n = s0[0]
+    z1 = z.copy()
+    z1 = z1.reshape((n, *s_2d))
+    for i in range(first_n_term):
+        img = z1[i]
+        f = np.max(img)
+        if method == 'bm3d':
+            img_d = img_denoise_bm3d(img/f, sigma=sigma) * f
+        else:
+            img_d = img_denoise_nl(img/f, sigma=sigma) * f
+
+        z1[i] = np.squeeze(img_d)
+    z1 = z1.reshape(s0)
+    return z1
 
 def clip_with_bounds(m, lb, hb, first_n_term=None):
     m_clip = m.copy()

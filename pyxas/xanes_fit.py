@@ -41,6 +41,10 @@ def fit_2D_xanes_using_param(img_xanes, xanes_eng, fit_param, spectrum_ref):
     res = {}
     img_thickness = None
     #img_xanes_norm = img_xanes.copy()
+    try:
+        sigma = fit_param['fit_iter_sigma']
+    except:
+        sigma = 0.05
 
     norm_txm_flag = fit_param['norm_txm_flag']
     pre_edge = fit_param['pre_edge']
@@ -113,6 +117,7 @@ def fit_2D_xanes_using_param(img_xanes, xanes_eng, fit_param, spectrum_ref):
                                                                             bkg_polynomial_order)
     # fit_method == 'admm'
     else:
+        '''
         fit_coef, fit_cost, X, Y_hat, fit_offset, var, eng_interp, Y_interp = pyxas.fit_2D_xanes_admm(img_xanes_norm[fit_eng_range],
                                                                            xanes_eng[fit_eng_range],
                                                                            spectrum_ref,
@@ -120,6 +125,17 @@ def fit_2D_xanes_using_param(img_xanes, xanes_eng, fit_param, spectrum_ref):
                                                                            n_iter,
                                                                            bounds=[0, 1e10],
                                                                            bkg_polynomial_order=bkg_polynomial_order)
+        '''
+        method = 'nl'
+        fit_coef, cost, X, y_fit, y_offset, var, x_interp, y_interp = pyxas.fit_2D_xanes_admm_denoise(img_xanes_norm[fit_eng_range],
+                                                                                                      xanes_eng[fit_eng_range],
+                                                                                                      spectrum_ref,
+                                                                                                      learning_rate,
+                                                                                                      n_iter,
+                                                                                                      [0, 1e10],
+                                                                                                      bkg_polynomial_order,
+                                                                                                      method,
+                                                                                                      sigma)
     fit_coef_sum = np.sum(fit_coef, axis=0, keepdims=True)
     fit_coef_norm = pyxas.rm_abnormal(fit_coef / fit_coef_sum)
     fit_coef_norm[fit_coef_norm > 1] = 1
