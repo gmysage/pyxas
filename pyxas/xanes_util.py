@@ -81,7 +81,7 @@ def fit_element_mu(x_eng, y_spec, mu_raw):
 
 
 def fit_multi_element_mu(img_xanes, xanes_eng, elem, exclude_multi_range,
-                         bkg_polynomial_order, method, admm_iter, admm_rate):
+                         bkg_polynomial_order, method, admm_iter, admm_rate, sigma):
     order = bkg_polynomial_order
     img = img_xanes.copy()
     x_eng = xanes_eng.copy()
@@ -95,6 +95,7 @@ def fit_multi_element_mu(img_xanes, xanes_eng, elem, exclude_multi_range,
         idx += 2
     s = img.shape
     s_all = img_xanes.shape
+    s_2d = (s[1], s[2])
     Y = img.reshape(s[0], s[1]*s[2])
     Y_all = img_xanes.reshape(s_all[0], s_all[1]*s_all[2])
 
@@ -137,7 +138,8 @@ def fit_multi_element_mu(img_xanes, xanes_eng, elem, exclude_multi_range,
     ATA = AT @ A
     ATA_inv = np.linalg.inv(ATA)
     if method == 'admm':
-        X = admm_iter2(A, Y, admm_rate, admm_iter, [0], [100], first_n_term=n_elem)
+        #X = admm_iter2(A, Y, admm_rate, admm_iter, [0], [100], first_n_term=n_elem)
+        X = admm_denoise(A, Y, s_2d, n_elem, admm_rate, admm_iter, [0], [0, 100], method='nl', sigma=sigma)
     else:
         X = ATA_inv @ AT @ Y
     Y_fit = A @ X
