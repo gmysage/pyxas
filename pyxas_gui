@@ -2985,12 +2985,13 @@ class App(QWidget):
         ##############################################
         lb_multi_fit_rate = QLabel()
         lb_multi_fit_rate.setFont(self.font2)
-        lb_multi_fit_rate.setText('Updating rate:')
+        lb_multi_fit_rate.setText('Denoise level:')
         lb_multi_fit_rate.setFixedWidth(140)
 
         self.tx_multi_fit_rate = QLineEdit(self)
         self.tx_multi_fit_rate.setFont(self.font2)
         self.tx_multi_fit_rate.setText('0.2')  # conjugate gradient updating rate
+        self.tx_multi_fit_rate.setValidator(QDoubleValidator())
         self.tx_multi_fit_rate.setFixedWidth(100)
         self.tx_multi_fit_rate.setEnabled(False)
 
@@ -2998,6 +2999,24 @@ class App(QWidget):
         hbox_multi_fit_iter_rate.addWidget(lb_multi_fit_rate)
         hbox_multi_fit_iter_rate.addWidget(self.tx_multi_fit_rate)
         hbox_multi_fit_iter_rate.setAlignment(QtCore.Qt.AlignTop)
+        ########################
+
+        lb_multi_fit_sigma = QLabel()
+        lb_multi_fit_sigma.setFont(self.font2)
+        lb_multi_fit_sigma.setText('Sigma:')
+        lb_multi_fit_sigma.setFixedWidth(140)
+
+        self.tx_multi_fit_sigma = QLineEdit(self)
+        self.tx_multi_fit_sigma.setFont(self.font2)
+        self.tx_multi_fit_sigma.setText('0.1')  # conjugate gradient updating rate
+        self.tx_multi_fit_sigma.setValidator(QDoubleValidator())
+        self.tx_multi_fit_sigma.setFixedWidth(100)
+        self.tx_multi_fit_sigma.setEnabled(False)
+
+        hbox_multi_fit_iter_sigma = QHBoxLayout()
+        hbox_multi_fit_iter_sigma.addWidget(lb_multi_fit_sigma)
+        hbox_multi_fit_iter_sigma.addWidget(self.tx_multi_fit_sigma)
+        hbox_multi_fit_iter_sigma.setAlignment(QtCore.Qt.AlignTop)
         ########################
 
         # elem
@@ -3070,6 +3089,7 @@ class App(QWidget):
         vbox.addLayout(hbox_multi_fit_method)
         vbox.addLayout(hbox_multi_fit_iter_num)
         vbox.addLayout(hbox_multi_fit_iter_rate)
+        vbox.addLayout(hbox_multi_fit_iter_sigma)
         vbox.addLayout(hbox)
         vbox.setAlignment(QtCore.Qt.AlignTop)
 
@@ -4143,6 +4163,7 @@ class App(QWidget):
             self.multi_elem_fitting_method = 'basic'
             self.tx_multi_iter_num.setEnabled(False)
             self.tx_multi_fit_rate.setEnabled(False)
+            self.tx_multi_fit_sigma.setEnabled(False)
             self.chkbox_multi_bkg_poly1.setChecked(False) # order = 1
             self.chkbox_multi_bkg_poly2.setChecked(True)  # order = 0
             self.chkbox_multi_bkg_poly3.setChecked(False)  # order = -1
@@ -4152,6 +4173,7 @@ class App(QWidget):
             self.multi_elem_fitting_method = 'admm'
             self.tx_multi_iter_num.setEnabled(True)
             self.tx_multi_fit_rate.setEnabled(True)
+            self.tx_multi_fit_sigma.setEnabled(True)
             self.chkbox_multi_bkg_poly1.setChecked(False) # order = 1
             self.chkbox_multi_bkg_poly2.setChecked(True)  # order = 0
             self.chkbox_multi_bkg_poly3.setChecked(False)  # order = -1
@@ -4175,9 +4197,10 @@ class App(QWidget):
             #self.select_2d_multi_elem_fitting_method()
             admm_iter = int(self.tx_multi_iter_num.text())
             admm_rate = float(self.tx_multi_fit_rate.text())
+            admm_sigma = float(self.tx_multi_fit_sigma.text())
             method = self.multi_elem_fitting_method
             res = pyxas.fit_2D_multi_elem_thick(img_stack, x_eng, fit_elem, eng_exclude,
-                                                bkg_polynomial_order, method, admm_iter, admm_rate)
+                                                bkg_polynomial_order, method, admm_iter, admm_rate, admm_sigma)
             self.multi_elem_fit_result = res.copy()
             self.multi_elem_thickness = res['thickness']
             self.multi_elem_fit_err = res['y_fit_err']
@@ -4350,22 +4373,27 @@ class App(QWidget):
             method = self.multi_elem_fitting_method
             admm_iter = int(self.tx_multi_iter_num.text())
             admm_rate = float(self.tx_multi_fit_rate.text())
+            admm_sigma = float(self.tx_multi_fit_sigma.text())
+            '''
             res = pyxas.fit_2D_multi_elem_thick(img_stack_s, x_eng, fit_elem, eng_exclude,
-                                                bkg_polynomial_order, method, admm_iter, admm_rate)
+                                                bkg_polynomial_order, method, admm_iter, admm_rate, admm_sigma)
+            '''
+            res = pyxas.fit_2D_multi_elem_thick(img_stack, x_eng, fit_elem, eng_exclude,
+                                                bkg_polynomial_order, method, admm_iter, admm_rate, admm_sigma)
             self.multi_elem_fit_result_roi = res.copy()
             self.multi_elem_fit_result_roi['elem'] = fit_elem
             self.multi_elem_fit_result_roi['roi'] = roi_selected
             x0 = res['x_eng_all']
-            y0 = np.squeeze(res['Y_all'])
+            y0 = np.mean(res['Y_all'], axis=-1)
 
             x1 = res['x_eng_all']
-            y1 = np.squeeze(res['Y_fit_all'])
+            y1 = np.mean(res['Y_fit_all'], axis=-1)
 
             x2 = res['x_eng']
-            y2 = np.squeeze(res['Y'])
+            y2 = np.mean(res['Y'], axis=-1)
 
             n = len(fit_elem)
-            fit_avg = np.squeeze(res['X'][:n])
+            fit_avg = np.mean(res['X'][:n], axis=-1)
             fit_avg_r = fit_avg / np.sum(fit_avg)
             title = ''
             for i in range(n):
