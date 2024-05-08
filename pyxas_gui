@@ -4602,8 +4602,9 @@ class App(QWidget):
                     method = self.multi_elem_fitting_method
                     admm_iter = int(self.tx_multi_iter_num.text())
                     admm_rate = float(self.tx_multi_fit_rate.text())
+                    admm_sigma = float(self.tx_multi_fit_sigma.text())
                     res = pyxas.fit_2D_multi_elem_thick(img_stack, x_eng, fit_elem, eng_exclude,
-                                                        bkg_polynomial_order, method, admm_iter, admm_rate)
+                                                        bkg_polynomial_order, method, admm_iter, admm_rate, admm_sigma)
                     res['mask'] = mask
                     self.save_multi_elem_batch_fit(fsave_root, fn, res, color_flag)
                 print('saving element_thickness fitting ... ')
