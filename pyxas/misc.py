@@ -231,6 +231,8 @@ def get_img_from_tif_file(fn):
     if fn[-4:] == 'tiff' or fn[-3:] == 'tif':
         img = io.imread(fn)
         s = img.shape
+        if len(s) == 2:
+            img = np.expand_dims(img, axis=0)
         if s[2] == 3 or s[2] == 4:
             img = np.transpose(img, (2, 0, 1))
     return img

@@ -35,15 +35,20 @@ def extract_mask(img, cen, ts=[200, 200, 200]):
     return mask
 
 
-def watershed_mask(img_raw, binning=2, gf_size=5, fs=15, min_distance=5, thresh=None):
+def watershed_mask(img_raw, binning=2, gf_size=5, fs=15, min_distance=5, thresh=None, fill_hole=True):
     s = np.array(img_raw.shape)
-    s = np.int16(s // 2 * 2)
+    '''
     if len(s) == 3:
         img = img_raw[:s[0], :s[1], :s[2]]
     if len(s) == 2:
         img = img_raw[:s[0], :s[1]]
+    '''
     if binning == 2:
+        s = np.int16(s // 2 * 2)
+        img = img_raw[:s[0], :s[1]]
         img = bin_image(img, 2)
+    else:
+        img = img_raw.copy()
     s = img.shape
     print('gaussian filtering...')
     #img_gf = gf(img, gf_size)
@@ -55,7 +60,8 @@ def watershed_mask(img_raw, binning=2, gf_size=5, fs=15, min_distance=5, thresh=
     bw[bw >= thresh] = 1
     n = len(bw.shape)
     struct = generate_binary_structure(n, 1)
-    bw = binary_fill_holes(bw, structure=struct).astype(bw.dtype)
+    if fill_hole:
+        bw = binary_fill_holes(bw, structure=struct).astype(bw.dtype)
     print('cal. distance map...')
     distance = ndi.distance_transform_edt(bw)
     if len(s) == 3:
