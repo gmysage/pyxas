@@ -243,6 +243,7 @@ def train_xanes_bkg_production(dataloader, loss_r, thickness_dict, model_prod, l
         elem = data[3][0]  # e.g, 'Ni'
 
         thickness = thickness_dict[elem]
+        mask = thickness_dict['mask']
 
         s0 = image_data.size()
         s = (s0[1], s0[0], s0[2], s0[3])
@@ -257,7 +258,7 @@ def train_xanes_bkg_production(dataloader, loss_r, thickness_dict, model_prod, l
         y_fit_reshape = y_fit_dn.reshape(s).type(torch.float32)
         y_fit_reshape = torch.exp(-y_fit_reshape)
 
-        mse_fit_img1 = mse_criterion(y_fit_reshape, output_img)
+        mse_fit_img1 = mse_criterion(y_fit_reshape, output_img * mask)
         mse_fit_img2 = mse_criterion(y_fit_reshape, image_data)
         loss_value['mse_fit_img'] = ratio * mse_fit_img1 + (1 - ratio) * mse_fit_img2
 

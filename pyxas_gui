@@ -5554,7 +5554,7 @@ class App(QWidget):
                 edge_val = res['edge_val'] * factor
             else:                                     # method 2: polynormial
                 res = pyxas.fit_peak_curve_poly(x, y*factor, fit_order=k)
-                xx = np.linspace(x[0], x[-1], 101).reshape([101, 1])
+                xx = np.linspace(x[0], x[-1], 10001).reshape([10001, 1])
                 y_eval = res['matrix_Y'].flatten() * factor
                 peak_pos = np.squeeze(res['peak_pos'])
                 peak_val = np.squeeze(res['peak_val']) * factor
