@@ -9,7 +9,7 @@ def fit_peak_curve_spline(x, y, fit_order=3, smooth=0.002, weight=[1]):
     if not len(weight) == len(x):
         weight = np.ones((len(x)))
     spl = UnivariateSpline(x, y, k=fit_order, s=smooth, w=weight)
-    xx = np.linspace(x[0], x[-1], 1001)
+    xx = np.linspace(x[0], x[-1], 10001)
     yy = spl(xx)
     peak_pos = xx[np.argmax(yy)]
     fit_error = np.sum((y - spl(x)**2))
@@ -53,8 +53,8 @@ def fit_peak_curve_poly(x, y, fit_order=3):
     for i in nnp.arange(1, fit_order + 1):
         X = nnp.concatenate([X, x0 ** i], 1)
     A = nnp.linalg.inv(X.T @ X) @ (X.T @ Y)
-    xx = nnp.linspace(x0[0], x0[-1], 101).reshape([101, 1])
-    XX = nnp.ones([101, 1])
+    xx = nnp.linspace(x0[0], x0[-1], 10001).reshape([10001, 1])
+    XX = nnp.ones([10001, 1])
     for i in nnp.arange(1, fit_order + 1):
         XX = nnp.concatenate([XX, xx ** i], 1)
     YY = XX @ A

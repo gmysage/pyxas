@@ -285,7 +285,7 @@ def main_train_xanes_bkg_production(f_root, img_raw, x_eng, elem, model_prod, lo
     thickness = {}
     thickness_elem = thickness_elem * mask
     thickness[elem] = thickness_elem
-
+    thickness['mask'] = mask
     ##################### end thickness
 
     train_loader, valid_loader = get_train_valid_dataloader(blur_dir, gt_dir, eng_dir, n_train, trans_gt, trans_blur)
