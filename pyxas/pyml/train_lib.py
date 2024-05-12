@@ -258,7 +258,7 @@ def train_xanes_bkg_production(dataloader, loss_r, thickness_dict, model_prod, l
         y_fit_reshape = y_fit_dn.reshape(s).type(torch.float32)
         y_fit_reshape = torch.exp(-y_fit_reshape)
 
-        mse_fit_img1 = mse_criterion(y_fit_reshape, output_img * mask)
+        mse_fit_img1 = mse_criterion(y_fit_reshape*mask, output_img)
         mse_fit_img2 = mse_criterion(y_fit_reshape, image_data)
         loss_value['mse_fit_img'] = ratio * mse_fit_img1 + (1 - ratio) * mse_fit_img2
 
