@@ -11348,7 +11348,7 @@ class App(QWidget):
 
         self.lb_ml_msg_eng = QLabel()
         self.lb_ml_msg_eng.setFont(self.font2)
-        self.lb_ml_msg_eng.setFixedWidth(200)
+        self.lb_ml_msg_eng.setFixedWidth(240)
 
         hbox_path = QHBoxLayout()
         hbox_path.addWidget(lb_model)
