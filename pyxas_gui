@@ -6625,12 +6625,13 @@ class App(QWidget):
 
 
     def fit_edge_img(self):
-        pre_s = float(self.tx_fit_pre_s.text())
-        pre_e = float(self.tx_fit_pre_e.text())
-        post_s = float(self.tx_fit_post_s.text())
-        post_e = float(self.tx_fit_post_e.text())
-        canvas = self.canvas1
         try:
+            pre_s = float(self.tx_fit_pre_s.text())
+            pre_e = float(self.tx_fit_pre_e.text())
+            post_s = float(self.tx_fit_post_s.text())
+            post_e = float(self.tx_fit_post_e.text())
+            canvas = self.canvas1
+
             self.pb_fit_img.setText('wait ...')
             self.pb_fit_img.setEnabled(False)
             QApplication.processEvents()
@@ -7344,7 +7345,7 @@ class App(QWidget):
                     self.update_msg()
                     QApplication.processEvents()
             else:                                            # align all images with image_stack[ref_index]
-                for i in range(0, n):
+                for i in range(n):
                     print('Aligning image slice ' + str(i))
                     self.msg = 'Aligning image slice ' + str(i)
                     self.update_msg()
@@ -7358,6 +7359,10 @@ class App(QWidget):
                     self.update_msg()
                     self.shift_list.append([rsft, csft])
                     QApplication.processEvents()
+            for i in range(n):
+                t = img_ali[i]
+                t[t<=0] = np.median(t)
+                img_ali[i] = t
             self.img_update = deepcopy(img_ali)
             if self.cb1.findText('Image updated') < 0:
                 self.cb1.addItem('Image updated')
@@ -7426,7 +7431,7 @@ class App(QWidget):
                         self.shift_list.append([rsft, csft])
                         QApplication.processEvents()
                 else:  # align all images with image_stack[ref_index]
-                    for i in range(0, s[0]):
+                    for i in range(s[0]):
                         print('Aligning image slice ' + str(i))
                         if self.rd_ali1.isChecked():
                             method = self.cb_ali.currentText().strip()
@@ -7439,6 +7444,10 @@ class App(QWidget):
                         self.msg = f'Aligned image slice {i}, row_shift: {rsft:3.2f}, col_shift: {csft:3.2f}'
                         self.update_msg()
                         QApplication.processEvents()
+                for i in range(s[0]):
+                    t = img_ali[i]
+                    t[t<=0] = np.median(t)
+                    img_ali[i] = t
                 self.img_update = deepcopy(img_ali)
                 if self.cb1.findText('Image updated') < 0:
                     self.cb1.addItem('Image updated')
@@ -9135,7 +9144,7 @@ class App(QWidget):
     def layout_3D_param_cpu(self):
         lb_param_parellel = QLabel()
         lb_param_parellel.setFont(self.font1)
-        lb_param_parellel.setText('Parallel computing')
+        lb_param_parellel.setText('Parallel and Binning')
 
         lb_param_cpu = QLabel()
         lb_param_cpu.setFont(self.font2)
@@ -9145,11 +9154,25 @@ class App(QWidget):
         self.tx_param_cpu = QLineEdit()
         self.tx_param_cpu.setFixedWidth(60)
         self.tx_param_cpu.setText('1')
+        self.tx_param_cpu.setValidator(QIntValidator())
         self.tx_param_cpu.setFont(self.font2)
+
+        lb_param_bin = QLabel()
+        lb_param_bin.setFont(self.font2)
+        lb_param_bin.setText('  Binning: ')
+        lb_param_bin.setFixedWidth(70)
+
+        self.tx_param_bin = QLineEdit()
+        self.tx_param_bin.setFixedWidth(60)
+        self.tx_param_bin.setText('1')
+        self.tx_param_bin.setValidator(QIntValidator())
+        self.tx_param_bin.setFont(self.font2)
 
         hbox_param_cpu = QHBoxLayout()
         hbox_param_cpu.addWidget(lb_param_cpu)
         hbox_param_cpu.addWidget(self.tx_param_cpu)
+        hbox_param_cpu.addWidget(lb_param_bin)
+        hbox_param_cpu.addWidget(self.tx_param_bin)
         hbox_param_cpu.setAlignment(QtCore.Qt.AlignLeft)
 
         vbox_param_cpu = QVBoxLayout()
@@ -9158,6 +9181,36 @@ class App(QWidget):
         vbox_param_cpu.addWidget(self.lb_empty)
         vbox_param_cpu.setAlignment(QtCore.Qt.AlignTop)
         return vbox_param_cpu
+
+    '''
+    def layout_3D_param_bin(self):
+        lb_param_bin = QLabel()
+        lb_param_bin.setFont(self.font1)
+        lb_param_bin.setText('Image binning')
+
+        lb_param_bin = QLabel()
+        lb_param_bin.setFont(self.font2)
+        lb_param_bin.setText('Binning: ')
+        lb_param_bin.setFixedWidth(140)
+
+        self.tx_param_bin = QLineEdit()
+        self.tx_param_bin.setFixedWidth(60)
+        self.tx_param_bin.setText('1')
+        self.tx_param_bin.setValidator(QIntValidator())
+        self.tx_param_bin.setFont(self.font2)
+
+        hbox_param_bin = QHBoxLayout()
+        hbox_param_bin.addWidget(lb_param_bin)
+        hbox_param_bin.addWidget(self.tx_param_bin)
+        hbox_param_bin.setAlignment(QtCore.Qt.AlignLeft)
+
+        vbox_param_bin = QVBoxLayout()
+        vbox_param_bin.addWidget(lb_param_bin)
+        vbox_param_bin.addLayout(hbox_param_bin)
+        vbox_param_bin.addWidget(self.lb_empty)
+        vbox_param_bin.setAlignment(QtCore.Qt.AlignTop)
+        return vbox_param_bin
+        '''
 
     def layout_3D_param_txm_norm(self):
         lb_param_txm_norm0 = QLabel()
@@ -10035,13 +10088,18 @@ class App(QWidget):
         file_type = '*.*'
         fn, _ = QFileDialog.getOpenFileName(xanes, "QFileDialog.getOpenFileName()", "", '*', options=options)
         fn_tmp = fn.split('/')
+        file_type = fn_tmp[-1].split('.')[-1]
         self.file_path = '/'.join(t for t in fn_tmp[:-1])
         # self.file_path = QFileDialog.getExistingDirectory(None, 'Select a folder:', self.fpath, QFileDialog.ShowDirsOnly)
         self.tx_param_folder.setText(self.file_path)
         self.tx_param_file_prefix.setText(fn_tmp[-1][:3])
-        self.tx_param_file_type.setText('.' + fn_tmp[-1].split('.')[-1])
+        self.tx_param_file_type.setText('.' + file_type)
         self.lb_execute_output.setText('')
         self.lb_3D_msg.setText(f'Message: ')
+        if 'tif' in file_type:
+            self.rd_3D_tif.setChecked(True)
+        else:
+            self.rd_3D_hdf.setChecked(True)
         self.load_3D_xanes_image_file()
 
     def load_3D_xanes_image_file(self):
@@ -10141,6 +10199,8 @@ class App(QWidget):
         try:
             self.fit_param['align_flag'] = 1 if self.rd_param_align_yes.isChecked() else 0
             self.fit_param['align_ref_index'] = int(self.tx_param_align_ref.text())
+
+            self.fit_param['bin'] = int(self.tx_param_bin.text())
 
             roi_ratio = self.tx_param_align_roi.text()
             roi_ratio = float(roi_ratio) if roi_ratio else 1
@@ -10497,11 +10557,13 @@ class App(QWidget):
 
                 return 0
             else:
+                fn = files_scan[idx].split('/')[-1].split('.')[0]
                 try:
-                    sli_id = int(files_scan[idx].split('/')[-1].split('.')[0].split('_')[-1])
+                    sli_id = int(fn.split('_')[-1])
                 except:
                     sli_id = idx
-                file_save_path = f'{file_path}/fitted_single_xanes/xanes_{sli_id:04d}'
+                #file_save_path = f'{file_path}/fitted_single_xanes/xanes_{sli_id:04d}'
+                file_save_path = f'{file_path}/fitted_single_xanes/xanes_{fn}'
                 pyxas.create_directory(file_save_path)
                 '''
                 res = pyxas.fit_2D_xanes_single_file(files_scan[idx], xanes_eng,
@@ -10510,7 +10572,8 @@ class App(QWidget):
                 pyxas.fit_2D_xanes_single_file(files_scan[idx], xanes_eng,
                                                fit_param, spectrum_ref, file_save_path)
             txt = 'Single file fitting finished'
-            file_jpg_save = f'{file_save_path}/fig_{sli_id:04d}.jpg'
+            #file_jpg_save = f'{file_save_path}/fig_{sli_id:04d}.jpg'
+            file_jpg_save = f'{file_save_path}/fig_{fn}.jpg'
             plt.show()
             #pyxas.plot_fitting_results(res, fit_param['color'], file_jpg_save, display_flag=1, save_flag=1)
         except Exception as err:

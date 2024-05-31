@@ -34,6 +34,11 @@ def check_if_need_align(img_xanes, fit_param):
         img = pyxas.align_img_stack(img_xanes, img_mask, select_image_index=align_ref_index)
     else:
         img = img_xanes
+    if align_flag:
+        for i in range(s[0]):
+            t = img[i]
+            t[t<=0] = np.median(t)
+            img[i] = t
     return img
 
 
@@ -54,6 +59,12 @@ def fit_2D_xanes_using_param(img_xanes, xanes_eng, fit_param, spectrum_ref):
     n_iter = int(fit_param['fit_iter_num'])
     bkg_polynomial_order = fit_param['fit_bkg_poly']
 
+    b = fit_param['bin']
+    if b > 1:
+        s = img_xanes.shape
+        ss = [s[0], s[1] // b * b, s[2] // b * b]
+        img_xanes = img_xanes[:, :ss[1], :ss[2]]
+        img_xanes = pyxas.bin_ndarray(img_xanes, (s[0], s[1] // b, s[2] // b), 'mean')
     '''
     regulation_flag = fit_param['regulation_flag']
     if regulation_flag:
@@ -65,7 +76,7 @@ def fit_2D_xanes_using_param(img_xanes, xanes_eng, fit_param, spectrum_ref):
     n_comp = fit_param['n_comp'] if mask_xanes_flag else 1
 
     # optional: aligning xanes_image_stack
-    img_xanes_norm = pyxas.check_if_need_align(img_xanes, fit_param)
+    img_xanes_norm = check_if_need_align(img_xanes, fit_param)
 
     # normalize by (-log)
     if norm_txm_flag:
@@ -304,15 +315,18 @@ def save_xanes_fitting_image(res, file_save_path, fn, color='r,g,b'):
     # mask1 = np.expand_dims(np.squeeze(res['mask_0']), axis=2)
     mask1 = np.expand_dims(np.squeeze(res['mask']), axis=2)
     mask1 = np.repeat(mask1, 4, axis=2)
+    mask2 = res['mask_0']
+    mask2 = np.expand_dims(np.squeeze(mask2), axis=2)
+    mask2 = np.repeat(mask2, 4, axis=2)
 
-    img_color_concentration *= mask1
+    img_color_concentration *= mask1 * mask2
     img_color_concentration[img_color_concentration<0] = 0
     if np.max(img_color_concentration) == 0:
         img_color_concentration[0,0,0] = 1
     fn_save = f'{file_save_colormix1}/colormix_concentration_{fn}.jpg'
     pyxas.toimage(img_color_concentration[:,:, :3], cmin=0, cmax=1).save(fn_save)
 
-    img_color_ratio *= mask1
+    img_color_ratio *= mask1 * mask2
     img_color_ratio[img_color_ratio<0] = 0
     if np.max(img_color_ratio) == 0:
         img_color_ratio[0,0,0] = 1
@@ -337,10 +351,10 @@ def save_xanes_fitting_image(res, file_save_path, fn, color='r,g,b'):
     fn_save = f'{file_save_fit_norm}/fit_norm_{fn}.tiff'
     io.imsave(fn_save, np.array(res['xanes_2d_fit_norm'], dtype=np.float32))
     # save combined RGB
-    file_jpg_save = file_save_comb + f'/fig_sli_{sli_id}.jpg'
+    file_jpg_save = file_save_comb + f'/fig_{fn}.jpg'
     plot_fitting_results(res, color, file_jpg_save, display_flag=0, save_flag=1)
     del tmp_concentration, tmp_ratio, tmp_f_concentration
-    del img_color_concentration, img_color_ratio, mask1
+    del img_color_concentration, img_color_ratio, mask1, mask2
 
 def fit_2D_xanes_file_mpi(file_path, file_prefix, fit_param, xanes_eng, spectrum_ref, file_range=[]):
     '''

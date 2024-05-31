@@ -25,7 +25,7 @@ def fit_peak_curve_spline(x, y, fit_order=3, smooth=0.002, weight=[1]):
     return res
 
 
-def fit_peak_curve_poly(x, y, fit_order=3):
+def fit_peak_curve_poly(x, y, fit_order=3, num=1001):
     '''
     x, y can be matrix
     '''
@@ -53,8 +53,8 @@ def fit_peak_curve_poly(x, y, fit_order=3):
     for i in nnp.arange(1, fit_order + 1):
         X = nnp.concatenate([X, x0 ** i], 1)
     A = nnp.linalg.inv(X.T @ X) @ (X.T @ Y)
-    xx = nnp.linspace(x0[0], x0[-1], 10001).reshape([10001, 1])
-    XX = nnp.ones([10001, 1])
+    xx = nnp.linspace(x0[0], x0[-1], num).reshape([num, 1])
+    XX = nnp.ones([num, 1])
     for i in nnp.arange(1, fit_order + 1):
         XX = nnp.concatenate([XX, xx ** i], 1)
     YY = XX @ A

@@ -970,9 +970,9 @@ def normalize_1D_xanes(xanes_spec, xanes_eng, pre_edge, post_edge):
     xs, xe = find_nearest(x_eng, pre_s), find_nearest(x_eng, pre_e)
     pre_eng = x_eng[xs:xe]
     pre_spec = xanes_spec[xs:xe]
-    print(f'{pre_spec.shape}')
+    #print(f'{pre_spec.shape}')
     if len(pre_eng) > 1:
-        y_pre_fit = fit_curve(pre_eng, pre_spec, x_eng)
+        y_pre_fit = fit_curve(pre_eng, pre_spec, x_eng, 1)
         xanes_spec_tmp = xanes_spec - y_pre_fit
         pre_fit_flag = True
     elif len(pre_eng) <= 1:
@@ -987,7 +987,7 @@ def normalize_1D_xanes(xanes_spec, xanes_eng, pre_edge, post_edge):
     post_eng = x_eng[xs:xe]
     post_spec = xanes_spec_tmp[xs:xe]
     if len(post_eng) > 1:
-        y_post_fit = fit_curve(post_eng, post_spec, x_eng)
+        y_post_fit = fit_curve(post_eng, post_spec, x_eng, 1)
         post_fit_flag = True
     elif len(post_eng) <= 1:
         y_post_fit = np.ones(x_eng.shape) * xanes_spec_tmp[xs]
