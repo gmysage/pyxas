@@ -138,7 +138,7 @@ def fit_2D_xanes_using_param(img_xanes, xanes_eng, fit_param, spectrum_ref):
                                                                            bkg_polynomial_order=bkg_polynomial_order)
         '''
         method = 'nl'
-        fit_coef, cost, X, y_fit, y_offset, var, x_interp, y_interp = pyxas.fit_2D_xanes_admm_denoise(img_xanes_norm[fit_eng_range],
+        fit_coef, fit_cost, X, y_fit, fit_offset, var, x_interp, y_interp = pyxas.fit_2D_xanes_admm_denoise(img_xanes_norm[fit_eng_range],
                                                                                                       xanes_eng[fit_eng_range],
                                                                                                       spectrum_ref,
                                                                                                       learning_rate,

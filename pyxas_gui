@@ -618,9 +618,16 @@ class App(QWidget):
         self.tx_bin.setFixedWidth(85)
         self.tx_bin.setFont(self.font2)
 
+        self.pb_reverse_image_order = QPushButton('Reverse stack')
+        self.pb_reverse_image_order.setFont(self.font2)
+        self.pb_reverse_image_order.setFixedWidth(120)
+        self.pb_reverse_image_order.setChecked(False)
+        self.pb_reverse_image_order.clicked.connect(self.reverse_img_order)
+
         hbox_bin = QHBoxLayout()
         hbox_bin.addWidget(self.pb_bin)
         hbox_bin.addWidget(self.cb_bin)
+        hbox_bin.addWidget(self.pb_reverse_image_order)
         hbox_bin.setAlignment(QtCore.Qt.AlignLeft)
 
         # gpbox_sys = self.gpbox_system_info()
@@ -3673,7 +3680,7 @@ class App(QWidget):
         lb_cmap.setFixedWidth(80)
 
         cmap = ['gray', 'bone', 'viridis', 'terrain', 'gnuplot', 'bwr', 'plasma', 'PuBu', 'summer',
-                'rainbow', 'jet', 'Spectral', 'Pastel1', 'Set2', 'tab20', 'tab20c', 'GnBu', 'YlOrRd',
+                'rainbow', 'jet', 'Spectral_r', 'Pastel1', 'Set2', 'tab20', 'tab20c', 'GnBu', 'YlOrRd',
                 'inferno', 'BuPu']
         self.cb_cmap = QComboBox()
         self.cb_cmap.setFont(self.font2)
@@ -6824,6 +6831,7 @@ class App(QWidget):
             file_type = 'txt files (*.txt)'
             file_txt_flag = 1
         fn, _ = QFileDialog.getOpenFileName(xanes, "QFileDialog.getOpenFileName()", "", file_type, options=options)
+        note = ''
         if fn:
             try:
                 print(fn)
@@ -6833,7 +6841,10 @@ class App(QWidget):
                     f = h5py.File(fn, 'r')
                     self.xanes_eng = np.array(f[dataset_eng])
                     f.close()
-                st = '{0:2.4f}, {1:2.4f}, ..., {2:2.4f} keV   totally, {3} energies'.format(self.xanes_eng[0], self.xanes_eng[1], self.xanes_eng[-1], len(self.xanes_eng))
+                if self.xanes_eng[-1] < self.xanes_eng[0]:
+                    note = 'auto reverse the energy list. '
+                    self.xanes_eng = self.xanes_eng[::-1]
+                st = note +'{0:2.4f}, {1:2.4f}, ..., {2:2.4f} keV   totally, {3} energies'.format(self.xanes_eng[0], self.xanes_eng[1], self.xanes_eng[-1], len(self.xanes_eng))
                 self.tx_fit_pre_s.setText('{:2.4f}'.format(min(self.xanes_eng)))
                 self.tx_fit_pre_e.setText('{:2.4f}'.format(min(self.xanes_eng) + 0.010))
                 self.tx_fit_post_e.setText('{:2.4f}'.format(max(self.xanes_eng)))
@@ -7057,6 +7068,18 @@ class App(QWidget):
             self.tx_hdf_xanes_bkg.setEnabled(True)
             self.tx_hdf_xanes_dark.setEnabled(True)
         QApplication.processEvents()
+
+    
+    def reverse_img_order(self):
+        try:
+            self.img_xanes = self.img_xanes[::-1]
+            self.update_canvas_img() 
+            self.msg = 'Reversed image order'     
+        except Exception as err:
+            self.msg = str(err)
+            print(err)  
+        finally:
+            self.update_msg()
 
 
     def load_image(self):
