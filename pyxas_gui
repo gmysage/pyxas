@@ -254,6 +254,8 @@ class App(QWidget):
         self.load_file_multi_elem_batch_successfull = 0
         self.load_file_batch_color_successfull = 0
         self.multi_elem_batch_files = []
+        self.dict_comb_xanes = {'img':{}, 'eng':{}}
+
         try:
             self.eng = self.eng  # for 3D batch fitting
             self.load_eng_successful = 1
@@ -274,6 +276,8 @@ class App(QWidget):
         except:
             print('Need Reference Spectrum')
             self.spectrum_ref = {}
+
+
 
         self.fitting_method = 1
         self.xanes_2d_fit = None
@@ -795,7 +799,7 @@ class App(QWidget):
         img_tools_mask_layout = self.layout_img_tools_mask()
         img_tools_colormix_layout = self.layout_colormix()
         canvas_layout = self.layout_canvas()
-        analysis_layout = self.layout_find_edge()
+        analysis_layout = self.layout_analysis()
         multi_elem_layout = self.layout_multi_elem()
 
         vbox_lay1 = QVBoxLayout()
@@ -1227,6 +1231,19 @@ class App(QWidget):
         box_roi_tot.setAlignment(QtCore.Qt.AlignLeft)
         return box_roi_tot
 
+    def layout_analysis(self):
+        lb_empty = QLabel()
+        lb_empty.setFixedHeight(20)
+        layout_find_edge = self.layout_find_edge()
+        layout_combine_xanes = self.layout_combine_xanes()
+
+        vbox = QVBoxLayout()
+        vbox.addLayout(layout_find_edge)
+        vbox.addWidget(lb_empty)
+        vbox.addLayout(layout_combine_xanes)
+        vbox.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignTop)
+
+        return vbox
 
     def layout_find_edge(self):
         lb_empty = QLabel()
@@ -1244,6 +1261,7 @@ class App(QWidget):
         lb_find_edge = QLabel()
         lb_find_edge.setFont(self.font1)
         lb_find_edge.setText('Find absorption edge')
+        #lb_find_edge.setStyleSheet('color: rgb(200,50,50);')
         lb_find_edge.setFixedWidth(200)
 
         lb_edge_range = QLabel()
@@ -1561,6 +1579,7 @@ class App(QWidget):
         lb_empty4 = QLabel()
         lb_empty4.setFixedHeight(10)
         vbox_find_edge = QVBoxLayout()
+
         vbox_find_edge.addWidget(lb_edge_peak_note)
         vbox_find_edge.addWidget(lb_empty4)
         vbox_find_edge.addWidget(lb_find_edge)
@@ -1577,6 +1596,146 @@ class App(QWidget):
 
         return vbox_find_edge
 
+    def layout_combine_xanes(self):
+        lb_empty = QLabel()
+        lb_empty.setFixedWidth(100)
+        lb_empty1 = QLabel()
+        lb_empty1.setFixedWidth(20)
+
+        lb_comb_xanes = QLabel()
+        lb_comb_xanes.setFont(self.font1)
+        lb_comb_xanes.setText('Combine xanes image')
+        lb_comb_xanes.setFixedWidth(200)
+        #lb_comb_xanes.setStyleSheet('color: rgb(200, 50, 50);')
+
+        lb_xanes_img = QLabel()
+        lb_xanes_img.setFont(self.font2)
+        lb_xanes_img.setText('Image file')
+        lb_xanes_img.setFixedWidth(170)
+
+        lb_xanes_eng = QLabel()
+        lb_xanes_eng.setFont(self.font2)
+        lb_xanes_eng.setText('XEng (.h5, .txt)')
+        lb_xanes_eng.setFixedWidth(170)
+
+        self.lst_comb_img = QListWidget()
+        self.lst_comb_img.setFont(self.font2)
+        self.lst_comb_img.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.lst_comb_img.setFixedWidth(170)
+        self.lst_comb_img.setFixedHeight(80)
+
+        self.lst_comb_eng = QListWidget()
+        self.lst_comb_eng.setFont(self.font2)
+        self.lst_comb_eng.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.lst_comb_eng.setFixedWidth(170)
+        self.lst_comb_eng.setFixedHeight(80)
+
+        self.pb_load_comb_img = QPushButton('Add image')
+        self.pb_load_comb_img.setFont(self.font2)
+        self.pb_load_comb_img.setFixedWidth(170)
+        self.pb_load_comb_img.clicked.connect(self.load_comb_xanes_img)
+
+        self.pb_load_comb_eng = QPushButton('Add XEng')
+        self.pb_load_comb_eng.setFont(self.font2)
+        self.pb_load_comb_eng.setFixedWidth(170)
+        self.pb_load_comb_eng.clicked.connect(self.load_comb_xanes_eng)
+
+        self.pb_del_single_comb_img = QPushButton('Del. img')
+        self.pb_del_single_comb_img.setFont(self.font2)
+        self.pb_del_single_comb_img.setFixedWidth(122)
+        self.pb_del_single_comb_img.clicked.connect(lambda:self.remove_comb_xanes_single('img'))
+
+        self.pb_del_single_comb_eng = QPushButton('Del. XEng')
+        self.pb_del_single_comb_eng.setFont(self.font2)
+        self.pb_del_single_comb_eng.setFixedWidth(122)
+        self.pb_del_single_comb_eng.clicked.connect(lambda:self.remove_comb_xanes_single('eng'))
+
+
+        self.pb_del_comb = QPushButton('Del. all')
+        self.pb_del_comb.setFont(self.font2)
+        self.pb_del_comb.setFixedWidth(122)
+        self.pb_del_comb.clicked.connect(self.remove_comb_xanes_all)
+
+        self.pb_comb = QPushButton('Combine and save')
+        self.pb_comb.setFont(self.font1)
+        self.pb_comb.setFixedWidth(250)
+        self.pb_comb.clicked.connect(self.combine_xanes)
+
+        lb_comb_h5_img = QLabel()
+        lb_comb_h5_img.setFont(self.font2)
+        lb_comb_h5_img.setText('h5_attr: img')
+        lb_comb_h5_img.setFixedWidth(85)
+
+        self.tx_comb_h5_img = QLineEdit()
+        self.tx_comb_h5_img.setFont(self.font2)
+        self.tx_comb_h5_img.setFixedWidth(80)
+        self.tx_comb_h5_img.setText('img_xanes')
+
+        lb_comb_h5_eng = QLabel()
+        lb_comb_h5_eng.setFont(self.font2)
+        lb_comb_h5_eng.setText('h5_attr: XEng')
+        lb_comb_h5_eng.setFixedWidth(90)
+
+        self.tx_comb_h5_eng = QLineEdit()
+        self.tx_comb_h5_eng.setFont(self.font2)
+        self.tx_comb_h5_eng.setFixedWidth(75)
+        self.tx_comb_h5_eng.setText('X_eng')
+
+        hbox_h5_img = QHBoxLayout()
+        hbox_h5_img.addWidget(lb_comb_h5_img)
+        hbox_h5_img.addWidget(self.tx_comb_h5_img)
+        hbox_h5_img.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignLeft)
+
+        hbox_h5_eng = QHBoxLayout()
+        hbox_h5_eng.addWidget(lb_comb_h5_eng)
+        hbox_h5_eng.addWidget(self.tx_comb_h5_eng)
+        hbox_h5_eng.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignLeft)
+
+        vbox_pb_img = QVBoxLayout()
+        vbox_pb_img.addLayout(hbox_h5_img)
+        vbox_pb_img.addWidget(self.pb_load_comb_img)
+        vbox_pb_img.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignLeft)
+
+        vbox_pb_eng = QVBoxLayout()
+        vbox_pb_eng.addLayout(hbox_h5_eng)
+        vbox_pb_eng.addWidget(self.pb_load_comb_eng)
+        vbox_pb_eng.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignLeft)
+
+        vbox_img = QVBoxLayout()
+        vbox_img.addWidget(lb_xanes_img)
+        vbox_img.addWidget(self.lst_comb_img)
+        vbox_img.addLayout(vbox_pb_img)
+        vbox_img.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignLeft)
+
+        vbox_eng = QVBoxLayout()
+        vbox_eng.addWidget(lb_xanes_eng)
+        vbox_eng.addWidget(self.lst_comb_eng)
+        vbox_eng.addLayout(vbox_pb_eng)
+        vbox_eng.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignLeft)
+
+        hbox_comb_lst = QHBoxLayout()
+        hbox_comb_lst.addLayout(vbox_img)
+        hbox_comb_lst.addLayout(vbox_eng)
+        hbox_comb_lst.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignLeft)
+
+        hbox_comb_del = QHBoxLayout()
+        hbox_comb_del.addWidget(self.pb_del_single_comb_img)
+        hbox_comb_del.addWidget(self.pb_del_single_comb_eng)
+        hbox_comb_del.addWidget(self.pb_del_comb)
+        hbox_comb_del.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignLeft)
+
+        vbox_comb_pb = QVBoxLayout()
+        vbox_comb_pb.addLayout(hbox_comb_del)
+        vbox_comb_pb.addWidget(self.pb_comb)
+        vbox_comb_pb.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignLeft)
+
+        vbox_comb = QVBoxLayout()
+        vbox_comb.addWidget(lb_comb_xanes)
+        vbox_comb.addLayout(hbox_comb_lst)
+        vbox_comb.addLayout(vbox_comb_pb)
+        vbox_comb.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignLeft)
+
+        return vbox_comb
 
     def layout_roi_normalization(self):
         lb_empty = QLabel()
@@ -5800,6 +5959,142 @@ class App(QWidget):
             print(err)
 
 
+    def load_comb_xanes_img(self):
+        items_img = [self.lst_comb_img.item(x).text() for x in range(self.lst_comb_img.count())]
+        items_eng = [self.lst_comb_eng.item(x).text() for x in range(self.lst_comb_eng.count())]
+        attr_img = self.tx_comb_h5_img.text()
+        attr_eng = self.tx_comb_h5_eng.text()
+        options = QFileDialog.DontUseNativeDialog
+        file_type = "h5 file (*.h5);;Images (*.tiff)"
+        fn, _ = QFileDialog.getOpenFileName(xanes, "Open image file", ".", file_type, options=options)
+        if fn:
+            fn_short = fn.split('/')[-1]
+            f_type = fn_short.split('.')[-1]
+            if not fn_short in items_img:
+                self.lst_comb_img.addItem(fn_short)
+                if f_type == 'h5':
+                    with h5py.File(fn, 'r') as hf:
+                        keys = list(hf.keys())
+                    if attr_eng in keys:
+                        self.lst_comb_eng.addItem(fn_short)
+                        self.dict_comb_xanes['eng'][fn_short] = {'path':fn, 'type':'h5', 'attr':attr_eng}
+                else: # tiff
+                    attr_img = 'None'
+                self.dict_comb_xanes['img'][fn_short] = {'path': fn, 'type': f_type, 'attr': attr_img}
+
+
+    def load_comb_xanes_eng(self):
+        attr_eng = self.tx_comb_h5_eng.text()
+        options = QFileDialog.DontUseNativeDialog
+        file_type = "txt (*.txt);;h5 file (*.h5)"
+        fn, _ = QFileDialog.getOpenFileName(xanes, "Open X_Eng file", ".", file_type, options=options)
+        if fn:
+            fn_short = fn.split('/')[-1]
+            f_type = fn_short.split('.')[-1]
+            if f_type == 'h5':
+                with h5py.File(fn, 'r') as hf:
+                    keys = list(hf.keys())
+                attr_eng = self.tx_comb_h5_eng.text()
+                if attr_eng in keys:
+                    self.lst_comb_eng.addItem(fn_short)
+            elif f_type == 'txt':
+                self.lst_comb_eng.addItem(fn_short)
+                attr_eng = 'None'
+            self.dict_comb_xanes['eng'][fn_short] = {'path':fn, 'type':f_type, 'attr':attr_eng}
+
+    def remove_comb_xanes_single(self, mode):
+        if mode == 'img':
+            list_widget = self.lst_comb_img
+        elif mode == 'eng':
+            list_widget = self.lst_comb_eng
+        else:
+            return
+        items = list_widget.selectedItems()
+        for item in items:
+            list_widget.takeItem(list_widget.row(item))
+            fn_short = item.text()
+            self.dict_comb_xanes[mode].pop(fn_short)
+
+    def remove_comb_xanes_all(self):
+        self.lst_comb_img.clear()
+        self.lst_comb_eng.clear()
+        self.dict_comb_xanes = {'img': {}, 'eng': {}}
+    def combine_xanes(self):
+        img_comb = {}
+        eng_comb = {}
+        n_img = self.lst_comb_img.count()
+        n_eng = self.lst_comb_eng.count()
+        try:
+            self.pb_comb.setEnabled(False)
+            self.pb_comb.setText('wait ...')
+            QApplication.processEvents()
+            if n_img != n_eng:
+                self.msg = 'number of image file != energy file'
+            else:
+                for i in range(n_img):
+                    fn_img = self.lst_comb_img.item(i).text()
+                    fn_eng = self.lst_comb_eng.item(i).text()
+                    img_comb[i] = self.get_comb_xanes_data(fn_img, mode='img')
+                    eng_comb[i] = self.get_comb_xanes_data(fn_img, mode='eng')
+                img = np.concatenate([img_comb[i] for i in range(n_img)])
+                eng = np.concatenate([eng_comb[i] for i in range(n_img)])
+                eng, img = self.sort_and_remove_redundant(eng, img)
+
+                fn_save = self.save_comb_xanes_img_eng(eng, img)
+                self.msg = f'file saved to {fn_save}'
+        except Exception as err:
+            self.msg = str(err)
+            print(err)
+        finally:
+            self.update_msg()
+            self.pb_comb.setText('Combine and save')
+            self.pb_comb.setEnabled(True)
+            QApplication.processEvents()
+
+    def save_comb_xanes_img_eng(self, eng, img):
+        options = QFileDialog.Option()
+        options |= QFileDialog.DontUseNativeDialog
+        file_type = 'hdf files (*.h5)'
+        fn, _ = QFileDialog.getSaveFileName(self, 'Save File', "", file_type, options=options)
+        if fn[-3:] != '.h5':
+            fn += '.h5'
+        with h5py.File(fn, 'w') as hf:
+            hf.create_dataset('X_eng', data=eng)
+            hf.create_dataset('img_xanes', data=img.astype(np.float32))
+        return fn
+
+
+    def sort_and_remove_redundant(self, eng, img):
+        idx = np.argsort(eng)
+        img = img[idx]
+        eng = eng[idx]
+        n = len(eng)
+        for i in reversed(range(1, n)):
+            if eng[i] == eng[i-1]:
+                img = np.delete(img, i, 0)
+                eng = np.delete(eng, i, 0)
+        return eng, img
+
+    def get_comb_xanes_data(self, fn, mode):
+        try:
+            fn_full = self.dict_comb_xanes[mode][fn]['path']
+            fn_type = self.dict_comb_xanes[mode][fn]['type']
+            if fn_type == 'h5':
+                attr = self.dict_comb_xanes[mode][fn]['attr']
+                with h5py.File(fn_full, 'r') as hf:
+                    data = np.array(hf[attr])
+            else: # tiff or 'txt'
+                if mode == 'img':
+                    data = io.imread(fn_full)
+                else: # txt for energy
+                    data = np.loadtxt(fn_full)
+        except Exception as err:
+            data = None
+            self.msg = str(err)
+            self.update_msg()
+            print(str(err))
+        return data
+
     def xanes_apply_color_scale(self):
         self.xanes_colormix()
 
@@ -7269,13 +7564,14 @@ class App(QWidget):
         com = self.tx_eng.text()
         try:
             exec(com)
-            if len(self.xanes_eng) != self.img_xanes.shape[0] or self.img_xanes.shape[0] <=3:
-                self.msg = 'invalid command of number of energy does not match number of images'
-                self.xanes_eng = deepcopy(energy_list_old)
-            else:
-                st = '{0:2.4f}, {1:2.4f}, ..., {2:2.4f}    totally, {3} energies'.format(self.xanes_eng[0], self.xanes_eng[1], self.xanes_eng[-1], len(self.xanes_eng))
-                self.lb_eng1.setText(st)
-                self.msg = 'command executed'
+            if 'self.xanes_eng' in com:
+                if len(self.xanes_eng) != self.img_xanes.shape[0] or self.img_xanes.shape[0] <=3:
+                    self.msg = 'invalid command of number of energy does not match number of images'
+                    self.xanes_eng = deepcopy(energy_list_old)
+                else:
+                    st = '{0:2.4f}, {1:2.4f}, ..., {2:2.4f}    totally, {3} energies'.format(self.xanes_eng[0], self.xanes_eng[1], self.xanes_eng[-1], len(self.xanes_eng))
+                    self.lb_eng1.setText(st)
+            self.msg = 'command executed'
         except Exception as err:
             self.msg = f'un-recognized python command. Error: {str(err)} '
         finally:
@@ -8013,6 +8309,7 @@ class App(QWidget):
                 slide.setMaximum(0)
                 # canvas.update_img_stack()
                 canvas.set_contrast(cmin, cmax)
+
         except Exception as err:
             self.msg = f'fails to update {type_index}.  Error: {str(err)}'
             self.update_msg()
