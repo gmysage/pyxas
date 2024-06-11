@@ -81,7 +81,24 @@ def watershed_mask(img_raw, binning=2, gf_size=5, fs=15, min_distance=5, thresh=
     if binning == 2:
         labels = rescale(labels, 2, order=0)
         bw = rescale(bw, 2, order=0)
-    return labels, bw
+    s1 = img_raw.shape
+    s2 = labels.shape
+    if s1 == s2:
+        labels_new = labels
+        bw_new = bw
+    else:
+        labels_new = np.zeros(s1)
+        bw_new = np.zeros(s1)
+        if len(s1) == 3:
+            labels_new[:s2[0], :s2[1], :s2[2]] = labels
+            bw_new[:s2[0], :s2[1], :s2[2]] = bw
+        elif len(s1) == 2:
+            labels_new[:s2[0], :s2[1]] = labels
+            bw_new[:s2[0], :s2[1]] = bw
+        else:
+            labels_new = labels
+            bw_new = bw
+    return labels_new, bw_new
 
 def match_img_label(img, img_label, val, ms=200, dilation_iter=0):
     mask = img_label.copy()
