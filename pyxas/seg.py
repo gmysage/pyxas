@@ -14,13 +14,16 @@ import numpy as np
 def extract_mask(img, cen, ts=[200, 200, 200]):
     s = img.shape
     sli_s = max(int(cen[0] - ts[0] / 2), 0)
-    sli_e = min(int(cen[0] + ts[0] / 2), s[0])
+    #sli_e = min(int(cen[0] + ts[0] / 2), s[0])
+    sli_e = min(sli_s + ts[0], s[0])
 
     row_s = max(int(cen[1] - ts[1] / 2), 0)
-    row_e = min(int(cen[1] + ts[1] / 2), s[1])
+    #row_e = min(int(cen[1] + ts[1] / 2), s[1])
+    row_e = min(row_s + ts[1], s[1])
 
     col_s = max(int(cen[2] - ts[2] / 2), 0)
-    col_e = min(int(cen[2] + ts[2] / 2), s[2])
+    #col_e = min(int(cen[2] + ts[2] / 2), s[2])
+    col_e = min(col_s + ts[2], s[2])
 
     l1 = sli_e - sli_s
     l2 = row_e - row_s
