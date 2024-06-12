@@ -5613,11 +5613,11 @@ class App(QWidget):
                 xe = x[-1]
                 self.tx_edge_e.setText(f'{xe}')
             if self.tx_edge_order.text():
-                k = float(self.tx_edge_order.text())
+                k = int(self.tx_edge_order.text())
             else:
                 k = 2
             k = np.min([k, 3])
-            k = np.max([k, 2])
+
             self.tx_edge_order.setText(f'{k}')
             try:
                 x0 = float(self.tx_edge_pos.text())
