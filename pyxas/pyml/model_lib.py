@@ -239,4 +239,5 @@ def load_default_model(device='cpu'):
     model = default_model()
     model_path = default_model_path()
     model.load_state_dict(torch.load(model_path, map_location=torch.device(device)))
+    model.to(device)
     return model
