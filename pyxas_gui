@@ -3388,6 +3388,36 @@ class App(QWidget):
         hbox_multi_elem_nl.addWidget(self.tx_multi_elem_nl_patch_dis)
         hbox_multi_elem_nl.setAlignment(QtCore.Qt.AlignLeft)
 
+        ##########
+        # median filter
+        self.chkbox_multi_elem_mf = QCheckBox('Median filter:')
+        self.chkbox_multi_elem_mf.setFixedWidth(120)
+        self.chkbox_multi_elem_mf.setFont(self.font2)
+        self.chkbox_multi_elem_mf.setChecked(False)
+
+        lb_mulit_elem_ml_size = QLabel()
+        lb_mulit_elem_ml_size.setFont(self.font2)
+        lb_mulit_elem_ml_size.setText('Filt_sz: ')
+        lb_mulit_elem_ml_size.setFixedWidth(60)
+
+        self.tx_mulit_elem_ml_size = QLineEdit(self)
+        self.tx_mulit_elem_ml_size.setFont(self.font2)
+        self.tx_mulit_elem_ml_size.setText('5')
+        self.tx_mulit_elem_ml_size.setFixedWidth(50)
+        self.tx_mulit_elem_ml_size.setValidator(QIntValidator())
+
+
+        hbox_multi_elem_mf = QHBoxLayout()
+        hbox_multi_elem_mf.addWidget(self.chkbox_multi_elem_mf)
+        hbox_multi_elem_mf.addWidget(lb_mulit_elem_ml_size)
+        hbox_multi_elem_mf.addWidget(self.tx_mulit_elem_ml_size)
+        hbox_multi_elem_mf.addWidget(lb_multi_elem_nl_patch_dis)
+        hbox_multi_elem_mf.setAlignment(QtCore.Qt.AlignLeft)
+
+
+        ##########
+
+
         # cluster mask
         self.chkbox_multi_elem_cmask = QCheckBox('Cluster Mask:')
         self.chkbox_multi_elem_cmask.setFixedWidth(120)
@@ -3487,6 +3517,7 @@ class App(QWidget):
         vbox_multi_elem_batch.addLayout(hbox_multi_elem_open)
         vbox_multi_elem_batch.addLayout(hbox_multi_elem_align)
         vbox_multi_elem_batch.addLayout(hbox_multi_elem_nl)
+        vbox_multi_elem_batch.addLayout(hbox_multi_elem_mf)
         vbox_multi_elem_batch.addLayout(hbox_multi_elem_cmask)
         vbox_multi_elem_batch.addLayout(hbox_multi_elem_color)
         vbox_multi_elem_batch.addLayout(hbox_cpu)
@@ -4678,6 +4709,9 @@ class App(QWidget):
         nl_filt_sz = int(self.tx_mulit_elem_nl_patch_size.text())
         nl_filt_dis = int(self.tx_multi_elem_nl_patch_dis.text())
 
+        mf_flag = 1 if self.chkbox_multi_elem_mf.isChecked() else 0
+        mf_filt_sz = int(self.tx_mulit_elem_ml_size.text())
+
         mask_flag = 1 if self.chkbox_multi_elem_cmask.isChecked() else 0
         mask_comp = int(self.tx_mulit_elem_cmask.text())
         mask_roi_index = int(self.tx_mulit_elem_cmask_roi.text())
@@ -4735,6 +4769,15 @@ class App(QWidget):
                             img_stack[j] = pyxas.img_denoise_nl(img_stack[i], nl_filt_sz, nl_filt_dis)[0]
                         '''
                         img_stack = pyxas.img_denoise_nl_mpi(img_stack, nl_filt_sz, nl_filt_dis, n_cpu)
+
+                    if mf_flag:
+                        txt = txt_title + 'mf denoising ...'
+                        self.msg = msg_current_file + 'mf denoise ...'
+                        self.pb_multi_elem_fit_batch.setText(txt)
+                        self.update_msg()
+                        QApplication.processEvents()
+                        img_stack = pyxas.img_smooth(img_stack, mf_filt_sz, axis=0)
+
                     if mask_flag:
                         txt = txt_title + 'mask...'
                         self.pb_multi_elem_fit_batch.setText(txt)
