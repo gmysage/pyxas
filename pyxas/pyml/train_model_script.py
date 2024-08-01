@@ -91,7 +91,7 @@ def main_train_1_branch_bkg_with_gt_image():
     device = torch.device('cuda:2')
     lr = 0.0001
     loss_r = {}
-    loss_r['vgg_identity'] = 1  # (model_outputs vs. label); "0" for "Production", "1" for trainning
+    loss_r['vgg_identity'] = 0  # (model_outputs vs. label); "0" for "Production", "1" for trainning
     loss_r['vgg_fit'] = 0  # (fitted_image vs. label); "1" for both "trainning" and "production"
     # loss_r['vgg_1st_last'] = 0         # (model_outputs[0] vs. model_outputs[-1]); "1e2" for both "trainning" and "production"
 

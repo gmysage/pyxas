@@ -215,8 +215,6 @@ def train_1_branch_bkg_with_gt_image(model_gen, dataloader, loss_r, vgg19, devic
 
         total_loss_gen = 0.0
         for k in keys:
-            if 'mse_identity' in k:
-                continue
             if loss_r[k] > 0:
                 total_loss_gen += loss_value[k] * loss_r[k]
 
