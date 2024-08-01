@@ -1,10 +1,11 @@
 import shutil
-
+import pyxas
 import torch
 import torchvision
 import torch.nn as nn
 import torch.optim as optim
 import os
+import json
 from .model_lib import *
 from .util import *
 from .train_lib import *
@@ -16,16 +17,16 @@ from copy import deepcopy
 
 def main_train_1_branch_bkg():
     device = torch.device('cuda:3')
-    lr = 0.0002
+    lr = 0.00001
     loss_r = {}
     loss_r['vgg_identity'] = 1           # (model_outputs vs. label); "0" for "Production", "1" for trainning
     loss_r['vgg_fit'] = 1e-1                # (fitted_image vs. label); "1" for both "trainning" and "production"
     #loss_r['vgg_1st_last'] = 0         # (model_outputs[0] vs. model_outputs[-1]); "1e2" for both "trainning" and "production"
 
     #loss_r['mse_identity_img'] = 1  
-    loss_r['mse_identity_bkg'] = 1 
-    loss_r['mse_fit_coef'] = 1e8           # (fit_coef_from_model_outputs vs. fit_coef_from_label); "1e8" for both "trainning" and "production"
-    loss_r['mse_fit_self_consist'] = 0   # (fitting_output_from_model_output vs. model_outputs ); "1" for both "trainning" and "production"
+    loss_r['mse_identity_bkg'] = 1
+    loss_r['mse_fit_coef'] = 1e10          # (fit_coef_from_model_outputs vs. fit_coef_from_label); "1e8" for both "trainning" and "production"
+    loss_r['mse_fit_self_consist'] = 20   # (fitting_output_from_model_output vs. model_outputs ); "1" for both "trainning" and "production"
     loss_r['l1_identity'] = 0  
 
     global vgg19
@@ -36,7 +37,7 @@ def main_train_1_branch_bkg():
         param.requires_grad_(False)
     vgg19.to(device).eval()
 
-    model_gen = RRDBNet(1, 1, 16, 4, 32).to(device)
+    model_gen = pyxas.RRDBNet(1, 1, 16, 4, 32).to(device)
     #model_gen = RRDBNet_new(1, 1, 16, 4, 32).to(device)
     #initialize_weights(model_gen)
 
@@ -48,36 +49,117 @@ def main_train_1_branch_bkg():
     h_loss_train = {}
     keys = list(loss_r.keys())
     for k in keys:
-        h_loss_train[k] = {'value':[], 'rate':''}
+        h_loss_train[k] = {'value':[], 'rate':[]}
     best_psnr = 0
     epochs = 500
-    n_train = 200
+    n_train = 100
 
-    f_root = '/data/xanes_bkg_denoise/IMG_256_stack/Co3'
+    f_root = '/data/xanes_bkg_denoise/IMG_256_stack/Co_thin' #'/data/xanes_bkg_denoise/IMG_256_stack/Co3'
     blur_dir = f_root + '/img_blur_stack'
-    gt_dir = f_root + '/img_bkg_stack_gf'
+    gt_dir = f_root + '/img_bkg_stack' #'/img_bkg_stack_gf'
     eng_dir = f_root + '/img_eng_list'
     trans_gt, trans_blur = None, None
 
-    train_loader, valid_loader = get_train_valid_dataloader(blur_dir, gt_dir, eng_dir, n_train, trans_gt, trans_blur)
+    train_loader, valid_loader = pyxas.get_train_valid_dataloader(blur_dir, gt_dir, eng_dir, n_train, trans_gt, trans_blur)
 
     best_psnr = 0
-    model_save_path2 = '/data/xanes_bkg_denoise/IMG_256_stack/Co3/Co_bkg_256_new.pth'
+    #model_save_path2 = '/data/xanes_bkg_denoise/IMG_256_stack/Co3/Co_bkg_256_new.pth'
+    #model_save_path2 = '/data/xanes_bkg_denoise/IMG_256_stack/Co_thin/Co_bkg.pth'
+    model_save_path2 = '/data/xanes_bkg_denoise/IMG_256_stack/Co_thin/Co_bkg_load_previous.pth'
    
-    for epoch in range(20,100):
-        loss_summary_train = train_1_branch_bkg(model_gen, train_loader, loss_r, vgg19, device, train_fit=False)
+    for epoch in range(500):
+        loss_summary_train = pyxas.train_1_branch_bkg(model_gen, train_loader, loss_r, vgg19, device, lr=lr, train_fit=True)
         print(f'epoch #{epoch}')
-        h_loss_train, txt_t, psnr_train = extract_h_loss(h_loss_train, loss_summary_train, loss_r)
+        h_loss_train, txt_t, psnr_train = pyxas.extract_h_loss(h_loss_train, loss_summary_train, loss_r)
         
         print(txt_t)
         print(f'train_psnr = {psnr_train:2.2f}')
         if psnr_train > best_psnr:
             torch.save(model_gen.state_dict(), model_save_path2)
             best_psnr = psnr_train
-        ftmp = f'/data/xanes_bkg_denoise/IMG_256_stack/Co3/model_tmp_new/tmp_{epoch:04d}.pth'
+        #ftmp = f'/data/xanes_bkg_denoise/IMG_256_stack/Co3/model_tmp_new/tmp_{epoch:04d}.pth'
+        #ftmp = f'/data/xanes_bkg_denoise/IMG_256_stack/Co_thin/model_saved/tmp_{epoch:04d}.pth'
+        ftmp = f'/data/xanes_bkg_denoise/IMG_256_stack/Co_thin/model_saved_load_previous/tmp_{epoch:04d}.pth'
         torch.save(model_gen.state_dict(), ftmp)
-        with open('/data/xanes_bkg_denoise/IMG_256_stack/Co3/model_tmp_new/h_loss_Co3_bkg.json', 'w') as f:
+        #with open('/data/xanes_bkg_denoise/IMG_256_stack/Co3/model_tmp_new/h_loss_Co3_bkg.json', 'w') as f:
+        #with open('/data/xanes_bkg_denoise/IMG_256_stack/Co_thin/model_saved/h_loss_Co3_bkg.json', 'w') as f:
+        with open('/data/xanes_bkg_denoise/IMG_256_stack/Co_thin/model_saved_load_previous/h_loss_Co3_bkg.json', 'w') as f:
             json.dump(h_loss_train, f)
+
+
+def main_train_1_branch_bkg_with_gt_image():
+    device = torch.device('cuda:2')
+    lr = 0.0001
+    loss_r = {}
+    loss_r['vgg_identity'] = 1  # (model_outputs vs. label); "0" for "Production", "1" for trainning
+    loss_r['vgg_fit'] = 0  # (fitted_image vs. label); "1" for both "trainning" and "production"
+    # loss_r['vgg_1st_last'] = 0         # (model_outputs[0] vs. model_outputs[-1]); "1e2" for both "trainning" and "production"
+
+    # loss_r['mse_identity_img'] = 1
+    loss_r['mse_identity_bkg'] = 100
+    loss_r['mse_fit_coef'] = 0  # (fit_coef_from_model_outputs vs. fit_coef_from_label); "1e8" for both "trainning" and "production"
+    loss_r['mse_fit_self_consist'] = 0  # (fitting_output_from_model_output vs. model_outputs ); "1" for both "trainning" and "production"
+    loss_r['l1_identity'] = 0
+
+    global vgg19
+    torch.manual_seed(0)
+    vgg19 = torchvision.models.vgg19(pretrained=True).features
+    for param in vgg19.parameters():
+        param.requires_grad_(False)
+    vgg19.to(device).eval()
+
+    #model_gen = pyxas.RRDBNet(1, 1, 16, 4, 32).to(device)
+    model_gen = pyxas.RRDBNet_new(1, 1, 16, 4, 32).to(device)
+    # initialize_weights(model_gen)
+
+    mse_criterion = nn.MSELoss()
+    bce_criterion = nn.BCELoss()
+
+    opt_gen = optim.Adam(model_gen.parameters(), lr=lr, betas=(0.5, 0.999))
+
+    h_loss_train = {}
+    keys = list(loss_r.keys())
+    for k in keys:
+        h_loss_train[k] = {'value': [], 'rate': []}
+    best_psnr = 0
+    epochs = 500
+    n_train = 100
+
+    f_root = '/data/xanes_bkg_denoise/IMG_256_stack/Co_thin'  # '/data/xanes_bkg_denoise/IMG_256_stack/Co3'
+    blur_dir = f_root + '/img_blur_stack'
+    gt_bkg_dir = f_root + '/img_bkg_stack'  # '/img_bkg_stack_gf'
+    gt_img_dir = f_root + 'img_gt_stack'
+    eng_dir = f_root + '/img_eng_list'
+    trans_gt, trans_blur = None, None
+
+    train_loader, valid_loader = pyxas.get_train_valid_dataloader_new(blur_dir, gt_bkg_dir, gt_img_dir, eng_dir, n_train, trans_gt,
+                                                                  trans_blur)
+
+    best_psnr = 0
+    # model_save_path2 = '/data/xanes_bkg_denoise/IMG_256_stack/Co3/Co_bkg_256_new.pth'
+    # model_save_path2 = '/data/xanes_bkg_denoise/IMG_256_stack/Co_thin/Co_bkg.pth'
+    model_save_path2 = '/data/xanes_bkg_denoise/IMG_256_stack/Co_thin/Co_bkg_new.pth'
+
+    for epoch in range(10):
+        loss_summary_train = pyxas.train_1_branch_bkg_with_gt_image(model_gen, train_loader, loss_r, vgg19, device, lr=lr)
+        print(f'epoch #{epoch}')
+        h_loss_train, txt_t, psnr_train = pyxas.extract_h_loss(h_loss_train, loss_summary_train, loss_r)
+
+        print(txt_t)
+        print(f'train_psnr = {psnr_train:2.2f}')
+        if psnr_train > best_psnr:
+            torch.save(model_gen.state_dict(), model_save_path2)
+            best_psnr = psnr_train
+        # ftmp = f'/data/xanes_bkg_denoise/IMG_256_stack/Co3/model_tmp_new/tmp_{epoch:04d}.pth'
+        ftmp = f'/data/xanes_bkg_denoise/IMG_256_stack/Co_thin/model_saved/tmp_{epoch:04d}.pth'
+        # ftmp = f'/data/xanes_bkg_denoise/IMG_256_stack/Co_thin/model_saved_load_previous/tmp_{epoch:04d}.pth'
+        torch.save(model_gen.state_dict(), ftmp)
+        # with open('/data/xanes_bkg_denoise/IMG_256_stack/Co3/model_tmp_new/h_loss_Co3_bkg.json', 'w') as f:
+        with open('/data/xanes_bkg_denoise/IMG_256_stack/Co_thin/model_saved/h_loss_Co3_bkg.json', 'w') as f:
+        #with open('/data/xanes_bkg_denoise/IMG_256_stack/Co_thin/model_saved_load_previous/h_loss_Co3_bkg.json','w') as f:
+            json.dump(h_loss_train, f)
+
+
 
 
 def main_train_1_branch_production():
