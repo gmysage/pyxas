@@ -51,20 +51,20 @@ class RRDB(nn.Module):
         return out * 0.2 + x
 
 class RRDBNet(nn.Module):
-    def __init__(self, in_nc, out_nc, nf, nb, gc=32):
+    def __init__(self, in_nc, out_nc, nf, nb, gc=32, padding_mode='zeros'):
         super(RRDBNet, self).__init__()
         RRDB_block_f = functools.partial(RRDB, nf=nf, gc=gc)
 
-        self.conv_first_1 = nn.Conv2d(in_nc, int(nf/2), 3, 1, 1, bias=True)
-        self.conv_first_2 = nn.Conv2d(in_nc, int(nf/2), 3, stride=1, dilation=1, padding='same',  bias=True)
-        self.conv_first = nn.Conv2d(in_nc, nf, 3, 1, 1, bias=True)
+        self.conv_first_1 = nn.Conv2d(in_nc, int(nf/2), 3, 1, 1, padding_mode=padding_mode, bias=True)
+        self.conv_first_2 = nn.Conv2d(in_nc, int(nf/2), 3, stride=1, dilation=1, padding='same', padding_mode=padding_mode, bias=True)
+        self.conv_first = nn.Conv2d(in_nc, nf, 3, 1, 1, padding_mode=padding_mode, bias=True)
         self.RRDB_trunk = make_layer(RRDB_block_f, nb)
-        self.trunk_conv = nn.Conv2d(nf, nf, 3, 1, 1,  bias=True)
+        self.trunk_conv = nn.Conv2d(nf, nf, 3, 1, 1,  padding_mode=padding_mode, bias=True)
         #### upsampling
         #self.upconv1 = nn.Conv2d(nf, nf, 3, 1, 1, bias=True)
         #self.upconv2 = nn.Conv2d(nf, nf, 3, 1, 1, bias=True)
-        self.HRconv = nn.Conv2d(nf, nf, 3, 1, 1, bias=True)
-        self.conv_last = nn.Conv2d(nf, out_nc, 3, 1, 1, bias=True)
+        self.HRconv = nn.Conv2d(nf, nf, 3, 1, 1, padding_mode=padding_mode, bias=True)
+        self.conv_last = nn.Conv2d(nf, out_nc, 3, 1, 1, padding_mode=padding_mode, bias=True)
 
         self.lrelu = nn.LeakyReLU(negative_slope=0.2, inplace=True)
 
