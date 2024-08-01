@@ -91,8 +91,8 @@ def main_train_1_branch_bkg_with_gt_image():
     device = torch.device('cuda:2')
     lr = 0.0001
     loss_r = {}
-    loss_r['vgg_identity'] = 0  # (model_outputs vs. label); "0" for "Production", "1" for trainning
-    loss_r['vgg_fit'] = 0  # (fitted_image vs. label); "1" for both "trainning" and "production"
+    #loss_r['vgg_identity'] = 0  # (model_outputs vs. label); "0" for "Production", "1" for trainning
+    #loss_r['vgg_fit'] = 0  # (fitted_image vs. label); "1" for both "trainning" and "production"
     # loss_r['vgg_1st_last'] = 0         # (model_outputs[0] vs. model_outputs[-1]); "1e2" for both "trainning" and "production"
 
     # loss_r['mse_identity_img'] = 1
@@ -101,21 +101,17 @@ def main_train_1_branch_bkg_with_gt_image():
     loss_r['mse_fit_self_consist'] = 0  # (fitting_output_from_model_output vs. model_outputs ); "1" for both "trainning" and "production"
     loss_r['l1_identity'] = 0
 
+    '''
     global vgg19
     torch.manual_seed(0)
     vgg19 = torchvision.models.vgg19(pretrained=True).features
     for param in vgg19.parameters():
         param.requires_grad_(False)
     vgg19.to(device).eval()
-
+    '''
     #model_gen = pyxas.RRDBNet(1, 1, 16, 4, 32).to(device)
-    model_gen = pyxas.RRDBNet_new(1, 1, 16, 4, 32).to(device)
+    model_gen = pyxas.RRDBNet(1, 1, 16, 4, 32).to(device)
     # initialize_weights(model_gen)
-
-    mse_criterion = nn.MSELoss()
-    bce_criterion = nn.BCELoss()
-
-    opt_gen = optim.Adam(model_gen.parameters(), lr=lr, betas=(0.5, 0.999))
 
     h_loss_train = {}
     keys = list(loss_r.keys())

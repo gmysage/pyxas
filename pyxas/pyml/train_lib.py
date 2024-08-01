@@ -206,10 +206,10 @@ def train_1_branch_bkg_with_gt_image(model_gen, dataloader, loss_r, vgg19, devic
         loss_value['mse_fit_self_consist'] = mse_criterion(a, b)
 
         # r_vgg: identity feature loss
-        loss_value['vgg_identity'] = vgg_loss(output_bkg, label, vgg19, device=device)
+        #loss_value['vgg_identity'] = vgg_loss(output_bkg, label, vgg19, device=device)
 
         # r_vgg_fit:
-        loss_value['vgg_fit'] = vgg_loss(y_fit_reshape, real_img, vgg19, device=device)
+        #loss_value['vgg_fit'] = vgg_loss(y_fit_reshape, real_img, vgg19, device=device)
 
         loss_value['l1_identity'] = l1_loss(output_bkg, label)
 
