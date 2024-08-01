@@ -169,6 +169,7 @@ def train_1_branch_bkg_with_gt_image(model_gen, dataloader, loss_r, vgg19, devic
 
         image_data = image_data.reshape(s)  # (16, 1, 256, 256)
         label = label.reshape(s)
+        real_img = real_img.reshape(s)
 
         output_bkg = model_gen(image_data)  # background image
 

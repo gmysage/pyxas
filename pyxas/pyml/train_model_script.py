@@ -128,7 +128,7 @@ def main_train_1_branch_bkg_with_gt_image():
     f_root = '/data/xanes_bkg_denoise/IMG_256_stack/Co_thin'  # '/data/xanes_bkg_denoise/IMG_256_stack/Co3'
     blur_dir = f_root + '/img_blur_stack'
     gt_bkg_dir = f_root + '/img_bkg_stack'  # '/img_bkg_stack_gf'
-    gt_img_dir = f_root + 'img_gt_stack'
+    gt_img_dir = f_root + '/img_gt_stack'
     eng_dir = f_root + '/img_eng_list'
     trans_gt, trans_blur = None, None
 
