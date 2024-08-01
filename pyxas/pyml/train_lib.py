@@ -138,7 +138,7 @@ def train_1_branch_bkg(model_gen, dataloader, loss_r, vgg19, device='cuda:1', lr
     return loss_summary
 
 
-def train_1_branch_bkg_with_gt_image(model_gen, dataloader, loss_r, vgg19, device='cuda:1', lr=1e-4, take_log=True):
+def train_1_branch_bkg_with_gt_image(model_gen, dataloader, loss_r, device='cuda:1', lr=1e-4, take_log=True):
     # global vgg19
     mse_criterion = MSELoss()
     model_gen.train()

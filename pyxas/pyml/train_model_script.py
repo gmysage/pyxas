@@ -137,7 +137,7 @@ def main_train_1_branch_bkg_with_gt_image():
     model_save_path2 = '/data/xanes_bkg_denoise/IMG_256_stack/Co_thin/Co_bkg_new.pth'
 
     for epoch in range(10):
-        loss_summary_train = pyxas.train_1_branch_bkg_with_gt_image(model_gen, train_loader, loss_r, vgg19, device, lr=lr)
+        loss_summary_train = pyxas.train_1_branch_bkg_with_gt_image(model_gen, train_loader, loss_r, device, lr=lr)
         print(f'epoch #{epoch}')
         h_loss_train, txt_t, psnr_train = pyxas.extract_h_loss(h_loss_train, loss_summary_train, loss_r)
 
