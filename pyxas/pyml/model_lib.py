@@ -16,13 +16,13 @@ def initialize_weights(model):
 
 
 class ResidualDenseBlock_3C(nn.Module):
-    def __init__(self, nf=32, gc=16, bias=True):
+    def __init__(self, nf=32, gc=16, bias=True, kernel_size=3):
         super(ResidualDenseBlock_3C, self).__init__()
         # gc: growth channel, i.e. intermediate channels
         #self.conv11 = nn.Conv2d(nf, int(gc/2), 3, stride=1, dilation=1, padding='same', bias=bias)
-        self.conv1 = nn.Conv2d(nf, gc, 3, stride=1, padding='same', bias=bias, padding_mode='replicate')
-        self.conv2 = nn.Conv2d(nf + gc, gc, 3, stride=1, padding='same', bias=bias)
-        self.conv3 = nn.Conv2d(nf + 2 * gc, nf, 3, 1, 1, bias=bias)
+        self.conv1 = nn.Conv2d(nf, gc, kernel_size, stride=1, padding='same', bias=bias, padding_mode='replicate')
+        self.conv2 = nn.Conv2d(nf + gc, gc, kernel_size, stride=1, padding='same', bias=bias)
+        self.conv3 = nn.Conv2d(nf + 2 * gc, nf, kernel_size, 1, 'same', bias=bias)
         self.lrelu = nn.LeakyReLU(negative_slope=0.2, inplace=True)
 
         # initialization
@@ -38,11 +38,11 @@ class ResidualDenseBlock_3C(nn.Module):
 class RRDB(nn.Module):
     '''Residual in Residual Dense Block'''
 
-    def __init__(self, nf, gc=32):
+    def __init__(self, nf, gc=32, kernel_size=3):
         super(RRDB, self).__init__()
-        self.RDB1 = ResidualDenseBlock_3C(nf, gc)
-        self.RDB2 = ResidualDenseBlock_3C(nf, gc)
-        self.RDB3 = ResidualDenseBlock_3C(nf, gc)
+        self.RDB1 = ResidualDenseBlock_3C(nf, gc, kernel_size=kernel_size)
+        self.RDB2 = ResidualDenseBlock_3C(nf, gc, kernel_size=kernel_size)
+        self.RDB3 = ResidualDenseBlock_3C(nf, gc, kernel_size=kernel_size)
 
     def forward(self, x):
         out = self.RDB1(x)
@@ -53,7 +53,7 @@ class RRDB(nn.Module):
 class RRDBNet(nn.Module):
     def __init__(self, in_nc, out_nc, nf, nb, gc=32, padding_mode='zeros', kernel_size=3):
         super(RRDBNet, self).__init__()
-        RRDB_block_f = functools.partial(RRDB, nf=nf, gc=gc)
+        RRDB_block_f = functools.partial(RRDB, nf=nf, gc=gc, kernel_size=kernel_size)
 
         self.conv_first_1 = nn.Conv2d(in_nc, int(nf/2), kernel_size, 1, 1, padding_mode=padding_mode, bias=True)
         self.conv_first_2 = nn.Conv2d(in_nc, int(nf/2), kernel_size, stride=1, dilation=1, padding='same', padding_mode=padding_mode, bias=True)
@@ -87,7 +87,7 @@ class RRDBNet(nn.Module):
 class RRDBNet_padding_same(nn.Module):
     def __init__(self, in_nc, out_nc, nf, nb, gc=32, padding_mode='zeros', kernel_size=3):
         super(RRDBNet_padding_same, self).__init__()
-        RRDB_block_f = functools.partial(RRDB, nf=nf, gc=gc)
+        RRDB_block_f = functools.partial(RRDB, nf=nf, gc=gc, kernel_size=kernel_size)
 
         self.conv_first_1 = nn.Conv2d(in_nc, int(nf / 2), kernel_size, 1, 'same', padding_mode=padding_mode, bias=True)
         self.conv_first_2 = nn.Conv2d(in_nc, int(nf / 2), kernel_size, stride=1, dilation=1, padding='same',

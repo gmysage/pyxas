@@ -127,11 +127,12 @@ def main_train_1_branch_bkg_with_gt_image():
     # model_save_path2 = '/data/xanes_bkg_denoise/IMG_256_stack/Co_thin/Co_bkg.pth'
     model_save_path2 = f_root + '/Co_bkg_k5.pth'
 
+    # fsave_loss = f_root +'/model_saved/h_loss_bkg.json'
+    fsave_loss = f_root + '/model_saved_k5/h_loss_bkg.json'
     for epoch in range(10):
         loss_summary_train = pyxas.train_1_branch_bkg_with_gt_image(model_gen, train_loader, loss_r, device, lr=lr)
-        print(f'epoch #{epoch}')
+        print(f'\nepoch #{epoch}')
         h_loss_train, txt_t, psnr_train = pyxas.extract_h_loss(h_loss_train, loss_summary_train, loss_r)
-
         print(txt_t)
         print(f'train_psnr = {psnr_train:2.2f}')
         if psnr_train > best_psnr:
@@ -140,8 +141,6 @@ def main_train_1_branch_bkg_with_gt_image():
         #ftmp = f_root + f'/model_saved/tmp_{epoch:04d}.pth'
         ftmp = f_root + f'/model_saved_k5/tmp_{epoch:04d}.pth'
         torch.save(model_gen.state_dict(), ftmp)
-        #fsave_loss = f_root +'/model_saved/h_loss_bkg.json'
-        fsave_loss = f_root + '/model_saved_k5/h_loss_bkg.json'
         with open(fsave_loss, 'w') as f:
             json.dump(h_loss_train, f)
 
