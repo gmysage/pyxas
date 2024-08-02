@@ -86,7 +86,7 @@ class RRDBNet(nn.Module):
 
 class RRDBNet_padding_same(nn.Module):
     def __init__(self, in_nc, out_nc, nf, nb, gc=32, padding_mode='zeros', kernel_size=3):
-        super(RRDBNet, self).__init__()
+        super(RRDBNet_padding_same, self).__init__()
         RRDB_block_f = functools.partial(RRDB, nf=nf, gc=gc)
 
         self.conv_first_1 = nn.Conv2d(in_nc, int(nf / 2), kernel_size, 1, 'same', padding_mode=padding_mode, bias=True)
