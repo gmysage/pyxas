@@ -37,7 +37,7 @@ def main_train_1_branch_bkg():
         param.requires_grad_(False)
     vgg19.to(device).eval()
 
-    model_gen = pyxas.RRDBNet(1, 1, 16, 4, 32, 'replicate').to(device)
+    model_gen = pyxas.RRDBNet(1, 1, 16, 4, 32, 'zeros').to(device)
     #model_gen = RRDBNet_new(1, 1, 16, 4, 32).to(device)
     #initialize_weights(model_gen)
 
@@ -88,18 +88,18 @@ def main_train_1_branch_bkg():
 
 
 def main_train_1_branch_bkg_with_gt_image():
-    device = torch.device('cuda:2')
+    device = torch.device('cuda:3')
     lr = 0.0001
     loss_r = {}
 
     # loss_r['mse_identity_img'] = 1
     loss_r['mse_identity_bkg'] = 1
     loss_r['mse_fit_coef'] = 0  # (fit_coef_from_model_outputs vs. fit_coef_from_label); "1e8" for both "trainning" and "production"
-    loss_r['mse_fit_self_consist'] = 10  # (fitting_output_from_model_output vs. model_outputs ); "1" for both "trainning" and "production"
-    loss_r['l1_identity'] = 1
+    loss_r['mse_fit_self_consist'] = 0  # (fitting_output_from_model_output vs. model_outputs ); "1" for both "trainning" and "production"
+    loss_r['l1_identity'] = 0
 
     #model_gen = pyxas.RRDBNet(1, 1, 16, 4, 32).to(device)
-    model_gen = pyxas.RRDBNet(1, 1, 16, 4, 32, 'zeros', 5).to(device)
+    model_gen = pyxas.RRDBNet_padding_same(1, 1, 16, 4, 32, 'zeros', 5).to(device)
     model_path = '/data/software/pyxas/pyxas/pyml/trained_model/tmp_1499.pth'
     model_gen.load_state_dict(torch.load(model_path))
     # initialize_weights(model_gen)
@@ -125,9 +125,9 @@ def main_train_1_branch_bkg_with_gt_image():
     best_psnr = 0
     # model_save_path2 = '/data/xanes_bkg_denoise/IMG_256_stack/Co3/Co_bkg_256_new.pth'
     # model_save_path2 = '/data/xanes_bkg_denoise/IMG_256_stack/Co_thin/Co_bkg.pth'
-    model_save_path2 = f_root + '/Co_bkg_new.pth'
+    model_save_path2 = f_root + '/Co_bkg_k5.pth'
 
-    for epoch in range(25, 200):
+    for epoch in range(10):
         loss_summary_train = pyxas.train_1_branch_bkg_with_gt_image(model_gen, train_loader, loss_r, device, lr=lr)
         print(f'epoch #{epoch}')
         h_loss_train, txt_t, psnr_train = pyxas.extract_h_loss(h_loss_train, loss_summary_train, loss_r)
@@ -137,9 +137,12 @@ def main_train_1_branch_bkg_with_gt_image():
         if psnr_train > best_psnr:
             torch.save(model_gen.state_dict(), model_save_path2)
             best_psnr = psnr_train
-        ftmp = f_root + f'/model_saved/tmp_{epoch:04d}.pth'
+        #ftmp = f_root + f'/model_saved/tmp_{epoch:04d}.pth'
+        ftmp = f_root + f'/model_saved_k5/tmp_{epoch:04d}.pth'
         torch.save(model_gen.state_dict(), ftmp)
-        with open(f_root +'/model_saved/h_loss_bkg.json', 'w') as f:
+        #fsave_loss = f_root +'/model_saved/h_loss_bkg.json'
+        fsave_loss = f_root + '/model_saved_k5/h_loss_bkg.json'
+        with open(fsave_loss, 'w') as f:
             json.dump(h_loss_train, f)
 
 

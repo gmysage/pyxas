@@ -84,6 +84,30 @@ class RRDBNet(nn.Module):
         return out
 
 
+class RRDBNet_padding_same(nn.Module):
+    def __init__(self, in_nc, out_nc, nf, nb, gc=32, padding_mode='zeros', kernel_size=3):
+        super(RRDBNet, self).__init__()
+        RRDB_block_f = functools.partial(RRDB, nf=nf, gc=gc)
+
+        self.conv_first_1 = nn.Conv2d(in_nc, int(nf / 2), kernel_size, 1, 'same', padding_mode=padding_mode, bias=True)
+        self.conv_first_2 = nn.Conv2d(in_nc, int(nf / 2), kernel_size, stride=1, dilation=1, padding='same',
+                                      padding_mode=padding_mode, bias=True)
+        self.conv_first = nn.Conv2d(in_nc, nf, kernel_size, 1, 'same', padding_mode=padding_mode, bias=True)
+        self.RRDB_trunk = make_layer(RRDB_block_f, nb)
+        self.trunk_conv = nn.Conv2d(nf, nf, kernel_size, 1, 'same', padding_mode=padding_mode, bias=True)
+        self.HRconv = nn.Conv2d(nf, nf, kernel_size, 1, 'same', padding_mode=padding_mode, bias=True)
+        self.conv_last = nn.Conv2d(nf, out_nc, kernel_size, 1, 'same', padding_mode=padding_mode, bias=True)
+
+        self.lrelu = nn.LeakyReLU(negative_slope=0.2, inplace=True)
+
+    def forward(self, x):
+        fea = self.conv_first(x)
+        trunk = self.trunk_conv(self.RRDB_trunk(fea))
+        fea = fea + trunk  # this is orignial one used
+        out = self.conv_last(self.lrelu(self.HRconv(fea)))  # the following is added
+
+        return out
+
 class RRDBNet_new(nn.Module):
     def __init__(self, in_nc, out_nc, nf, nb, gc=32):
         super(RRDBNet_new, self).__init__()
