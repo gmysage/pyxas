@@ -37,7 +37,7 @@ def main_train_1_branch_bkg():
         param.requires_grad_(False)
     vgg19.to(device).eval()
 
-    model_gen = pyxas.RRDBNet(1, 1, 16, 4, 32).to(device)
+    model_gen = pyxas.RRDBNet(1, 1, 16, 4, 32, 'replicate').to(device)
     #model_gen = RRDBNet_new(1, 1, 16, 4, 32).to(device)
     #initialize_weights(model_gen)
 
@@ -54,7 +54,7 @@ def main_train_1_branch_bkg():
     epochs = 500
     n_train = 100
 
-    f_root = '/data/xanes_bkg_denoise/IMG_256_stack/Co_thin' #'/data/xanes_bkg_denoise/IMG_256_stack/Co3'
+    f_root = '/data/xanes_bkg_denoise/IMG_256_stack/Co_thick' #'/data/xanes_bkg_denoise/IMG_256_stack/Co3'
     blur_dir = f_root + '/img_blur_stack'
     gt_dir = f_root + '/img_bkg_stack' #'/img_bkg_stack_gf'
     eng_dir = f_root + '/img_eng_list'
@@ -65,7 +65,7 @@ def main_train_1_branch_bkg():
     best_psnr = 0
     #model_save_path2 = '/data/xanes_bkg_denoise/IMG_256_stack/Co3/Co_bkg_256_new.pth'
     #model_save_path2 = '/data/xanes_bkg_denoise/IMG_256_stack/Co_thin/Co_bkg.pth'
-    model_save_path2 = '/data/xanes_bkg_denoise/IMG_256_stack/Co_thin/Co_bkg_load_previous.pth'
+    model_save_path2 = f_root + '/Co_bkg_load_previous.pth'
    
     for epoch in range(500):
         loss_summary_train = pyxas.train_1_branch_bkg(model_gen, train_loader, loss_r, vgg19, device, lr=lr, train_fit=True)
@@ -91,26 +91,17 @@ def main_train_1_branch_bkg_with_gt_image():
     device = torch.device('cuda:2')
     lr = 0.0001
     loss_r = {}
-    #loss_r['vgg_identity'] = 0  # (model_outputs vs. label); "0" for "Production", "1" for trainning
-    #loss_r['vgg_fit'] = 0  # (fitted_image vs. label); "1" for both "trainning" and "production"
-    # loss_r['vgg_1st_last'] = 0         # (model_outputs[0] vs. model_outputs[-1]); "1e2" for both "trainning" and "production"
 
     # loss_r['mse_identity_img'] = 1
-    loss_r['mse_identity_bkg'] = 100
+    loss_r['mse_identity_bkg'] = 1
     loss_r['mse_fit_coef'] = 0  # (fit_coef_from_model_outputs vs. fit_coef_from_label); "1e8" for both "trainning" and "production"
-    loss_r['mse_fit_self_consist'] = 0  # (fitting_output_from_model_output vs. model_outputs ); "1" for both "trainning" and "production"
-    loss_r['l1_identity'] = 0
+    loss_r['mse_fit_self_consist'] = 10  # (fitting_output_from_model_output vs. model_outputs ); "1" for both "trainning" and "production"
+    loss_r['l1_identity'] = 1
 
-    '''
-    global vgg19
-    torch.manual_seed(0)
-    vgg19 = torchvision.models.vgg19(pretrained=True).features
-    for param in vgg19.parameters():
-        param.requires_grad_(False)
-    vgg19.to(device).eval()
-    '''
     #model_gen = pyxas.RRDBNet(1, 1, 16, 4, 32).to(device)
-    model_gen = pyxas.RRDBNet(1, 1, 16, 4, 32).to(device)
+    model_gen = pyxas.RRDBNet(1, 1, 16, 4, 32, 'zeros', 5).to(device)
+    model_path = '/data/software/pyxas/pyxas/pyml/trained_model/tmp_1499.pth'
+    model_gen.load_state_dict(torch.load(model_path))
     # initialize_weights(model_gen)
 
     h_loss_train = {}
@@ -121,7 +112,7 @@ def main_train_1_branch_bkg_with_gt_image():
     epochs = 500
     n_train = 100
 
-    f_root = '/data/xanes_bkg_denoise/IMG_256_stack/Co_thin'  # '/data/xanes_bkg_denoise/IMG_256_stack/Co3'
+    f_root = '/data/xanes_bkg_denoise/IMG_256_stack/Co_thick'  # '/data/xanes_bkg_denoise/IMG_256_stack/Co3'
     blur_dir = f_root + '/img_blur_stack'
     gt_bkg_dir = f_root + '/img_bkg_stack'  # '/img_bkg_stack_gf'
     gt_img_dir = f_root + '/img_gt_stack'
@@ -134,9 +125,9 @@ def main_train_1_branch_bkg_with_gt_image():
     best_psnr = 0
     # model_save_path2 = '/data/xanes_bkg_denoise/IMG_256_stack/Co3/Co_bkg_256_new.pth'
     # model_save_path2 = '/data/xanes_bkg_denoise/IMG_256_stack/Co_thin/Co_bkg.pth'
-    model_save_path2 = '/data/xanes_bkg_denoise/IMG_256_stack/Co_thin/Co_bkg_new.pth'
+    model_save_path2 = f_root + '/Co_bkg_new.pth'
 
-    for epoch in range(10):
+    for epoch in range(25, 200):
         loss_summary_train = pyxas.train_1_branch_bkg_with_gt_image(model_gen, train_loader, loss_r, device, lr=lr)
         print(f'epoch #{epoch}')
         h_loss_train, txt_t, psnr_train = pyxas.extract_h_loss(h_loss_train, loss_summary_train, loss_r)
@@ -146,13 +137,9 @@ def main_train_1_branch_bkg_with_gt_image():
         if psnr_train > best_psnr:
             torch.save(model_gen.state_dict(), model_save_path2)
             best_psnr = psnr_train
-        # ftmp = f'/data/xanes_bkg_denoise/IMG_256_stack/Co3/model_tmp_new/tmp_{epoch:04d}.pth'
-        ftmp = f'/data/xanes_bkg_denoise/IMG_256_stack/Co_thin/model_saved/tmp_{epoch:04d}.pth'
-        # ftmp = f'/data/xanes_bkg_denoise/IMG_256_stack/Co_thin/model_saved_load_previous/tmp_{epoch:04d}.pth'
+        ftmp = f_root + f'/model_saved/tmp_{epoch:04d}.pth'
         torch.save(model_gen.state_dict(), ftmp)
-        # with open('/data/xanes_bkg_denoise/IMG_256_stack/Co3/model_tmp_new/h_loss_Co3_bkg.json', 'w') as f:
-        with open('/data/xanes_bkg_denoise/IMG_256_stack/Co_thin/model_saved/h_loss_Co3_bkg.json', 'w') as f:
-        #with open('/data/xanes_bkg_denoise/IMG_256_stack/Co_thin/model_saved_load_previous/h_loss_Co3_bkg.json','w') as f:
+        with open(f_root +'/model_saved/h_loss_bkg.json', 'w') as f:
             json.dump(h_loss_train, f)
 
 
