@@ -25,9 +25,9 @@ def main_train_1_branch_bkg():
 
     #loss_r['mse_identity_img'] = 1  
     loss_r['mse_identity_bkg'] = 1
-    loss_r['mse_fit_coef'] = 0          # (fit_coef_from_model_outputs vs. fit_coef_from_label); "1e8" for both "trainning" and "production"
-    loss_r['mse_fit_self_consist'] = 0   # (fitting_output_from_model_output vs. model_outputs ); "1" for both "trainning" and "production"
-    loss_r['l1_identity'] = 0  
+    loss_r['mse_fit_coef'] = 1e10          # (fit_coef_from_model_outputs vs. fit_coef_from_label); "1e8" for both "trainning" and "production"
+    loss_r['mse_fit_self_consist'] = 10   # (fitting_output_from_model_output vs. model_outputs ); "1" for both "trainning" and "production"
+    loss_r['l1_identity'] = 0.1
 
     global vgg19
     avgpool = nn.AvgPool2d(3, stride=1, padding=1)
@@ -69,7 +69,7 @@ def main_train_1_branch_bkg():
     #model_save_path2 = '/data/xanes_bkg_denoise/IMG_256_stack/Co_thin/Co_bkg.pth'
     model_save_path2 = f_root + '/Co_bkg.pth'
    
-    for epoch in range(10):
+    for epoch in range(10, 20):
         loss_summary_train = pyxas.train_1_branch_bkg(model_gen, train_loader, loss_r, vgg19, device, lr=lr, train_fit=True)
         print(f'epoch #{epoch}')
         h_loss_train, txt_t, psnr_train = pyxas.extract_h_loss(h_loss_train, loss_summary_train, loss_r)
@@ -81,7 +81,7 @@ def main_train_1_branch_bkg():
             best_psnr = psnr_train
         #ftmp = f'/data/xanes_bkg_denoise/IMG_256_stack/Co3/model_tmp_new/tmp_{epoch:04d}.pth'
         #ftmp = f'/data/xanes_bkg_denoise/IMG_256_stack/Co_thin/model_saved/tmp_{epoch:04d}.pth'
-        ftmp = f_root + '/model_saved/tmp_{epoch:04d}.pth'
+        ftmp = f_root + f'/model_saved/tmp_{epoch:04d}.pth'
         torch.save(model_gen.state_dict(), ftmp)
         fsave_loss = f_root + '/model_saved/h_loss_Co_bkg.json'
         #with open('/data/xanes_bkg_denoise/IMG_256_stack/Co3/model_tmp_new/h_loss_Co3_bkg.json', 'w') as f:

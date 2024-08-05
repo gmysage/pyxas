@@ -81,7 +81,8 @@ def train_1_branch_bkg(model_gen, dataloader, loss_r, vgg19, device='cuda:1', lr
         loss_value['mse_identity_bkg'] = mse_identity_bkg
         #loss_value['mse_identity_img'] = mse_identity_img
         loss_value['mse_fit_coef'] = mse_criterion(fit_dn_coeff, fit_gt_coeff)
-
+        loss_value['tv_bkg'] = tv_loss(output_bkg)
+        
         # self-consistant of fitting results
         a = y_fit_reshape
         b = output_img
