@@ -7184,7 +7184,7 @@ class App(QWidget):
                     note = 'auto reverse the energy list. '
                     self.xanes_eng = self.xanes_eng[::-1]
                 '''
-                self.xanes_eng, self.img_xanes = check_eng_image_order(self.xanes_eng, self.img_xanes)
+                self.xanes_eng, self.img_xanes = pyxas.check_eng_image_order(self.xanes_eng, self.img_xanes)
                 st = '{0:2.4f}, {1:2.4f}, ..., {2:2.4f} keV   totally, {3} energies'.format(self.xanes_eng[0], self.xanes_eng[1], self.xanes_eng[-1], len(self.xanes_eng))
                 self.tx_fit_pre_s.setText('{:2.4f}'.format(min(self.xanes_eng)))
                 self.tx_fit_pre_e.setText('{:2.4f}'.format(min(self.xanes_eng) + 0.010))
