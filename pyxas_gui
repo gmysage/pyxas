@@ -7555,6 +7555,10 @@ class App(QWidget):
                         except:
                             pass
                     '''
+                    try:
+                        self.xanes_eng, self.img_xanes = pyxas.check_eng_image_order(self.xanes_eng, self.img_xanes)
+                    except:
+                        pass
                     self.update_canvas_img()
                     self.update_msg()
                     f.close()
