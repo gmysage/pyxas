@@ -1,5 +1,7 @@
 from __future__ import (absolute_import, division, print_function, unicode_literals)
 
+import pyxas
+
 from pyxas.xanes_util import *
 from pyxas.misc import *
 from pyxas.colormix import *
@@ -97,6 +99,7 @@ def fit_2D_xanes_using_param(img_xanes, xanes_eng, fit_param, spectrum_ref):
     # normalize edge
     norm_edge_flag = fit_param['norm_edge_flag']
     norm_edge_method = fit_param['norm_edge_method']
+    xanes_eng, img_xanes_norm = pyxas.check_eng_image_order(xanes_eng, img_xanes_norm)
     if norm_edge_flag:
         if norm_edge_method == 'old':
             img_xanes_norm, img_thickness = pyxas.normalize_2D_xanes_old(img_xanes_norm, xanes_eng, pre_edge, post_edge,
