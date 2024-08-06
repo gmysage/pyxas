@@ -16,7 +16,7 @@ from copy import deepcopy
 
 
 def main_train_1_branch_bkg():
-    device = torch.device('cuda:3')
+    device = torch.device('cuda:2')
     lr = 0.0001
     loss_r = {}
     loss_r['vgg_identity'] = 1           # (model_outputs vs. label); "0" for "Production", "1" for trainning
@@ -28,6 +28,7 @@ def main_train_1_branch_bkg():
     loss_r['mse_fit_coef'] = 1e10          # (fit_coef_from_model_outputs vs. fit_coef_from_label); "1e8" for both "trainning" and "production"
     loss_r['mse_fit_self_consist'] = 10   # (fitting_output_from_model_output vs. model_outputs ); "1" for both "trainning" and "production"
     loss_r['l1_identity'] = 0.1
+    loss_r['tv_bkg'] = 1e-4
 
     global vgg19
     avgpool = nn.AvgPool2d(3, stride=1, padding=1)
@@ -52,7 +53,6 @@ def main_train_1_branch_bkg():
     keys = list(loss_r.keys())
     for k in keys:
         h_loss_train[k] = {'value':[], 'rate':[]}
-    best_psnr = 0
     epochs = 500
     n_train = 100
 
@@ -69,7 +69,7 @@ def main_train_1_branch_bkg():
     #model_save_path2 = '/data/xanes_bkg_denoise/IMG_256_stack/Co_thin/Co_bkg.pth'
     model_save_path2 = f_root + '/Co_bkg.pth'
    
-    for epoch in range(10, 20):
+    for epoch in range(100):
         loss_summary_train = pyxas.train_1_branch_bkg(model_gen, train_loader, loss_r, vgg19, device, lr=lr, train_fit=True)
         print(f'epoch #{epoch}')
         h_loss_train, txt_t, psnr_train = pyxas.extract_h_loss(h_loss_train, loss_summary_train, loss_r)

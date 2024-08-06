@@ -7179,10 +7179,13 @@ class App(QWidget):
                     f = h5py.File(fn, 'r')
                     self.xanes_eng = np.array(f[dataset_eng])
                     f.close()
+                '''
                 if self.xanes_eng[-1] < self.xanes_eng[0]:
                     note = 'auto reverse the energy list. '
                     self.xanes_eng = self.xanes_eng[::-1]
-                st = note +'{0:2.4f}, {1:2.4f}, ..., {2:2.4f} keV   totally, {3} energies'.format(self.xanes_eng[0], self.xanes_eng[1], self.xanes_eng[-1], len(self.xanes_eng))
+                '''
+                self.xanes_eng, self.img_xanes = check_eng_image_order(self.xanes_eng, self.img_xanes)
+                st = '{0:2.4f}, {1:2.4f}, ..., {2:2.4f} keV   totally, {3} energies'.format(self.xanes_eng[0], self.xanes_eng[1], self.xanes_eng[-1], len(self.xanes_eng))
                 self.tx_fit_pre_s.setText('{:2.4f}'.format(min(self.xanes_eng)))
                 self.tx_fit_pre_e.setText('{:2.4f}'.format(min(self.xanes_eng) + 0.010))
                 self.tx_fit_post_e.setText('{:2.4f}'.format(max(self.xanes_eng)))
@@ -11523,6 +11526,7 @@ class App(QWidget):
                         self.update_msg()
                     time_s = time.time()
                     img_xanes = pyxas.check_if_need_align(img_xanes, fit_param)
+                    xanes_eng, img_xanes = pyxas.check_eng_image_order(xanes_eng, img_xanes)
                     peak_pos, peak_val, fit_error = pyxas.fit_peak_2D_xanes_poly(img_xanes, xanes_eng,
                                                                  eng_range, fit_order, fit_max)
 

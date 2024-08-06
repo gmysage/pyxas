@@ -30,6 +30,15 @@ def exclude_eng(img_raw, x_eng_raw, exclude_range=[7.7, 7.8]):
     x_eng = x_eng_raw[idx]
     return img, x_eng
 
+
+def check_eng_image_order(xanes_eng, img_xanes):
+    idx = np.argsort(xanes_eng)
+    if len(img_xanes) == len(idx):
+        img_xanes = img_xanes[idx]
+        xanes_eng = xanes_eng[idx]
+    return xanes_eng, img_xanes
+
+
 def fit_using_nnls(y, A, bounds, method='lsq'):
     if method == 'lsq':
         res = lsq_linear(A, y, bounds)

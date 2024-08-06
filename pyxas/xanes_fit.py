@@ -51,6 +51,9 @@ def fit_2D_xanes_using_param(img_xanes, xanes_eng, fit_param, spectrum_ref):
     except:
         sigma = 0.05
 
+    idx = np.argsort(xanes_eng)
+    xanes_eng = xanes_eng[idx]
+    img_xanes = img_xanes[idx]
     norm_txm_flag = fit_param['norm_txm_flag']
     pre_edge = fit_param['pre_edge']
     post_edge = fit_param['post_edge']
