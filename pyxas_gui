@@ -7476,9 +7476,7 @@ class App(QWidget):
                     # read energy
                     try:
                         self.xanes_eng = np.round(np.array(f[dataset_eng]), 8)  # Generally, it is in unit of keV
-                        if self.xanes_eng[0] > self.xanes_eng[-1]: # energy is from high-to-low
-                            flag_reverse_eng = 1
-                            self.xanes_eng = self.xanes_eng[::-1]
+
                         # if min(self.xanes_eng) < 4000:  # make sure it is in unit of KeV
                         #     self.xanes_eng = self.xanes_eng * 1000
                         st = '{0:2.4f}, {1:2.4f}, ..., {2:2.4f} keV (totally, {3} energies)'.format(self.xanes_eng[0], self.xanes_eng[1], self.xanes_eng[-1], len(self.xanes_eng))
@@ -7546,15 +7544,7 @@ class App(QWidget):
                         self.lb_ip.setText('File loading fails ...')
                         self.msg = f'xanes image not exist.  Error: {str(err)}'
                     load_fitted = 0
-                    '''
-                    if 'fitted' in list(f.keys()):
-                        try:
-                            load_fitted = self.load_fitted_file_sub(fn)
-                            if load_fitted:
-                                self.msg = textwrap.fill(self.msg, 100) + '\nfitted data is loaded'
-                        except:
-                            pass
-                    '''
+
                     try:
                         self.xanes_eng, self.img_xanes = pyxas.check_eng_image_order(self.xanes_eng, self.img_xanes)
                     except:
