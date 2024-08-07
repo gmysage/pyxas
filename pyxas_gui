@@ -1049,6 +1049,11 @@ class App(QWidget):
         self.pb_roi_sel_all.setFont(self.font2)
         self.pb_roi_sel_all.clicked.connect(self.roi_selection_all)
 
+        self.pb_roi_mean_val = QPushButton('ROI average')
+        self.pb_roi_mean_val.setFixedWidth(w)
+        self.pb_roi_mean_val.setFont(self.font2)
+        self.pb_roi_mean_val.clicked.connect(self.get_roi_average)
+
         # crop image
         lb_crop = QLabel()
         lb_crop.setText('Crop image')
@@ -1203,7 +1208,8 @@ class App(QWidget):
         vbox_roi.addLayout(hbox_roi_button5)
 
         vbox_roi.addLayout(hbox_roi_button6)
-        vbox_roi.addLayout(hbox_roi_button7)
+        #vbox_roi.addLayout(hbox_roi_button7)
+        vbox_roi.addWidget(self.pb_roi_mean_val)
         vbox_roi.addWidget(lb_empty03)
         vbox_roi.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignTop)
 
@@ -6778,6 +6784,34 @@ class App(QWidget):
         y_e = int(min(y_s + y_size, s_raw[0]))
 
         return x_s, x_e, y_s, y_e
+
+
+    def get_roi_average(self):
+        try:
+            if self.chkbox_multi_selec.isChecked():
+                self.chkbox_multi_selec.setChecked(False)
+                self.enable_multi_selection()
+            current_canvas = self.canvas1
+            QApplication.processEvents()
+            roi_list = current_canvas.roi_list
+            roi_item = self.lst_roi.selectedItems()[0]
+            roi_cord = np.int32(np.array(roi_list[roi_item.text()][:4]))
+            a, b, c, d = roi_cord[0], roi_cord[1], roi_cord[2], roi_cord[3]
+            x1 = min(a, c)
+            x2 = max(a, c)
+            y1 = min(b, d)
+            y2 = max(b, d)
+            img = np.squeeze(current_canvas.current_img)
+            img = img[y1:y2, x1:x2]
+            m = np.int32(img>0)
+            v = np.sum(img) / np.sum(m)
+            print(v)
+            self.msg = f'Mean value of {roi_item.text()} = {v:2.6f}'
+
+        except Exception as err:
+            self.msg = str(err)
+        finally:
+            self.update_msg()
 
 
     def crop_roi_display(self, current_canvas):
