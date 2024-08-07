@@ -6801,7 +6801,7 @@ class App(QWidget):
             x2 = max(a, c)
             y1 = min(b, d)
             y2 = max(b, d)
-            img = np.squeeze(current_canvas.current_img)
+            img = np.squeeze(current_canvas.current_img) * self.mask
             img = img[y1:y2, x1:x2]
             m = np.int32(img>0)
             v = np.sum(img) / np.sum(m)
