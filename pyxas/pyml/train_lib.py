@@ -725,6 +725,70 @@ def train_xanes_3D_production(dataloader, loss_r, thickness_dict, model_prod, op
     loss_summary['psnr_raw'] = running_psnr_raw / int(len(dataloader.dataset) / batch_size)
     return loss_summary, model_prod
 
+
+
+def train_image_pair(model_gen, dataloader, loss_r, vgg19, device='cuda:1', lr=1e-4):
+
+    mse_criterion = MSELoss()
+    model_gen.train()
+    opt_gen = optim.Adam(model_gen.parameters(), lr=lr, betas=(0.5, 0.999))
+
+    keys = list(loss_r.keys())
+    loss_value = {}
+    running_psnr = 0.0
+    running_loss = {}
+    for k in keys:
+        running_loss[k] = 0.0
+    batch_size = dataloader.batch_size
+    for bi, data in tqdm(enumerate(dataloader), total=int(len(dataloader.dataset) / batch_size)):
+        img_gt = data[0].to(device)
+        img_blur = data[1].to(device)  # (1, 16, 256, 256)
+        img_bkg = data[2].to(device)
+
+
+        s0 = img_blur.size()
+        s = (s0[1], s0[0], s0[2], s0[3])
+        img_blur = img_blur.reshape(s)  # (16, 1, 256, 256)
+        img_gt = img_gt.reshape(s)
+        img_bkg = img_bkg.reshape(s)
+
+        output_bkg = model_gen(img_blur)  # background image
+        output_img = img_blur / output_bkg
+
+        loss_value['mse_identity_img'] = mse_criterion((img_gt-0.5)/0.5, (output_img-0.5)/0.5)
+        loss_value['mse_identity_bkg'] = mse_criterion((img_bkg-0.5)/0.5, (output_bkg-0.5)/0.5)
+        loss_value['mse_self_consist'] = mse_criterion((output_img[0]-0.5)/0.5, (output_img[1]-0.5)/0.5)
+        loss_value['tv_bkg'] = tv_loss((output_bkg-0.5)/0.5)
+        loss_value['ssim_img'] = 1 - ssim_loss((img_gt-0.5)/0.5, (output_img-0.5)/0.5)
+        loss_value['ssim_bkg'] = 1 - ssim_loss((img_bkg-0.5)/0.5, (output_bkg-0.5)/0.5)
+        #loss_value['vgg_bkg'] = vgg_loss((img_bkg-0.8)/0.2, (output_bkg-0.8)/0.2, vgg19, device=device).detach()
+
+        total_loss_gen = 0.0
+        for k in keys:
+            if loss_r[k] > 0:
+                total_loss_gen += loss_value[k] * loss_r[k]
+        model_gen.zero_grad()
+        total_loss_gen.backward()
+        opt_gen.step()
+
+        for k in keys:
+            if loss_r[k] > 0:
+                running_loss[k] += loss_value[k].item() * loss_r[k]
+        else:
+            running_loss[k] += loss_value[k].item()
+
+        batch_psnr = psnr(img_bkg, output_bkg)
+        running_psnr += batch_psnr
+
+    loss_summary = {}
+    for k in running_loss.keys():
+        loss_summary[k] = running_loss[k] / len(dataloader.dataset)
+    loss_summary['psnr'] = running_psnr / int(len(dataloader.dataset) / batch_size)
+
+    return loss_summary
+
+
+
 def ML_xanes_default_param(n_epoch=100, n_train=50, lr=2e-4,
                            order=[0, 1], loss_mse_r2r=1, loss_mse_fit_img=1e2,
                            loss_tv=0, loss_ssim=0, loss_l1=0):

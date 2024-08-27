@@ -16,8 +16,8 @@ from .seg import *
 
 try:
     from .pyml import *
-except:
-    pass
+except Exception as err:
+    print(err)
 
 import warnings
 warnings.filterwarnings('ignore')

@@ -68,6 +68,22 @@ def apply_model_to_stack_with_normalization(img_stack, model, device, n_iter=1, 
         img_output[i] *= scales[i]
     return img_output
 
+
+def check_model_output(model, image, device='cuda'):
+    if len(image.shape) == 2:
+        img = np.expand_dims(image, 0)
+    else:
+        img = image.copy()
+    if len(image.shape) == 3:
+        img = np.expand_dims(image, 1)
+    else:
+        img = image.copy()
+    with torch.no_grad():
+        img = torch.tensor(img, dtype=torch.float).to(device)
+        img_output = model(img)
+    img_output = img_output.cpu().data.numpy()
+    return img_output.squeeze()
+
 def check_image_fitting(model, image, device='cuda', plot_flag=0, clim=[0,1], ax='off', title='', figsize=(14, 8)):
     if ax == 'off':
         axes = 'off'
@@ -324,6 +340,17 @@ def get_train_valid_dataloader(blur_dir, gt_dir, eng_dir, num, transform_gt=None
     print(f'valid dataset = {len(valid_loader.dataset)}')
     return train_loader, valid_loader
 
+def get_train_valid_pair_dataloader(img_dir, split_ratio=0.8, batch_size=1):
+    dataset = Dataset_pair(img_dir)
+    n = len(dataset)
+    n_train = int(split_ratio * n)
+    n_valid = n - n_train
+    train_ds, valid_ds = torch.utils.data.random_split(dataset, (n_train, n_valid))
+    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
+    valid_loader = DataLoader(valid_ds, batch_size=batch_size, shuffle=True)
+    print(f'train dataset = {len(train_loader.dataset)}')
+    print(f'valid dataset = {len(valid_loader.dataset)}')
+    return train_loader, valid_loader
 
 def find_nearest(data, x):
     tmp = np.abs(data-x)

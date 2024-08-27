@@ -269,4 +269,115 @@ def compare_loss(id_type=0, plot_psnr=False):
             plt.title(title[i])
 
 
+def sample_train_pair():
+
+    import pyxas
+    import torch
+    import torchvision
+    import torch.nn as nn
+    import torch.optim as optim
+    import os
+    import json
+    from skimage import io
+
+
+    device = torch.device('cuda:1')
+    lr = 0.0001
+    loss_r = {}
+
+    loss_r['mse_identity_img'] = 1
+    loss_r['mse_identity_bkg'] = 1
+    loss_r['tv_bkg'] = 0
+    loss_r['mse_self_consist'] = 1
+    loss_r['ssim_img'] = 1
+    loss_r['ssim_bkg'] = 1
+    #loss_r['vgg_bkg'] = 1
+
+
+    torch.manual_seed(0)
+    vgg19 = torchvision.models.vgg19(pretrained=True).features
+    for param in vgg19.parameters():
+        param.requires_grad_(False)
+    vgg19.to(device).eval()
+
+
+    f_root = '/data/xanes_bkg_denoise/IMG_256_pair/example1'
+    img_gt_dir = f_root + '/img_gt_stack'
+    blur_dir = f_root + '/img_blur_stack'
+    bkg_dir = f_root + '/img_bkg_stack'
+
+
+    model_gen = pyxas.RRDBNet(1, 1, 16, 4, 32).to(device)
+    model_path = f_root + '/tmp_1499.pth'
+    #model_path = f_root + '/model_saved/model_0030.pth'
+    model_gen.load_state_dict(torch.load(model_path))
+
+    #model_gen = pyxas.RRDBNet_padding_same(1, 1, 16, 3, 32, 'zeros', 5).to(device)
+
+    h_loss_train = {}
+    h_loss_valid = {}
+    keys = list(loss_r.keys())
+    for k in keys:
+        h_loss_train[k] = {'value':[], 'rate':[]}
+        h_loss_valid[k] = {'value': [], 'rate': []}
+
+    n_train = 100
+
+
+
+    train_loader, valid_loader = pyxas.get_train_valid_dataloader_pair(img_gt_dir, blur_dir, bkg_dir, n_train)
+
+    # check: without fitting loss
+    img_test = io.imread('img_blur_stack/img_blur_stack_0060.tiff')
+
+    img_output = pyxas.check_model_output(model_gen, img_test, device)
+    plt.figure()
+    plt.subplot(221)
+    plt.imshow(img_output[0]);plt.colorbar()
+
+    plt.subplot(222)
+    plt.imshow(img_output[1]);plt.colorbar()
+
+    plt.subplot(223)
+    plt.imshow(img_test[0]/img_output[0]);plt.colorbar()
+
+    plt.subplot(224)
+    plt.imshow(img_test[1] / img_output[1]);plt.colorbar()
+
+    plt.pause(1)
+
+
+    for epoch in range(20, 40):
+        print(f'epoch = {epoch}:')
+        loss_summary_train = pyxas.train_image_pair(model_gen, train_loader, loss_r, vgg19, device, lr)
+        h_loss_train, txt_t, psnr_train = pyxas.extract_h_loss(h_loss_train, loss_summary_train, loss_r)
+        print(txt_t)
+
+        model_folder = f'{f_root}/model_saved'
+        ftmp = f'{model_folder}/model_{epoch:04d}.pth'
+        torch.save(model_gen.state_dict(), ftmp)
+        with open(f'{model_folder}/h_loss_train.json', 'w') as f:
+            json.dump(h_loss_train, f)
+
+        img_output = pyxas.check_model_output(model_gen, img_test, device)
+        if epoch % 5 == 0:
+            plt.figure()
+            plt.subplot(221)
+            plt.imshow(img_output[0]);  plt.colorbar()
+
+            plt.subplot(222)
+            plt.imshow(img_output[1]);
+            plt.colorbar()
+
+            plt.subplot(223)
+            plt.imshow(img_test[0] / img_output[0]);
+            plt.colorbar()
+
+            plt.subplot(224)
+            plt.imshow(img_test[1] / img_output[1]);
+            plt.colorbar()
+            plt.suptitle(f'epoch = {epoch}')
+
+            plt.pause(1)
+
 

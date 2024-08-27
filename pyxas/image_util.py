@@ -94,6 +94,7 @@ def rm_noise2(img, noise_level=0.02, filter_size=3):
     id0 = img_s==0
     img_s[id0] = img[id0]
     img_diff = (img - img_s) / img
+    img_diff = np.abs(img_diff)
     index = img_diff > noise_level
     img_m = img.copy()
     img_m[index] = img_s[index]
