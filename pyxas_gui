@@ -6803,10 +6803,14 @@ class App(QWidget):
             y2 = max(b, d)
             img = np.squeeze(current_canvas.current_img) * self.mask
             img = img[y1:y2, x1:x2]
+            img_f = img[img>0]
+            v_mean = np.mean(img_f)
+            v_var = np.var(img_f)**(0.5)
             m = np.int32(img>0)
             v = np.sum(img) / np.sum(m)
-            print(v)
-            self.msg = f'Mean value of {roi_item.text()} = {v:2.6f}'
+            txt = f'mean={v_mean:2.6f}, var={v_var:2.6f}'
+            print(txt)
+            self.msg = f'   {roi_item.text()}:    Mean value = {v_mean:2.6f},  Variation = {v_var:2.6f}'
 
         except Exception as err:
             self.msg = str(err)
