@@ -5637,7 +5637,10 @@ class App(QWidget):
         try:
             p_min = float(self.tx_cvt_min.text())
             p_max = float(self.tx_cvt_max.text())
-            img = self.xanes_peak_fit.copy()
+            try:
+                img = self.xanes_peak_fit.copy()
+            except:
+                img = self.canvas1.current_img.copy()
             self.peak_percentage = pyxas.rm_abnormal((img - p_min) / (p_max - p_min))
             if self.cb1.findText('Peak percentage') < 0:
                 self.cb1.addItem('Peak percentage')
