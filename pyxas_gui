@@ -6798,6 +6798,11 @@ class App(QWidget):
             QApplication.processEvents()
             roi_list = current_canvas.roi_list
             roi_item = self.lst_roi.selectedItems()[0]
+            img = np.squeeze(current_canvas.current_img) * self.mask
+            roi_shape = img.shape
+            mask_roi, mask_type = self.get_roi_mask(roi_list, roi_item, roi_shape)
+            img = img * mask_roi
+            '''
             roi_cord = np.int32(np.array(roi_list[roi_item.text()][:4]))
             a, b, c, d = roi_cord[0], roi_cord[1], roi_cord[2], roi_cord[3]
             x1 = min(a, c)
@@ -6806,15 +6811,32 @@ class App(QWidget):
             y2 = max(b, d)
             img = np.squeeze(current_canvas.current_img) * self.mask
             img = img[y1:y2, x1:x2]
+            '''
             img_f = img[img>0]
             v_mean = np.mean(img_f)
             v_var = np.var(img_f)**(0.5)
+            v_min = np.min(img_f)
+            v_max = np.max(img_f)
             m = np.int32(img>0)
+            n_point = len(img_f)
+            '''
             v = np.sum(img) / np.sum(m)
             txt = f'mean={v_mean:2.6f}, var={v_var:2.6f}'
             print(txt)
-            self.msg = f'   {roi_item.text()}:    Mean value = {v_mean:2.6f},  Variation = {v_var:2.6f}'
-
+            '''
+            self.msg = (f'   {roi_item.text()}:    Mean value = {v_mean:2.6f},  '
+                        f'Variation = {v_var:2.6f},   Min = {v_min:2.6f},   Max = {v_max:2.6f}')
+            plt.figure()
+            if n_point >= 1e4:
+                bins = 100
+            elif n_point >= 1e3:
+                bins = 50
+            else:
+                bins = 20
+            plt.hist(img_f, bins=bins)
+            plt.title(roi_item.text())
+            plt.show()
+            QApplication.processEvents()
         except Exception as err:
             self.msg = str(err)
         finally:
