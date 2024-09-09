@@ -7539,19 +7539,6 @@ class App(QWidget):
                     # read energy
                     try:
                         self.xanes_eng = np.round(np.array(f[dataset_eng]), 8)  # Generally, it is in unit of keV
-
-                        # if min(self.xanes_eng) < 4000:  # make sure it is in unit of KeV
-                        #     self.xanes_eng = self.xanes_eng * 1000
-                        st = '{0:2.4f}, {1:2.4f}, ..., {2:2.4f} keV (totally, {3} energies)'.format(self.xanes_eng[0], self.xanes_eng[1], self.xanes_eng[-1], len(self.xanes_eng))
-                        self.tx_fit_pre_s.setText('{:2.4f}'.format(min(self.xanes_eng) - 0.001))
-                        self.tx_fit_pre_e.setText('{:2.4f}'.format(min(self.xanes_eng) + 0.010))
-                        self.tx_fit_post_e.setText('{:2.4f}'.format(max(self.xanes_eng) + 0.001))
-                        self.tx_fit_post_s.setText('{:2.4f}'.format(max(self.xanes_eng) - 0.010))
-                        self.lb_eng1.setText(st)
-                        self.tx_fit2d_s.setText('{:2.4f}'.format(self.xanes_eng[0]))
-                        self.tx_fit2d_e.setText('{:2.4f}'.format(self.xanes_eng[-1]))
-                        self.tx_multi_elem_s.setText('{:2.4f}'.format(self.xanes_eng[0]))
-                        self.tx_multi_elem_e.setText('{:2.4f}'.format(self.xanes_eng[-1]))
                     except Exception as err:
                         self.xanes_eng = np.array([0])
                         self.lb_eng1.setText('No energy data ...')
@@ -7564,8 +7551,8 @@ class App(QWidget):
                     try:
                         try:
                             self.img_xanes = pyxas.rm_abnormal(np.array(f[dataset_xanes]))
-                            if flag_reverse_eng:
-                                self.img_xanes = self.img_xanes[::-1]
+                            #if flag_reverse_eng:
+                            # self.img_xanes = self.img_xanes[::-1]
                             if not self.chkbox_white_field_corr.isChecked():
                                 dataset_bkg = self.tx_hdf_xanes_bkg.text()
                                 dataset_dark = self.tx_hdf_xanes_dark.text()
@@ -7584,7 +7571,7 @@ class App(QWidget):
                         s = self.img_xanes.shape
                         if len(s) == 2:
                             self.img_xanes = np.expand_dims(self.img_xanes, axis=0)
-                        self.img_update = deepcopy(self.img_xanes)
+                        # self.img_update = deepcopy(self.img_xanes)
                         print('Image size: ' + str(self.img_xanes.shape))
                         self.pb_norm_txm.setEnabled(True)
                         self.pb_align.setEnabled(True)
@@ -7609,9 +7596,29 @@ class App(QWidget):
                     load_fitted = 0
 
                     try:
+
                         self.xanes_eng, self.img_xanes = pyxas.check_eng_image_order(self.xanes_eng, self.img_xanes)
-                    except:
-                        pass
+
+                        st = '{0:2.4f}, {1:2.4f}, ..., {2:2.4f} keV (totally, {3} energies)'.format(
+                            self.xanes_eng[0], self.xanes_eng[1], self.xanes_eng[-1], len(self.xanes_eng))
+                        self.tx_fit_pre_s.setText('{:2.4f}'.format(min(self.xanes_eng) - 0.001))
+                        self.tx_fit_pre_e.setText('{:2.4f}'.format(min(self.xanes_eng) + 0.010))
+                        self.tx_fit_post_e.setText('{:2.4f}'.format(max(self.xanes_eng) + 0.001))
+                        self.tx_fit_post_s.setText('{:2.4f}'.format(max(self.xanes_eng) - 0.010))
+                        self.lb_eng1.setText(st)
+                        self.tx_fit2d_s.setText('{:2.4f}'.format(self.xanes_eng[0]))
+                        self.tx_fit2d_e.setText('{:2.4f}'.format(self.xanes_eng[-1]))
+                        self.tx_multi_elem_s.setText('{:2.4f}'.format(self.xanes_eng[0]))
+                        self.tx_multi_elem_e.setText('{:2.4f}'.format(self.xanes_eng[-1]))
+                    except Exception as err:
+                        self.xanes_eng = np.array([0])
+                        self.lb_eng1.setText('No energy data ...')
+                        self.lb_eng2.setVisible(True)
+                        self.tx_eng.setVisible(True)
+                        self.pb_eng.setVisible(True)
+                        self.msg = self.msg + f';  Energy list not exist.  Error: {str(err)}'
+                        self.update_msg()
+                    self.img_update = deepcopy(self.img_xanes)
                     self.update_canvas_img()
                     self.update_msg()
                     f.close()
