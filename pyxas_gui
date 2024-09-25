@@ -4700,8 +4700,6 @@ class App(QWidget):
             file_type = 'txt files (*.txt)'
             fn, _ = QFileDialog.getOpenFileName(xanes, "QFileDialog.getOpenFileName()", "", file_type, options=options)
             if fn:
-                self.xanes_eng = np.array(np.loadtxt(fn))
-                self.load_file_multi_elem_eng_batch_successfull = True
                 self.tx_multi_elem_eng_folder.setText(fn)
         except:
             print('fail to load Energy file')
@@ -4763,12 +4761,13 @@ class App(QWidget):
         try:
             n_cpu = int(self.tx_multi_elem_batch_cpu.text())
             roi_selected = f'roi_{align_roi_index}'
-            if self.load_file_multi_elem_batch_successfull and self.load_file_multi_elem_eng_batch_successfull:
+            if self.load_file_multi_elem_batch_successfull:
                 self.pb_multi_elem_fit_batch.setEnabled(False)
                 fn = self.multi_elem_batch_files[0]
                 fn_root = fn.split('/')
                 fsave_root = '/'.join(x for x in fn_root[:-1])
                 n = len(self.multi_elem_batch_files)
+                fn_eng = self.tx_multi_elem_eng_folder.text()
                 ts = time.time()
                 for i in range(n):
                     te = time.time()
@@ -4780,8 +4779,9 @@ class App(QWidget):
                     img = io.imread(fn)
                     img = pyxas.rm_abnormal(img)
                     img_stack = img.copy()
+                    self.xanes_eng = np.array(np.loadtxt(fn_eng))
                     self.xanes_eng, img_stack = pyxas.check_eng_image_order(self.xanes_eng, img_stack)
-                    n_img = len(img_stack)
+
                     if align_flag:
                         txt = txt_title + 'align...'
                         self.pb_multi_elem_fit_batch.setText(txt)
@@ -4790,28 +4790,13 @@ class App(QWidget):
                         QApplication.processEvents()
                         img_roi = self._get_roi_image(img_stack, roi_selected)
                         img_stack = pyxas.align_img_stack_stackreg2_mpi(img_stack, align_ref_index, img_roi, n_cpu, align_method)
-                        '''
-                        for j in range(n_img):
-                            self.msg = msg_current_file + f'aligning {j+1}/{n_img}'
-                            self.update_msg()
-                            QApplication.processEvents()
-                            rsft, csft, sr = pyxas.align_img_stackreg(img_roi[align_ref_index], img_roi[j],
-                                                                      align_flag=0, method='translation')
-                            img_stack[j] = sr.transform(img_stack[j])
-                        '''
+
                     if nl_flag:
                         txt = txt_title + 'denoise...'
                         self.msg = msg_current_file + 'denoise ...'
                         self.pb_multi_elem_fit_batch.setText(txt)
                         self.update_msg()
                         QApplication.processEvents()
-                        '''
-                        for j in range(n_img):
-                            self.msg = msg_current_file + f'non-local mean denoising {j + 1}/{n_img}'
-                            self.update_msg()
-                            QApplication.processEvents()
-                            img_stack[j] = pyxas.img_denoise_nl(img_stack[i], nl_filt_sz, nl_filt_dis)[0]
-                        '''
                         img_stack = pyxas.img_denoise_nl_mpi(img_stack, nl_filt_sz, nl_filt_dis, n_cpu)
 
                     if mf_flag:
