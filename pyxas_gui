@@ -3296,12 +3296,12 @@ class App(QWidget):
         lb_batch.setFont(self.font1)
 
         lb_file = QLabel()
-        lb_file.setText('File path:')
-        lb_file.setFixedWidth(70)
+        lb_file.setText('Image path:')
+        lb_file.setFixedWidth(75)
         lb_file.setFont(self.font2)
 
         self.tx_multi_elem_folder = QLineEdit()
-        self.tx_multi_elem_folder.setFixedWidth(230)
+        self.tx_multi_elem_folder.setFixedWidth(225)
         self.tx_multi_elem_folder.setFont(self.font2)
 
         self.pb_mulit_elem_open = QPushButton('Open')
@@ -3314,6 +3314,26 @@ class App(QWidget):
         hbox_multi_elem_open.addWidget(self.tx_multi_elem_folder)
         hbox_multi_elem_open.addWidget(self.pb_mulit_elem_open)
         hbox_multi_elem_open.setAlignment(QtCore.Qt.AlignLeft)
+
+        lb_eng_file = QLabel()
+        lb_eng_file.setText('XEng path:')
+        lb_eng_file.setFixedWidth(75)
+        lb_eng_file.setFont(self.font2)
+
+        self.tx_multi_elem_eng_folder = QLineEdit()
+        self.tx_multi_elem_eng_folder.setFixedWidth(225)
+        self.tx_multi_elem_eng_folder.setFont(self.font2)
+
+        self.pb_mulit_elem_eng_open = QPushButton('Open')
+        self.pb_mulit_elem_eng_open.setFont(self.font2)
+        self.pb_mulit_elem_eng_open.setFixedWidth(80)
+        self.pb_mulit_elem_eng_open.clicked.connect(self.open_file_multi_elem_eng)
+
+        hbox_multi_elem_eng_open = QHBoxLayout()
+        hbox_multi_elem_eng_open.addWidget(lb_eng_file)
+        hbox_multi_elem_eng_open.addWidget(self.tx_multi_elem_eng_folder)
+        hbox_multi_elem_eng_open.addWidget(self.pb_mulit_elem_eng_open)
+        hbox_multi_elem_eng_open.setAlignment(QtCore.Qt.AlignLeft)
 
         # align image
         self.chkbox_multi_elem_align = QCheckBox('Align:')
@@ -3486,6 +3506,7 @@ class App(QWidget):
         self.tx_mulit_elem_color_clim.setText('0, 1')
         self.tx_mulit_elem_color_clim.setFixedWidth(50)
 
+
         hbox_multi_elem_color = QHBoxLayout()
         hbox_multi_elem_color.addWidget(self.chkbox_multi_elem_color)
         hbox_multi_elem_color.addWidget(lb_mulit_elem_color_clim)
@@ -3521,6 +3542,7 @@ class App(QWidget):
         vbox_multi_elem_batch = QVBoxLayout()
         vbox_multi_elem_batch.addWidget(lb_batch)
         vbox_multi_elem_batch.addLayout(hbox_multi_elem_open)
+        vbox_multi_elem_batch.addLayout(hbox_multi_elem_eng_open)
         vbox_multi_elem_batch.addLayout(hbox_multi_elem_align)
         vbox_multi_elem_batch.addLayout(hbox_multi_elem_nl)
         vbox_multi_elem_batch.addLayout(hbox_multi_elem_mf)
@@ -4669,6 +4691,18 @@ class App(QWidget):
         finally:
             self.update_msg()
 
+    def open_file_multi_elem_eng(self):
+        #xanes_eng, img_xanes = pyxas.check_eng_image_order(xanes_eng, img_xanes)
+        self.load_file_multi_elem_eng_batch_successfull = False
+        try:
+            options = QFileDialog.Option()
+            options |= QFileDialog.DontUseNativeDialog
+            file_type = 'txt files (*.txt)'
+            fn, _ = QFileDialog.getOpenFileName(xanes, "QFileDialog.getOpenFileName()", "", file_type, options=options)
+            if fn:
+                self.tx_multi_elem_eng_folder.setText(fn)
+        except:
+            print('fail to load Energy file')
 
     def open_file_multi_elem(self):
         try:
@@ -4723,6 +4757,7 @@ class App(QWidget):
         mask_roi_index = int(self.tx_mulit_elem_cmask_roi.text())
 
         color_flag = 1 if self.chkbox_multi_elem_color.isChecked() else 0
+
         try:
             n_cpu = int(self.tx_multi_elem_batch_cpu.text())
             roi_selected = f'roi_{align_roi_index}'
@@ -4732,6 +4767,7 @@ class App(QWidget):
                 fn_root = fn.split('/')
                 fsave_root = '/'.join(x for x in fn_root[:-1])
                 n = len(self.multi_elem_batch_files)
+                fn_eng = self.tx_multi_elem_eng_folder.text()
                 ts = time.time()
                 for i in range(n):
                     te = time.time()
@@ -4743,7 +4779,9 @@ class App(QWidget):
                     img = io.imread(fn)
                     img = pyxas.rm_abnormal(img)
                     img_stack = img.copy()
-                    n_img = len(img_stack)
+                    self.xanes_eng = np.array(np.loadtxt(fn_eng))
+                    self.xanes_eng, img_stack = pyxas.check_eng_image_order(self.xanes_eng, img_stack)
+
                     if align_flag:
                         txt = txt_title + 'align...'
                         self.pb_multi_elem_fit_batch.setText(txt)
@@ -4752,28 +4790,13 @@ class App(QWidget):
                         QApplication.processEvents()
                         img_roi = self._get_roi_image(img_stack, roi_selected)
                         img_stack = pyxas.align_img_stack_stackreg2_mpi(img_stack, align_ref_index, img_roi, n_cpu, align_method)
-                        '''
-                        for j in range(n_img):
-                            self.msg = msg_current_file + f'aligning {j+1}/{n_img}'
-                            self.update_msg()
-                            QApplication.processEvents()
-                            rsft, csft, sr = pyxas.align_img_stackreg(img_roi[align_ref_index], img_roi[j],
-                                                                      align_flag=0, method='translation')
-                            img_stack[j] = sr.transform(img_stack[j])
-                        '''
+
                     if nl_flag:
                         txt = txt_title + 'denoise...'
                         self.msg = msg_current_file + 'denoise ...'
                         self.pb_multi_elem_fit_batch.setText(txt)
                         self.update_msg()
                         QApplication.processEvents()
-                        '''
-                        for j in range(n_img):
-                            self.msg = msg_current_file + f'non-local mean denoising {j + 1}/{n_img}'
-                            self.update_msg()
-                            QApplication.processEvents()
-                            img_stack[j] = pyxas.img_denoise_nl(img_stack[i], nl_filt_sz, nl_filt_dis)[0]
-                        '''
                         img_stack = pyxas.img_denoise_nl_mpi(img_stack, nl_filt_sz, nl_filt_dis, n_cpu)
 
                     if mf_flag:
