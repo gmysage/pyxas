@@ -10613,6 +10613,7 @@ class App(QWidget):
             self.lb_param_eng_info.setText(
                 f'Energy: {n_eng} energies: {self.eng[0]:2.4f}, {self.eng[1]:2.4f},   ...   {self.eng[-1]:2.4f} keV')
             self.load_eng_successful = 1
+            self.fn_eng_3D_peak_fit = fn
             if not self.load_file_successful:
                 self.tx_param_fit_range_s.setText(f'{self.eng[0]:2.4f}')
                 self.tx_param_fit_range_e.setText(f'{self.eng[-1]:2.4f}')
@@ -11559,11 +11560,13 @@ class App(QWidget):
             return 0
         if self.load_file_successful:
             fit_max = 1
+            '''
             try:
                 xanes_eng = self.eng
             except Exception:
                 xanes_eng = []
-
+            '''
+            fn_eng = self.fn_eng_3D_peak_fit
             file_path = self.file_path
             file_type = self.file_type
             file_prefix = self.file_prefix
@@ -11612,6 +11615,7 @@ class App(QWidget):
                         self.msg = 'number of energy does not match image shape'
                         self.update_msg()
                     time_s = time.time()
+                    xanes_eng = np.loadtxt(fn_eng)
                     img_xanes = pyxas.check_if_need_align(img_xanes, fit_param)
                     xanes_eng, img_xanes = pyxas.check_eng_image_order(xanes_eng, img_xanes)
                     peak_pos, peak_val, fit_error = pyxas.fit_peak_2D_xanes_poly(img_xanes, xanes_eng,
