@@ -11610,12 +11610,14 @@ class App(QWidget):
                     else:  # h5 file
                         img_xanes = pyxas.get_img_from_hdf_file(fn, hdf_attr)[hdf_attr]
                     img_xanes *= scale * fit_max
+
+                    time_s = time.time()
+                    xanes_eng = np.loadtxt(fn_eng)
                     if len(xanes_eng) != len(img_xanes):
                         print('number of energy does not match image shape')
                         self.msg = 'number of energy does not match image shape'
                         self.update_msg()
-                    time_s = time.time()
-                    xanes_eng = np.loadtxt(fn_eng)
+                        return 0
                     img_xanes = pyxas.check_if_need_align(img_xanes, fit_param)
                     xanes_eng, img_xanes = pyxas.check_eng_image_order(xanes_eng, img_xanes)
                     peak_pos, peak_val, fit_error = pyxas.fit_peak_2D_xanes_poly(img_xanes, xanes_eng,
