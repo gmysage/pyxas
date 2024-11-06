@@ -1163,3 +1163,26 @@ def rm_duplicate(my_list):
             new_list.append(my_list[i])
             id_list.append(my_list[i, 0])
     return np.array(new_list)
+
+
+def edge_integral(img_stack, eng, E1, E2):
+    s = img_stack.shape  # (63, 270, 320)
+    mu = img_stack.reshape(s[0], -1)  # (63, 86400)
+    id1 = find_nearest(E1, eng)
+    id2 = find_nearest(E2, eng)
+    mu1 = mu[id1]  # (86400, )
+    mu2 = mu[id2]  # (86400, )
+
+    mu_p = mu[id1:id2]
+    mu_mid = (mu_p[:-1] + mu_p[1:]) / 2
+    E_p = eng[id1:id2]  # (9, )
+    E_dif = np.diff(E_p)  # (9, )
+    mu_dif = (mu2 - mu_mid)  # (9, 86400)
+    E_sum = E_dif @ mu_dif
+    edge = E_sum / (mu2 - mu1) + E1
+    edge = edge.reshape(*s[1:])
+    edge[np.isnan(edge)] = 0
+    edge[np.isinf(edge)] = 0
+    edge[edge > E2] = 0
+    edge[edge < E1] = 0
+    return edge

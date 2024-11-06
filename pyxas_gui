@@ -1961,9 +1961,18 @@ class App(QWidget):
         lb_empty3 = QLabel()
         lb_empty3.setFixedHeight(20)
 
+        lb_empty4 = QLabel()
+        lb_empty4.setFixedHeight(10)
+
+        lb_sep = QLabel()
+        lb_sep.setFixedHeight(2)
+        lb_sep.setFixedWidth(300)
+        lb_sep.setStyleSheet('background-color: rgb(50, 50, 100);')
+
         vbox_load_2d_ref = self.layout_load_2d_ref()
         vbox_fit_2d_method = self.layout_fit_2d_method()
         vbox_plot_2d_roi = self.layout_plot_2d_roi()
+        vbox_edge_integ = self.layout_edge_integral()
 
         vbox_assemble = QVBoxLayout()
         vbox_assemble.addLayout(vbox_load_2d_ref)
@@ -1971,6 +1980,10 @@ class App(QWidget):
         vbox_assemble.addLayout(vbox_fit_2d_method)
         vbox_assemble.addWidget(lb_empty2)
         vbox_assemble.addLayout(vbox_plot_2d_roi)
+        vbox_assemble.addWidget(lb_empty3)
+        vbox_assemble.addWidget(lb_sep)
+        vbox_assemble.addWidget(lb_empty4)
+        vbox_assemble.addLayout(vbox_edge_integ)
         vbox_assemble.setAlignment(QtCore.Qt.AlignTop)
         vbox_assemble.addStretch()
         return vbox_assemble
@@ -2327,6 +2340,84 @@ class App(QWidget):
 
         return vbox_roi
         ##########################
+
+
+    def layout_edge_integral(self):
+        lb_edge_integ = QLabel()
+        lb_edge_integ.setText('Edge integral')
+        lb_edge_integ.setFont(self.font1)
+        lb_edge_integ.setFixedWidth(250)
+
+        lb_edge_integ_note = QLabel()
+        lb_edge_integ_note.setText('Find edge position using integral method')
+        lb_edge_integ_note.setFont(self.font2)
+        lb_edge_integ_note.setFixedWidth(350)
+
+        ######### energy range
+        lb_edge_integ_s = QLabel()
+        lb_edge_integ_s.setText('Energy range       start:')
+        lb_edge_integ_s.setFont(self.font2)
+        lb_edge_integ_s.setFixedWidth(160)
+
+        lb_edge_integ_e = QLabel()
+        lb_edge_integ_e.setText(' end:')
+        lb_edge_integ_e.setFont(self.font2)
+        lb_edge_integ_e.setFixedWidth(40)
+
+        self.tx_edge_integ_s = QLineEdit()
+        self.tx_edge_integ_s.setFont(self.font2)
+        self.tx_edge_integ_s.setFixedWidth(60)
+
+        self.tx_edge_integ_e = QLineEdit()
+        self.tx_edge_integ_e.setFont(self.font2)
+        self.tx_edge_integ_e.setFixedWidth(60)
+
+        hbox_edge_integ_range = QHBoxLayout()
+        hbox_edge_integ_range.addWidget(lb_edge_integ_s)
+        hbox_edge_integ_range.addWidget(self.tx_edge_integ_s)
+        hbox_edge_integ_range.addWidget(lb_edge_integ_e)
+        hbox_edge_integ_range.addWidget(self.tx_edge_integ_e)
+        hbox_edge_integ_range.setAlignment(QtCore.Qt.AlignLeft)
+
+        ############# fit roi
+        self.pb_edge_integ_roi = QPushButton('Fit ROI')
+        self.pb_edge_integ_roi.setFont(self.font2)
+        self.pb_edge_integ_roi.clicked.connect(self.fit_edge_integ_roi)
+        self.pb_edge_integ_roi.setEnabled(True)
+        self.pb_edge_integ_roi.setFixedWidth(105)
+
+        lb_edge_integ_roi = QLabel()
+        lb_edge_integ_roi.setFont(self.font2)
+        lb_edge_integ_roi.setText(' ROI #: ')
+        lb_edge_integ_roi.setFixedWidth(50)
+
+        self.tx_edge_integ_roi = QLineEdit(self)
+        self.tx_edge_integ_roi.setFont(self.font2)
+        self.tx_edge_integ_roi.setText('-1')
+        self.tx_edge_integ_roi.setFixedWidth(60)
+
+        hbox_edge_roi_plot = QHBoxLayout()
+        hbox_edge_roi_plot.addWidget(self.pb_edge_integ_roi)
+        hbox_edge_roi_plot.addWidget(lb_edge_integ_roi)
+        hbox_edge_roi_plot.addWidget(self.tx_edge_integ_roi)
+        hbox_edge_roi_plot.setAlignment(QtCore.Qt.AlignTop)
+
+        ####### fit 2D image
+        self.pb_edge_integ_2d = QPushButton('Fit 2D edge')
+        self.pb_edge_integ_2d.setFont(self.font2)
+        self.pb_edge_integ_2d.clicked.connect(self.fit_edge_integ_2D)
+        self.pb_edge_integ_2d.setEnabled(True)
+        self.pb_edge_integ_2d.setFixedWidth(105)
+
+        #######
+        vbox = QVBoxLayout()
+        vbox.addWidget(lb_edge_integ)
+        vbox.addWidget(lb_edge_integ_note)
+        vbox.addLayout(hbox_edge_integ_range)
+        vbox.addLayout(hbox_edge_roi_plot)
+        vbox.addWidget(self.pb_edge_integ_2d)
+        vbox.setAlignment(QtCore.Qt.AlignTop)
+        return vbox
 
 
     def layout_thresh_mask(self):
@@ -5382,9 +5473,9 @@ class App(QWidget):
         return img
 
 
-    def _get_roi_selection(self):
+    def _get_roi_selection(self, item):
         try:
-            n = self.tx_fit_roi.text()
+            n = item.text()
             roi_selected = 'roi_' + n
 
         except Exception as err:
@@ -5474,7 +5565,7 @@ class App(QWidget):
             bkg_polynomial_order = self.get_bkg_poly_order()
 
             elem = self._get_elem()
-            roi_selected = self._get_roi_selection()
+            roi_selected = self._get_roi_selection(self.tx_fit_roi)
             fit_eng_range = self._get_fit_eng_range()
             img = self._select_xanes_fit_img()
 
@@ -5592,6 +5683,62 @@ class App(QWidget):
             self.update_msg()
         else:
             self.msg = 'export fails'
+            self.update_msg()
+
+
+    def fit_edge_integ_roi(self):
+        try:
+            roi_selected = self._get_roi_selection(self.tx_edge_integ_roi)
+            img = self._select_xanes_fit_img()
+
+            if len(img):
+                img = self.smooth(img)
+            eng = self.xanes_eng.copy()
+            img_stack = self._get_roi_image(img, roi_selected)
+            img_stack_s = np.mean(np.mean(img_stack, axis=-1), axis=-1)
+            img_stack_s = img_stack_s.reshape((len(eng), 1, 1))
+            m1 = np.min(img_stack_s)
+            m2 = np.max(img_stack_s)
+            try:
+                E1 = float(self.tx_edge_integ_s.text())
+                E2 = float(self.tx_edge_integ_e.text())
+            except:
+                print('check energy range')
+                return 0
+            edge = pyxas.edge_integral(img_stack_s, eng, E1, E2)
+            edge = np.squeeze(edge)
+            plt.figure()
+            plt.plot(eng, img_stack_s.squeeze())
+            plt.plot([edge, edge], [m1*0.98, m2*1.02])
+            txt = f'E1={E1}, E2={E2}, edge={edge:2.5f}'
+            plt.title(txt)
+            plt.show()
+        except Exception as err:
+            print(err)
+            self.msg = str(err)
+            self.update_msg()
+
+    def fit_edge_integ_2D(self):
+        try:
+            img = self._select_xanes_fit_img()
+            if len(img):
+                img = self.smooth(img)
+            eng = self.xanes_eng.copy()
+            try:
+                E1 = float(self.tx_edge_integ_s.text())
+                E2 = float(self.tx_edge_integ_e.text())
+            except:
+                print('check energy range')
+                return 0
+            edge = pyxas.edge_integral(img, eng, E1, E2)
+            self.edge_integ = edge.copy()
+            if self.cb1.findText('Edge integral') < 0:
+                self.cb1.addItem('Edge integral')
+            self.cb1.setCurrentText('Edge integral')
+            self.update_canvas_img()
+        except Exception as err:
+            print(err)
+            self.msg = str(err)
             self.update_msg()
 
 
@@ -8016,7 +8163,7 @@ class App(QWidget):
                 canvas.update_img_stack()
                 slide.setMaximum(max(sh[0] - 1, 0))
                 self.current_image = self.img_xanes[0]
-
+                self.auto_contrast(self.canvas1)
             elif type_index == 'Image updated':
                 self.img_colormix_raw = np.array([])
                 canvas.rgb_flag = 0
@@ -8032,6 +8179,7 @@ class App(QWidget):
                 canvas.update_img_stack()
                 slide.setMaximum(max(sh[0] - 1, 0))
                 self.current_image = img[0]
+                self.auto_contrast(self.canvas1)
                 #self.data_summary[type_index] = self.canvas1.img_stack
             elif type_index == 'Moved from external':
                 self.img_colormix_raw = np.array([])
@@ -8387,7 +8535,7 @@ class App(QWidget):
                 canvas.update_img_stack()
                 slide.setMaximum(max(sh[0] - 1, 0))
                 self.current_image = img[0]
-                self.display_cmin_cmax(0, 1)
+                self.display_cmin_cmax(0, 1, canvas)
                 #self.data_summary[type_index] = self.canvas1.img_stack * self.mask
             elif type_index == 'Multi-elem fit (concentration)':
                 self.img_colormix_raw = np.array([])
@@ -8425,7 +8573,23 @@ class App(QWidget):
                 self.current_image = img[0]
                 self.auto_contrast(self.canvas1)
                 self.data_summary[type_index] = self.canvas1.img_stack
-
+            elif type_index == 'Edge integral':
+                self.img_colormix_raw = np.array([])
+                canvas.rgb_flag = 0
+                img = self.edge_integ
+                self.pb_roi_draw.setEnabled(True)
+                canvas.x, canvas.y = [], []
+                canvas.axes.clear()  # this is important, to clear the current image before another imshow()
+                canvas.img_stack = self.smooth(img)
+                canvas.special_info = None
+                # canvas.current_img_index = 0
+                canvas.current_img_index = 0
+                canvas.title = []
+                canvas.update_img_stack()
+                slide.setMaximum(0)
+                self.current_image = img[0]
+                self.auto_contrast(self.canvas1)
+                self.data_summary[type_index] = self.canvas1.img_stack
             elif type_index == 'Color mix':
                 img = self.img_colormix
                 img = self.smooth(img, axis=2)
@@ -13630,8 +13794,9 @@ class MyCanvas(FigureCanvas):
         except:
             print('image and mask has different shape, will not apply mask')
             img = self.current_img.copy()
-        self.cmax = np.max(img)
-        self.cmin = np.min(img)
+        non_zero = img[img>0]
+        self.cmax = np.max(non_zero)
+        self.cmin = np.min(non_zero)
         self.colorbar_on_flag = True
         self.update_img_one(self.current_img*self.mask, self.current_img_index)
         return self.cmin, self.cmax
