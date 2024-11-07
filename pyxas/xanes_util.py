@@ -1174,15 +1174,18 @@ def edge_integral(img_stack, eng, E1, E2):
     mu2 = mu[id2]  # (86400, )
 
     mu_p = mu[id1:id2]
+    n_pix = mu_p.shape[1]
+    for i in range(n_pix):
+        mu_p[:, i][mu_p[:, i] > mu2[i]] = mu2[i]
+        mu_p[:, i][mu_p[:, i] < mu1[i]] = mu1[i]
     mu_mid = (mu_p[:-1] + mu_p[1:]) / 2
     E_p = eng[id1:id2]  # (9, )
     E_dif = np.diff(E_p)  # (9, )
     mu_dif = (mu2 - mu_mid)  # (9, 86400)
     E_sum = E_dif @ mu_dif
-    edge = E_sum / (mu2 - mu1) + E1
-    edge = edge.reshape(*s[1:])
+    edge = E_sum / (mu2 - mu1)
     edge[np.isnan(edge)] = 0
     edge[np.isinf(edge)] = 0
-    edge[edge > E2] = 0
-    edge[edge < E1] = 0
+    edge = edge + E1
+    edge = edge.reshape(*s[1:])
     return edge
