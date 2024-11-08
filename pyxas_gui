@@ -5741,6 +5741,72 @@ class App(QWidget):
             self.msg = str(err)
             self.update_msg()
 
+    def fit_edge_integ_3D(self):
+        try:
+            self.pb_3D_edge_integ.setEnabled(False)
+            fn_eng = self.fn_eng_3D_peak_fit
+            file_path = self.file_path
+            file_type = self.file_type
+            file_prefix = self.file_prefix
+            hdf_attr = self.tx_param_hdf.text()
+            file_save_edge_fit = f'{file_path}/edge_fit'
+            pyxas.create_directory(file_save_edge_fit)
+            try:
+                xs = float(self.tx_3D_edge_s.text())
+                xe = float(self.tx_3D_edge_e.text())
+                E1 = min(xs, xe)
+                E2 = max(xs, xe)
+            except Exception as err:
+                print(err)
+            self.collect_3D_fit_param()
+            fit_param = self.fit_param
+            mask_comp = self.fit_param['n_comp'] # cluster mask component
+            fs = pyxas.retrieve_file_type(file_path,
+                                        file_prefix=file_prefix,
+                                        file_type=file_type)
+            file_suffix = fs[0].split('.')[-1]
+            n_file = len(fs)
+            edge3D = []
+
+            for i in range(n_file):
+                self.pb_3D_edge_integ.setText(f'processing {i+1} / {n_file}')
+                QApplication.processEvents()
+                fn = fs[i]
+                fn_save = fn.split('/')[-1].split('.')[0]
+                if 'tif' in file_suffix:  # tiff file
+                    img_xanes = pyxas.get_img_from_tif_file(fn)
+                else:  # h5 file
+                    img_xanes = pyxas.get_img_from_hdf_file(fn, hdf_attr)[hdf_attr]
+                xanes_eng = np.loadtxt(fn_eng)
+                if len(xanes_eng) != len(img_xanes):
+                    print('number of energy does not match image shape')
+                    self.msg = 'number of energy does not match image shape'
+                    self.update_msg()
+                    return 0
+                img_xanes = pyxas.check_if_need_align(img_xanes, fit_param)
+                xanes_eng, img_xanes = pyxas.check_eng_image_order(xanes_eng, img_xanes)
+                edge = pyxas.edge_integral(img_xanes, xanes_eng, E1, E2)
+                if mask_comp > 0:
+                    mask, img_labels = pyxas.kmean_mask(img_xanes,  mask_comp)
+                    mask = mask[0]
+                else:
+                    mask = 1
+                edge = edge * mask
+                fn_save_edge = f'{file_save_edge_fit}/{fn_save}_edge_pos.tiff'
+                io.imsave(fn_save_edge, edge.astype(np.float32))
+                edge3D.append(edge.squeeze())
+            fn_save_edge_3D = f'{file_save_edge_fit}/edge_3D.tiff'
+            io.imsave(fn_save_edge_3D, np.array(edge3D).astype(np.float32))
+            msg = 'Edge finding finished'
+        except Exception as err:
+            print(err)
+            msg = str(err)
+        finally:
+            self.lb_3D_msg.setText(msg)
+            self.pb_3D_edge_integ.setText('Fit edge integral')
+            self.pb_3D_edge_integ.setEnabled(True)
+            QApplication.processEvents()
+
 
     def select_file(self):
         self.tx_hdf_xanes.setEnabled(True)
@@ -9698,9 +9764,6 @@ class App(QWidget):
         return gpbox
 
 
-    def layout_3D_param_default(self):
-        pass
-
 
     def layout_3D_msg(self):
         self.lb_3D_ip = QLabel()
@@ -10682,12 +10745,35 @@ class App(QWidget):
         self.tx_3D_peak_cpu.setValidator(QIntValidator())
         self.tx_3D_peak_cpu.setFont(self.font2)
 
+        ## edge integral
+        lb_3D_edge_integ = QLabel()
+        lb_3D_edge_integ.setText('Fit edge:')
+        lb_3D_edge_integ.setFixedWidth(80)
+        lb_3D_edge_integ.setFont(self.font1)
+
+        lb_3D_edge_integ_note = QLabel()
+        lb_3D_edge_integ_note.setText('Check: if need alignment and apply cluster mask')
+        lb_3D_edge_integ_note.setFixedWidth(360)
+        lb_3D_edge_integ_note.setFont(self.font2)
+
+
+        self.pb_3D_edge_integ = QPushButton()
+        self.pb_3D_edge_integ.setText('Fit edge integral')
+        self.pb_3D_edge_integ.setFont(self.font2)
+        self.pb_3D_edge_integ.setFixedWidth(180)
+        self.pb_3D_edge_integ.clicked.connect(self.fit_edge_integ_3D)
+
+        hbox_edge = QHBoxLayout()
+        hbox_edge.addWidget(lb_3D_edge_integ)
+        hbox_edge.addWidget(lb_3D_edge_integ_note)
+        hbox_edge.addWidget(self.pb_3D_edge_integ)
+        hbox_edge.setAlignment(QtCore.Qt.AlignLeft)
+
         hbox_peak_maxmin = QHBoxLayout()
         hbox_peak_maxmin.addWidget(lb_peak_maxmin)
         hbox_peak_maxmin.addWidget(self.rd_3D_peak_max)
         hbox_peak_maxmin.addWidget(self.rd_3D_peak_min)
         hbox_peak_maxmin.addWidget(self.chkbox_3D_gen_th_mask)
-
         hbox_peak_maxmin.addWidget(self.pb_3D_find_peak_img)
         hbox_peak_maxmin.addWidget(self.pb_3D_gen_cl_mask)
         hbox_peak_maxmin.setAlignment(QtCore.Qt.AlignLeft)
@@ -10695,6 +10781,7 @@ class App(QWidget):
         vbox_3D_find_peak = QVBoxLayout()
         vbox_3D_find_peak.addLayout(hbox_peak_param)
         vbox_3D_find_peak.addLayout(hbox_peak_maxmin)
+        vbox_3D_find_peak.addLayout(hbox_edge)
         vbox_3D_find_peak.setAlignment(QtCore.Qt.AlignTop)
         gpbox.setLayout(vbox_3D_find_peak)
         return gpbox
