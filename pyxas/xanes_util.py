@@ -1128,6 +1128,8 @@ def fit_peak_2D_xanes_poly(img_xanes, xanes_eng, eng_range=[],fit_order=3, fit_m
     try:
         xs_id = find_nearest(xanes_eng, eng_range[0])
         xe_id = find_nearest(xanes_eng, eng_range[1])
+        xs_id = min(xs_id, xe_id)
+        xe_id = max(xs_id, xe_id)
         img = img[xs_id:xe_id]
         if len(xanes_eng):
             x = xanes_eng[xs_id:xe_id]

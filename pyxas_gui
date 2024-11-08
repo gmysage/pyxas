@@ -13798,7 +13798,11 @@ class MyCanvas(FigureCanvas):
         self.cmax = np.max(non_zero)
         self.cmin = np.min(non_zero)
         self.colorbar_on_flag = True
-        self.update_img_one(self.current_img*self.mask, self.current_img_index)
+        try:
+            img_disp = self.current_img*self.mask
+        except:
+            img_disp = self.current_img.copy()
+        self.update_img_one(img_disp, self.current_img_index)
         return self.cmin, self.cmax
 
     def rm_colorbar(self):
