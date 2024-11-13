@@ -3999,11 +3999,16 @@ class App(QWidget):
         self.cb_cmap.currentIndexChanged.connect(lambda:self.change_colormap(self.canvas1))
         self.cb_cmap.setFixedWidth(80)
 
-        self.pb_adj_cmap = QPushButton('Auto Contrast')
+        self.pb_adj_cmap = QPushButton('Auto')
         self.pb_adj_cmap.setFont(self.font2)
         self.pb_adj_cmap.clicked.connect(lambda:self.auto_contrast(self.canvas1))
         self.pb_adj_cmap.setEnabled(True)
-        self.pb_adj_cmap.setFixedWidth(120)
+        self.pb_adj_cmap.setFixedWidth(60)
+
+        self.chkbox_fix_cmap = QCheckBox('fix')
+        self.chkbox_fix_cmap.setFont(self.font2)
+        self.chkbox_fix_cmap.setFixedWidth(50)
+        self.chkbox_fix_cmap.setChecked(False)
 
         lb_cmax = QLabel()
         lb_cmax.setFont(self.font2)
@@ -4048,12 +4053,13 @@ class App(QWidget):
         hbox_cmap = QHBoxLayout()
         hbox_cmap.addWidget(lb_cmap)
         hbox_cmap.addWidget(self.cb_cmap)
-        hbox_cmap.addWidget(self.pb_adj_cmap)
         hbox_cmap.addWidget(lb_cmin)
         hbox_cmap.addWidget(self.tx_cmin)
         hbox_cmap.addWidget(lb_cmax)
         hbox_cmap.addWidget(self.tx_cmax)
+        hbox_cmap.addWidget(self.chkbox_fix_cmap)
         hbox_cmap.addWidget(self.pb_set_cmap)
+        hbox_cmap.addWidget(self.pb_adj_cmap)
         hbox_chbx_l.addWidget(lb_empty)
         hbox_cmap.setAlignment(QtCore.Qt.AlignLeft)
 
@@ -5720,6 +5726,7 @@ class App(QWidget):
 
     def fit_edge_integ_2D(self):
         try:
+            self.pb_edge_integ_2d.setEnabled(False)
             img = self._select_xanes_fit_img()
             if len(img):
                 img = self.smooth(img)
@@ -5740,6 +5747,8 @@ class App(QWidget):
             print(err)
             self.msg = str(err)
             self.update_msg()
+        finally:
+            self.pb_edge_integ_2d.setEnabled(True)
 
     def fit_edge_integ_3D(self):
         try:
@@ -5761,13 +5770,16 @@ class App(QWidget):
             self.collect_3D_fit_param()
             fit_param = self.fit_param
             mask_comp = self.fit_param['n_comp'] # cluster mask component
+            binning = self.fit_param['binning']
+            filter_size = self.fit_param['filter_size']
+
             fs = pyxas.retrieve_file_type(file_path,
                                         file_prefix=file_prefix,
                                         file_type=file_type)
             file_suffix = fs[0].split('.')[-1]
             n_file = len(fs)
             edge3D = []
-
+            mask3D = []
             for i in range(n_file):
                 self.pb_3D_edge_integ.setText(f'processing {i+1} / {n_file}')
                 QApplication.processEvents()
@@ -5785,18 +5797,30 @@ class App(QWidget):
                     return 0
                 img_xanes = pyxas.check_if_need_align(img_xanes, fit_param)
                 xanes_eng, img_xanes = pyxas.check_eng_image_order(xanes_eng, img_xanes)
+                s = img_xanes.shape
+                if binning > 1:
+                    output_size = (s[1]//binning, s[2]//binning)
+                    img_xanes = pyxas.crop_scale_image(img_xanes, output_size)
+                if filter_size > 1:
+                    img_xanes = pyxas.img_smooth(img_xanes, filter_size, axis=0)
+
                 edge = pyxas.edge_integral(img_xanes, xanes_eng, E1, E2)
                 if mask_comp > 0:
                     mask, img_labels = pyxas.kmean_mask(img_xanes,  mask_comp)
                     mask = mask[0]
+                    mask3D.append(mask.squeeze())
                 else:
                     mask = 1
                 edge = edge * mask
                 fn_save_edge = f'{file_save_edge_fit}/{fn_save}_edge_pos.tiff'
                 io.imsave(fn_save_edge, edge.astype(np.float32))
                 edge3D.append(edge.squeeze())
+
             fn_save_edge_3D = f'{file_save_edge_fit}/edge_3D.tiff'
+            fn_save_edge_3D_mask = f'{file_save_edge_fit}/mask_3D.tiff'
             io.imsave(fn_save_edge_3D, np.array(edge3D).astype(np.float32))
+            if mask_comp > 0:
+                io.imsave(fn_save_edge_3D_mask, np.array(mask3D).astype(np.float32))
             msg = 'Edge finding finished'
         except Exception as err:
             print(err)
@@ -6645,6 +6669,12 @@ class App(QWidget):
         QApplication.processEvents()
         self.smooth_param['kernal_size'] = int(self.tx_filt.text())
         self.smooth_param['flag'] = 1
+        canvas = self.canvas1
+        img_stack = canvas.img_stack.copy()
+        self.img_rm_noise = self.smooth(img_stack, axis=0)
+        if self.cb1.findText('Noise removal') < 0:
+            self.cb1.addItem('Noise removal')
+        self.cb1.setCurrentText('Noise removal')
         self.update_canvas_img()
         self.pb_filt.setEnabled(True)
         self.pb_filt.setText('Median filter')
@@ -8198,6 +8228,13 @@ class App(QWidget):
         self.update_msg()
 
 
+    def set_contrast_for_canvas_img(self, canvas):
+
+        canvas.current_img = canvas.img_stack[canvas.current_img_index]
+        cmin, cmax = self.get_contrast()
+        canvas.cmin = cmin
+        canvas.cmax = cmax
+
     def update_canvas_img(self):
         canvas = self.canvas1
         slide = self.sl1
@@ -8207,6 +8244,7 @@ class App(QWidget):
         self.pb_adj_cmap.setEnabled(True)
         self.pb_set_cmap.setEnabled(True)
         self.pb_del.setEnabled(True)
+
         if len(canvas.mask.shape) > 1:
             print(f'canvas_mask.shape = {canvas.mask.shape}')
             sh = canvas.img_stack.shape
@@ -8225,11 +8263,19 @@ class App(QWidget):
                 canvas.img_stack = self.smooth(self.img_xanes)
                 canvas.special_info = None
                 canvas.current_img_index = self.sl1.value()
+                self.set_contrast_for_canvas_img(canvas)
+                '''
+                canvas.current_img_index = self.sl1.value()
+                canvas.current_img = canvas.img_stack[canvas.current_img_index]
+                cmin, cmax = self.get_contrast()
+                canvas.cmin = cmin
+                canvas.cmax = cmax
+                '''
                 canvas.title = [f'#{i:3d},   {self.xanes_eng[i]:2.4f} keV' for i in range(len(self.xanes_eng))]
                 canvas.update_img_stack()
                 slide.setMaximum(max(sh[0] - 1, 0))
                 self.current_image = self.img_xanes[0]
-                self.auto_contrast(self.canvas1)
+                #self.auto_contrast(self.canvas1)
             elif type_index == 'Image updated':
                 self.img_colormix_raw = np.array([])
                 canvas.rgb_flag = 0
@@ -8241,11 +8287,13 @@ class App(QWidget):
                 canvas.img_stack = self.smooth(img)
                 canvas.special_info = None
                 canvas.current_img_index = self.sl1.value()
+                self.set_contrast_for_canvas_img(canvas)
+                canvas.current_img_index = self.sl1.value()
                 canvas.title = [f'#{i:3d},   {self.xanes_eng[i]:2.4f} keV' for i in range(len(self.xanes_eng))]
                 canvas.update_img_stack()
                 slide.setMaximum(max(sh[0] - 1, 0))
                 self.current_image = img[0]
-                self.auto_contrast(self.canvas1)
+                #self.auto_contrast(self.canvas1)
                 #self.data_summary[type_index] = self.canvas1.img_stack
             elif type_index == 'Moved from external':
                 self.img_colormix_raw = np.array([])
@@ -8258,6 +8306,7 @@ class App(QWidget):
                 canvas.img_stack = img
                 canvas.special_info = None
                 canvas.current_img_index = self.sl1.value()
+                self.set_contrast_for_canvas_img(canvas)
                 #canvas.title = [f'#{i:3d},   {self.xanes_eng[i]:2.4f} keV' for i in range(len(self.xanes_eng))]
                 canvas.update_img_stack()
                 slide.setMaximum(max(sh[0] - 1, 0))
@@ -8273,6 +8322,7 @@ class App(QWidget):
                 canvas.img_stack = self.smooth(img)
                 canvas.special_info = None
                 canvas.current_img_index = 0
+                self.set_contrast_for_canvas_img(canvas)
                 canvas.title = self.elem_label
                 canvas.update_img_stack()
                 slide.setMaximum(0)
@@ -8294,6 +8344,7 @@ class App(QWidget):
                 canvas.special_info = None
                 # canvas.current_img_index = 0
                 canvas.current_img_index = self.sl1.value()
+                self.set_contrast_for_canvas_img(canvas)
                 canvas.title = self.elem_label
                 canvas.cmin = 0
                 canvas.cmax = 1
@@ -8318,6 +8369,7 @@ class App(QWidget):
                 canvas.special_info = None
                 # canvas.current_img_index = 0
                 canvas.current_img_index = self.sl1.value()
+                self.set_contrast_for_canvas_img(canvas)
                 canvas.title = self.elem_label
                 canvas.update_img_stack()
                 slide.setMaximum(max(sh[0] - 1, 0))
@@ -8335,6 +8387,7 @@ class App(QWidget):
                 canvas.img_stack = self.smooth(img)
                 canvas.special_info = None
                 canvas.current_img_index = 0
+                self.set_contrast_for_canvas_img(canvas)
                 canvas.title = self.elem_label
                 canvas.update_img_stack()
                 slide.setMaximum(max(sh[0] - 1, 0))
@@ -8351,6 +8404,7 @@ class App(QWidget):
                 canvas.special_info = None
                 # canvas.current_img_index = 0
                 canvas.current_img_index = self.sl1.value()
+                self.set_contrast_for_canvas_img(canvas)
                 canvas.title = []
                 canvas.update_img_stack()
                 slide.setMaximum(0)
@@ -8368,6 +8422,7 @@ class App(QWidget):
                 canvas.special_info = None
                 # canvas.current_img_index = 0
                 canvas.current_img_index = self.sl1.value()
+                self.set_contrast_for_canvas_img(canvas)
                 canvas.title = []
                 canvas.update_img_stack()
                 #slide.setMaximum(0)
@@ -8386,6 +8441,7 @@ class App(QWidget):
                 canvas.special_info = None
                 # canvas.current_img_index = 0
                 canvas.current_img_index = self.sl1.value()
+                self.set_contrast_for_canvas_img(canvas)
                 canvas.title = []
                 canvas.update_img_stack()
                 # slide.setMaximum(0)
@@ -8404,6 +8460,7 @@ class App(QWidget):
                 canvas.special_info = None
                 # canvas.current_img_index = 0
                 canvas.current_img_index = self.sl1.value()
+                self.set_contrast_for_canvas_img(canvas)
                 canvas.title = [f'#{i:3d},   {self.xanes_eng[i]:2.4f} keV' for i in range(len(self.xanes_eng))]
                 canvas.update_img_stack()
                 slide.setMaximum(max(sh[0] - 1, 0))
@@ -8422,6 +8479,7 @@ class App(QWidget):
                 canvas.img_stack = self.smooth(img)
                 canvas.special_info = None
                 canvas.current_img_index = 0
+                self.set_contrast_for_canvas_img(canvas)
                 canvas.title = []
                 canvas.update_img_stack()
                 slide.setMaximum(0)
@@ -8439,6 +8497,7 @@ class App(QWidget):
                 canvas.img_stack = self.smooth(img)
                 canvas.special_info = None
                 canvas.current_img_index = self.sl1.value()
+                self.set_contrast_for_canvas_img(canvas)
                 if canvas.current_img_index >= img.shape[0]:
                     canvas.current_img_index = 0
                 canvas.title = []
@@ -8457,6 +8516,7 @@ class App(QWidget):
                 canvas.special_info = None
                 # canvas.current_img_index = 0
                 canvas.current_img_index = self.sl1.value()
+                self.set_contrast_for_canvas_img(canvas)
                 canvas.title = []
                 canvas.update_img_stack()
                 slide.setMaximum(0)
@@ -8472,6 +8532,7 @@ class App(QWidget):
                 canvas.special_info = None
                 # canvas.current_img_index = 0
                 canvas.current_img_index = self.sl1.value()
+                self.set_contrast_for_canvas_img(canvas)
                 canvas.title = []
                 canvas.update_img_stack()
                 slide.setMaximum(0)
@@ -8486,6 +8547,7 @@ class App(QWidget):
                 canvas.img_stack = self.smooth(img)
                 canvas.special_info = None
                 canvas.current_img_index = self.sl1.value()
+                self.set_contrast_for_canvas_img(canvas)
                 canvas.title = ['noise removed']
                 canvas.update_img_stack()
                 slide.setMaximum(img.shape[0]-1)
@@ -8516,15 +8578,7 @@ class App(QWidget):
                 canvas.img_stack = self.smooth(img)
                 canvas.special_info = None
                 canvas.current_img_index = 0
-                '''
-                try:
-                    canvas.cmin = float(self.tx_edge_s.text())
-                    self.tx_cmin.setText(f'{canvas.cmin}')
-                    canvas.cmax = float(self.tx_edge_e.text())
-                    self.tx_cmax.setText(f'{canvas.cmax}')
-                except Exception as err:
-                    print(err)
-                '''
+                self.set_contrast_for_canvas_img(canvas)
                 # canvas.current_img_index = self.sl1.value()
                 canvas.title = []
                 canvas.update_img_stack()
@@ -8541,6 +8595,7 @@ class App(QWidget):
                 canvas.img_stack = self.smooth(img)
                 canvas.special_info = None
                 canvas.current_img_index = 0
+                self.set_contrast_for_canvas_img(canvas)
                 # canvas.current_img_index = self.sl1.value()
                 canvas.title = []
                 canvas.update_img_stack()
@@ -8557,6 +8612,7 @@ class App(QWidget):
                 canvas.img_stack = self.smooth(img)
                 canvas.special_info = None
                 canvas.current_img_index = 0
+                self.set_contrast_for_canvas_img(canvas)
                 # canvas.current_img_index = self.sl1.value()
                 canvas.title = []
                 canvas.update_img_stack()
@@ -8573,6 +8629,7 @@ class App(QWidget):
                 canvas.img_stack = self.smooth(img)
                 canvas.special_info = None
                 canvas.current_img_index = 0
+
                 canvas.cmin = 0
                 canvas.cmax = 1
                 self.tx_cmin.setText('0')
@@ -8621,7 +8678,7 @@ class App(QWidget):
                 canvas.update_img_stack()
                 slide.setMaximum(max(sh[0] - 1, 0))
                 self.current_image = img[0]
-                self.auto_contrast(self.canvas1)
+                #self.auto_contrast(self.canvas1)
             elif type_index == 'Multi-elem fit error':
                 self.img_colormix_raw = np.array([])
                 canvas.rgb_flag = 0
@@ -8633,11 +8690,12 @@ class App(QWidget):
                 canvas.special_info = None
                 # canvas.current_img_index = 0
                 canvas.current_img_index = self.sl1.value()
+                self.set_contrast_for_canvas_img(canvas)
                 canvas.title = []
                 canvas.update_img_stack()
                 slide.setMaximum(0)
                 self.current_image = img[0]
-                self.auto_contrast(self.canvas1)
+                #self.auto_contrast(self.canvas1)
                 self.data_summary[type_index] = self.canvas1.img_stack
             elif type_index == 'Edge integral':
                 self.img_colormix_raw = np.array([])
@@ -8650,19 +8708,22 @@ class App(QWidget):
                 canvas.special_info = None
                 # canvas.current_img_index = 0
                 canvas.current_img_index = 0
+                self.set_contrast_for_canvas_img(canvas)
                 canvas.title = []
                 canvas.update_img_stack()
                 slide.setMaximum(0)
                 self.current_image = img[0]
-                self.auto_contrast(self.canvas1)
+                #self.auto_contrast(self.canvas1)
                 self.data_summary[type_index] = self.canvas1.img_stack
             elif type_index == 'Color mix':
                 img = self.img_colormix
                 img = self.smooth(img, axis=2)
                 self.img_colormix = deepcopy(img)
                 canvas.rgb_flag = 1
-                cmax = np.float32(self.tx_cmax.text())
-                cmin = np.float32(self.tx_cmin.text())
+                c1 = np.float32(self.tx_cmax.text())
+                c2 = np.float32(self.tx_cmin.text())
+                cmin = min(c1, c2)
+                cmax = max(c2, c2)
                 # img = (img - cmin) / (cmax - cmin)
                 canvas.img_stack = img
                 canvas.cmin = cmin
@@ -8707,6 +8768,24 @@ class App(QWidget):
         canvas.update_img_one(canvas.current_img, canvas.current_img_index)
 
 
+    def get_contrast(self):
+        try:
+            if self.chkbox_fix_cmap.isChecked():
+                c1 = np.float32(self.tx_cmax.text())
+                c2 = np.float32(self.tx_cmin.text())
+                cmin = min(c1, c2)
+                cmax = max(c1, c2)
+            else:
+                cmin, cmax = self.canvas1.auto_contrast()
+            self.display_cmin_cmax(cmin, cmax, self.canvas1)
+        except Exception as err:
+            self.msg = str(err)
+            cmin, cmax = 0, 1
+        finally:
+            self.update_msg()
+        return cmin, cmax
+
+
     def auto_contrast(self, current_canvas):
         #canvas = self.canvas1
         canvas = current_canvas
@@ -8716,16 +8795,12 @@ class App(QWidget):
     def display_cmin_cmax(self, cmin, cmax, current_canvas):
         if np.abs(cmax) > 1e3 or np.abs(cmax)<1e-3:
             txt_max = f'{cmax:1.3e}'
-            #self.tx_cmax.setText('{:1.3e}'.format(cmax))
         else:
             txt_max = f'{cmax:6.3f}'
-            #self.tx_cmax.setText('{:6.3f}'.format(cmax))
         if np.abs(cmin) > 1e3 or np.abs(cmin) < 1e-3:
             txt_min = f'{cmin:1.3e}'
-            #self.tx_cmin.setText('{:1.3e}'.format(cmin))
         else:
             txt_min = f'{cmin:6.3f}'
-            #self.tx_cmin.setText('{:6.3f}'.format(cmin))
         if current_canvas == self.canvas1:
             self.tx_cmax.setText(txt_max)
             self.tx_cmin.setText(txt_min)
@@ -8736,9 +8811,11 @@ class App(QWidget):
 
     def cmin_cmax_pressed1(self):
         return self.set_contrast(self.canvas1)
+        QApplication.processEvents()
 
     def cmin_cmax_pressed2(self):
         return self.set_contrast(self.canvas1)
+        QApplication.processEvents()
 
     def set_contrast(self, current_canvas):
         try:
@@ -8750,8 +8827,9 @@ class App(QWidget):
             else:
                 cmax = np.float32(self.tx_ml_cmax.text())
                 cmin = np.float32(self.tx_ml_cmin.text())
-            assert cmax >= cmin, "cmax should > cmin"
-            canvas.set_contrast(cmin, cmax)
+            c1 = min(cmin, cmax)
+            c2 = max(cmin, cmax)
+            canvas.set_contrast(c1, c2)
             if canvas == self.canvas1 and canvas.rgb_flag:
                 self.xanes_colormix()
         except Exception as err:
@@ -10746,6 +10824,12 @@ class App(QWidget):
         self.tx_3D_peak_cpu.setFont(self.font2)
 
         ## edge integral
+        lb_space = QLabel()
+        lb_space.setFixedWidth(20)
+
+        lb_space2 = QLabel()
+        lb_space2.setFixedWidth(20)
+
         lb_3D_edge_integ = QLabel()
         lb_3D_edge_integ.setText('Fit edge:')
         lb_3D_edge_integ.setFixedWidth(80)
@@ -10763,9 +10847,38 @@ class App(QWidget):
         self.pb_3D_edge_integ.setFixedWidth(180)
         self.pb_3D_edge_integ.clicked.connect(self.fit_edge_integ_3D)
 
+        lb_3D_edge_bin = QLabel('Binning:')
+        lb_3D_edge_bin.setFont(self.font2)
+        lb_3D_edge_bin.setEnabled(True)
+        lb_3D_edge_bin.setFixedWidth(70)
+
+        self.cb_3D_edge_bin = QComboBox()
+        self.cb_3D_edge_bin.setFont(self.font2)
+        self.cb_3D_edge_bin.addItem('1 x 1')
+        self.cb_3D_edge_bin.addItem('2 x 2')
+        self.cb_3D_edge_bin.addItem('4 x 4')
+        self.cb_3D_edge_bin.setFixedWidth(70)
+
+        lb_3D_edge_filt = QLabel()
+        lb_3D_edge_filt.setFont(self.font2)
+        lb_3D_edge_filt.setText('  Median filter: ')
+        lb_3D_edge_filt.setFixedWidth(110)
+
+        self.tx_3D_edge_filt = QLineEdit(self)
+        self.tx_3D_edge_filt.setFont(self.font2)
+        self.tx_3D_edge_filt.setText('1')
+        self.tx_3D_edge_filt.setValidator(QIntValidator())
+        self.tx_3D_edge_filt.setFixedWidth(70)
+
         hbox_edge = QHBoxLayout()
         hbox_edge.addWidget(lb_3D_edge_integ)
         hbox_edge.addWidget(lb_3D_edge_integ_note)
+        hbox_edge.addWidget(lb_3D_edge_bin)
+        hbox_edge.addWidget(self.cb_3D_edge_bin)
+        hbox_edge.addWidget(lb_space)
+        hbox_edge.addWidget(lb_3D_edge_filt)
+        hbox_edge.addWidget(self.tx_3D_edge_filt)
+        hbox_edge.addWidget(lb_space2)
         hbox_edge.addWidget(self.pb_3D_edge_integ)
         hbox_edge.setAlignment(QtCore.Qt.AlignLeft)
 
@@ -10866,12 +10979,14 @@ class App(QWidget):
             self.load_eng_successful = 1
             self.fn_eng_3D_peak_fit = fn
             if not self.load_file_successful:
-                self.tx_param_fit_range_s.setText(f'{self.eng[0]:2.4f}')
-                self.tx_param_fit_range_e.setText(f'{self.eng[-1]:2.4f}')
-            self.tx_3D_edge_s.setText(f'{self.eng[0]:2.4f}')
-            self.tx_3D_edge_e.setText(f'{self.eng[-1]:2.4f}')
-            self.tx_param_fit_range_s.setText(f'{self.eng[0]:2.4f}')
-            self.tx_param_fit_range_e.setText(f'{self.eng[-1]:2.4f}')
+                e1 = np.min(self.eng)
+                e2 = np.max(self.eng)
+                self.tx_param_fit_range_s.setText(f'{e1:2.4f}')
+                self.tx_param_fit_range_e.setText(f'{e2:2.4f}')
+            self.tx_3D_edge_s.setText(f'{e1:2.4f}')
+            self.tx_3D_edge_e.setText(f'{e2:2.4f}')
+            self.tx_param_fit_range_s.setText(f'{e1:2.4f}')
+            self.tx_param_fit_range_e.setText(f'{e2:2.4f}')
         except Exception as err:
             self.lb_param_eng_info.setText('Energy load fails')
             self.load_eng_successful = 0
@@ -11026,6 +11141,13 @@ class App(QWidget):
             self.fit_param['num_cpu'] = self.num_cpu
 
             self.fit_param['color'] = self.tx_param_color.text()
+
+            ## for edge fitting only
+            b = self.cb_3D_edge_bin.currentText()
+            self.fit_param['binning'] = int(b[0])
+
+            self.fit_param['filter_size'] = int(self.tx_3D_edge_filt.text())
+
         except Exception as err:
             raise Exception(err)
 
@@ -11838,6 +11960,8 @@ class App(QWidget):
             try:
                 xs = float(self.tx_3D_edge_s.text())
                 xe = float(self.tx_3D_edge_e.text())
+                xs = min(xs, xe)
+                xe = max(xs, xe)
                 eng_range = [xs, xe]
             except Exception:
                 eng_range = []
@@ -12923,7 +13047,7 @@ class App(QWidget):
         self.pb_ml_adj_cmap.setFont(self.font2)
         self.pb_ml_adj_cmap.clicked.connect(lambda:self.auto_contrast(self.canvas_ml))
         self.pb_ml_adj_cmap.setEnabled(True)
-        self.pb_ml_adj_cmap.setFixedWidth(120)
+        self.pb_ml_adj_cmap.setFixedWidth(60)
 
         lb_cmax = QLabel()
         lb_cmax.setFont(self.font2)
@@ -13886,7 +14010,7 @@ class MyCanvas(FigureCanvas):
         self.cmin = np.min(non_zero)
         self.colorbar_on_flag = True
         try:
-            img_disp = self.current_img*self.mask
+            img_disp = img
         except:
             img_disp = self.current_img.copy()
         self.update_img_one(img_disp, self.current_img_index)
