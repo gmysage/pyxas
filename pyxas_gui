@@ -10978,11 +10978,15 @@ class App(QWidget):
                 f'Energy: {n_eng} energies: {self.eng[0]:2.4f}, {self.eng[1]:2.4f},   ...   {self.eng[-1]:2.4f} keV')
             self.load_eng_successful = 1
             self.fn_eng_3D_peak_fit = fn
-            if not self.load_file_successful:
+            if self.load_file_successful:
                 e1 = np.min(self.eng)
                 e2 = np.max(self.eng)
                 self.tx_param_fit_range_s.setText(f'{e1:2.4f}')
                 self.tx_param_fit_range_e.setText(f'{e2:2.4f}')
+            else:
+                print('fails to load energy')
+                self.lb_3D_msg.setText('fails to load energy')
+                return 0
             self.tx_3D_edge_s.setText(f'{e1:2.4f}')
             self.tx_3D_edge_e.setText(f'{e2:2.4f}')
             self.tx_param_fit_range_s.setText(f'{e1:2.4f}')
