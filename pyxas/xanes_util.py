@@ -1128,6 +1128,8 @@ def fit_peak_2D_xanes_poly(img_xanes, xanes_eng, eng_range=[],fit_order=3, fit_m
     try:
         xs_id = find_nearest(xanes_eng, eng_range[0])
         xe_id = find_nearest(xanes_eng, eng_range[1])
+        xs_id = min(xs_id, xe_id)
+        xe_id = max(xs_id, xe_id)
         img = img[xs_id:xe_id]
         if len(xanes_eng):
             x = xanes_eng[xs_id:xe_id]
@@ -1163,3 +1165,29 @@ def rm_duplicate(my_list):
             new_list.append(my_list[i])
             id_list.append(my_list[i, 0])
     return np.array(new_list)
+
+
+def edge_integral(img_stack, eng, E1, E2):
+    s = img_stack.shape  # (63, 270, 320)
+    mu = img_stack.reshape(s[0], -1)  # (63, 86400)
+    id1 = find_nearest(E1, eng)
+    id2 = find_nearest(E2, eng)
+    mu1 = mu[id1]  # (86400, )
+    mu2 = mu[id2]  # (86400, )
+
+    mu_p = mu[id1:id2]
+    n_pix = mu_p.shape[1]
+    for i in range(n_pix):
+        mu_p[:, i][mu_p[:, i] > mu2[i]] = mu2[i]
+        mu_p[:, i][mu_p[:, i] < mu1[i]] = mu1[i]
+    mu_mid = (mu_p[:-1] + mu_p[1:]) / 2
+    E_p = eng[id1:id2]  # (9, )
+    E_dif = np.diff(E_p)  # (9, )
+    mu_dif = (mu2 - mu_mid)  # (9, 86400)
+    E_sum = E_dif @ mu_dif
+    edge = E_sum / (mu2 - mu1)
+    edge[np.isnan(edge)] = 0
+    edge[np.isinf(edge)] = 0
+    edge = edge + E1
+    edge = edge.reshape(*s[1:])
+    return edge
