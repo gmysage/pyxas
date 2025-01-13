@@ -1,4 +1,5 @@
 import pyxas
+from pyxas import tv_loss
 import skimage
 import numpy as np
 from skimage.transform import rescale
