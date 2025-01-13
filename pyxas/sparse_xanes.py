@@ -18,6 +18,7 @@ from scipy import ndimage
 import tomopy
 from skimage.transform import radon, iradon, iradon_sart
 from skimage.data import shepp_logan_phantom
+import matplotlib.pyplot as plt
 
 
 def plot_ref(*ref):
