@@ -59,6 +59,13 @@ def tv_loss(c):
     return loss
 
 
+def tv_loss_norm(c):
+    n = torch.numel(c)
+    x = c[:,:,1:,:] - c[:,:,:-1,:]
+    y = c[:,:,:,1:] - c[:,:,:,:-1]
+    loss = torch.sum(torch.abs(x)) + torch.sum(torch.abs(y))
+    loss = loss / n
+    return loss
 
 
 def gaussian(window_size, sigma):

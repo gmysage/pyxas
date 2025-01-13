@@ -253,15 +253,15 @@ def circ_mask(img, axis, ratio=1, val=0):
         im_m = im_m.swapaxes(0, axis)
     return im_m
 
-"""
-def tv_loss(c):
+
+def tv_loss_norm(c):
     n = torch.numel(c)
     x = c[:,:,1:,:] - c[:,:,:-1,:]
     y = c[:,:,:,1:] - c[:,:,:,:-1]
     loss = torch.sum(torch.abs(x)) + torch.sum(torch.abs(y))
     loss = loss / n
     return loss
-
+"""
 def l1_loss(inputs, targets):
     loss = torch.nn.L1Loss()
     output = loss(inputs, targets)
@@ -1075,9 +1075,9 @@ def ml_xanes3D(sino_sum, r_shuffle, loss_r, n_epoch, angle_l, lr=0.1):
         sino_dif = sino_out1 + sino_out2 - sino_sum
 
         loss_val['mse'] = torch.square(sino_out1+sino_out2 - sino_sum).mean()    
-        #loss_val['tv_sino'] = pyxas.tv_loss(sino_dif[:,:,:, :sino_col]) + pyxas.tv_loss(sino_dif[:,:,:, -sino_col:])
-        loss_val['tv_sino'] = pyxas.tv_loss(sino_dif)
-        loss_val['tv_img'] = pyxas.tv_loss(guess1) + pyxas.tv_loss(guess2)
+        #loss_val['tv_sino'] = pyxas.tv_loss_norm(sino_dif[:,:,:, :sino_col]) + pyxas.tv_loss_norm(sino_dif[:,:,:, -sino_col:])
+        loss_val['tv_sino'] = pyxas.tv_loss_norm(sino_dif)
+        loss_val['tv_img'] = pyxas.tv_loss_norm(guess1) + pyxas.tv_loss_norm(guess2)
         loss_val['l1_sino'] = pyxas.l1_loss(sino_sum, sino_out1+sino_out2)
         loss_val['likelihood_sino'] = poisson_likelihood_loss(sino_out1+sino_out2, sino_sum)
         
@@ -1129,8 +1129,8 @@ def ml_tomo_general(guess, sino_sum_general, loss_r, n_epoch, angle_l, lr=0.1, t
         sino_dif = sino_out - sino_sum_general
 
         loss_val['mse'] = torch.square(sino_dif).mean() 
-        loss_val['tv_sino'] = pyxas.tv_loss(sino_dif)
-        loss_val['tv_img'] = pyxas.tv_loss(guess)
+        loss_val['tv_sino'] = pyxas.tv_loss_norm(sino_dif)
+        loss_val['tv_img'] = pyxas.tv_loss_norm(guess)
         loss_val['l1_sino'] = pyxas.l1_loss(sino_sum_general, sino_out)
         loss_val['likelihood_sino'] = poisson_likelihood_loss(sino_out, sino_sum_general)
         
@@ -1179,12 +1179,12 @@ def ml_xanes3D_general(guess, sino_sum_general, r_shuffle_general, loss_r, n_epo
         sino_out = simu_sino_general(guess, r_shuffle_general, angle_l, None, [1], device)
         sino_dif = sino_out - sino_sum_general
 
-        loss_val['mse'] = torch.square(sino_dif).mean() 
+        loss_val['mse'] = torch.square(sino_dif).mean()
         if not row_range is None:
-            loss_val['tv_sino'] = pyxas.tv_loss(sino_dif[row_range[0]: row_range[1]])
+            loss_val['tv_sino'] = pyxas.tv_loss_norm(sino_dif[row_range[0]: row_range[1]])
         else:
-            loss_val['tv_sino'] = pyxas.tv_loss(sino_dif)
-        loss_val['tv_img'] = pyxas.tv_loss(guess)
+            loss_val['tv_sino'] = pyxas.tv_loss_norm(sino_dif)
+        loss_val['tv_img'] = pyxas.tv_loss_norm(guess)
         loss_val['l1_sino'] = pyxas.l1_loss(sino_sum_general, sino_out)
         loss_val['likelihood_sino'] = poisson_likelihood_loss(sino_out, sino_sum_general)
         
@@ -1237,10 +1237,10 @@ def ml_xanes3D_with_FL_correction(guess, sino_sum_general, r_shuffle_general,
 
         loss_val['mse'] = torch.square(sino_dif).mean() 
         if not row_range is None:
-            loss_val['tv_sino'] = pyxas.tv_loss(sino_dif[row_range[0]: row_range[1]])
+            loss_val['tv_sino'] = pyxas.tv_loss_norm(sino_dif[row_range[0]: row_range[1]])
         else:
-            loss_val['tv_sino'] = pyxas.tv_loss(sino_dif)
-        loss_val['tv_img'] = pyxas.tv_loss(guess)
+            loss_val['tv_sino'] = pyxas.tv_loss_norm(sino_dif)
+        loss_val['tv_img'] = pyxas.tv_loss_norm(guess)
         loss_val['l1_sino'] = pyxas.l1_loss(sino_sum_general, sino_out)
         loss_val['likelihood_sino'] = poisson_likelihood_loss(sino_out, sino_sum_general)
         
@@ -1313,10 +1313,10 @@ def ml_xanes3D_with_FL_correction_obsolete(guess, sino_sum_general, r_shuffle_ge
         #X_diff = X_out - X
         loss_val['mse'] = torch.square(sino_dif).mean() 
         if not row_range is None:
-            loss_val['tv_sino'] = pyxas.tv_loss(sino_dif[row_range[0]: row_range[1]])
+            loss_val['tv_sino'] = pyxas.tv_loss_norm(sino_dif[row_range[0]: row_range[1]])
         else:
-            loss_val['tv_sino'] = pyxas.tv_loss(sino_dif)
-        loss_val['tv_img'] = pyxas.tv_loss(guess)
+            loss_val['tv_sino'] = pyxas.tv_loss_norm(sino_dif)
+        loss_val['tv_img'] = pyxas.tv_loss_norm(guess)
         loss_val['l1_sino'] = pyxas.l1_loss(sino_sum_general, sino_out)
         loss_val['likelihood_sino'] = poisson_likelihood_loss(sino_out, sino_sum_general)
         
@@ -1393,10 +1393,10 @@ def ml_xrf_xanes3D_with_fitting_general(guess, sino_sli_cuda, ref_interp,
         #X_diff = X_out - X
         loss_val['mse'] = torch.square(sino_dif).mean()
         if not row_range is None:
-            loss_val['tv_sino'] = pyxas.tv_loss(sino_dif[row_range[0]: row_range[1]])
+            loss_val['tv_sino'] = pyxas.tv_loss_norm(sino_dif[row_range[0]: row_range[1]])
         else:
-            loss_val['tv_sino'] = pyxas.tv_loss(sino_dif)
-        loss_val['tv_img'] = pyxas.tv_loss(guess)
+            loss_val['tv_sino'] = pyxas.tv_loss_norm(sino_dif)
+        loss_val['tv_img'] = pyxas.tv_loss_norm(guess)
         loss_val['l1_sino'] = pyxas.l1_loss(sino_sli_cuda, sino_out)
 
         # loss_val['mse_fit'] = torch.square(Y_fit_diff).mean()
@@ -1658,7 +1658,7 @@ def test_phantom():
     for epoch in trange(n_epoch):
         sino_out = torch_sino(guess, angle_l, device)
         loss_mse = torch.square(sino - sino_out).mean()
-        loss_tv = pyxas.tv_loss(sino_out)
+        loss_tv = pyxas.tv_loss_norm(sino_out)
         loss_l1 = pyxas.l1_loss(sino, sino_out)
         t1 = sino.reshape((s1[1], s1[2], s1[0], s1[3]))
         t2 = sino_out.reshape((s1[1], s1[2], s1[0], s1[3]))
@@ -1780,7 +1780,7 @@ def test_phantom():
         sino_out1 = torch_sino(guess1, angle_l, device, r1_shuffle)
         sino_out2 = torch_sino(guess2, angle_l, device, r2_shuffle)
         loss_mse = torch.square(sino_out1 + sino_out2 - sino_sum).mean()
-        loss_tv = (pyxas.tv_loss(sino_out1 + sino_out2 - sino_sum)) / 128 / n_angle
+        loss_tv = (pyxas.tv_loss_norm(sino_out1 + sino_out2 - sino_sum)) / 128 / n_angle
         loss_l1 = pyxas.l1_loss(sino_sum, sino_out1 + sino_out2)
         loss = loss_mse + loss_tv * 10  # + loss_l1 *0.1
 
