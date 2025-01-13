@@ -1,5 +1,4 @@
 import pyxas
-from pyxas import tv_loss
 import skimage
 import numpy as np
 from skimage.transform import rescale
@@ -22,6 +21,7 @@ from skimage.transform import radon, iradon, iradon_sart
 from skimage.data import shepp_logan_phantom
 import matplotlib.pyplot as plt
 
+tv_loss = pyxas.tv_loss
 
 def plot_ref(*ref):
     n = len(ref)
