@@ -13,6 +13,7 @@ from .align3D import *
 from .colormix import *
 from .align_tomo_proj import *
 from .seg import *
+from .sparse_xanes import *
 
 try:
     from .pyml import *
