@@ -4313,7 +4313,6 @@ class App(QWidget):
     def save_2D_fitting_to_summary(self):
         img = self.xanes_2d_fit
         img_sum = np.sum(img, axis=0, keepdims=True)
-        img_sum[np.abs(img_sum) < 1e-6] = 1e-6
         img = img / img_sum
         img = pyxas.rm_abnormal(img)
         thickness = np.sum(self.xanes_2d_fit, axis=0)
@@ -4357,7 +4356,7 @@ class App(QWidget):
         if elem[0] == '':
             elem = []
         self.elem_label = elem
-        self.update_canvas_img()
+        # self.update_canvas_img()
         self.msg = '2D fitting finished. "XANES Fit" has been added for imshow'
         self.pb_plot_roi.setEnabled(True)
         self.pb_export_roi_fit.setEnabled(True)
@@ -5256,9 +5255,9 @@ class App(QWidget):
                 self.cb1.addItem('Smart Mask')
             if self.cb1.findText('Image Labels') < 0:
                 self.cb1.addItem('Image Labels')
-            self.cb1.setCurrentText('Smart Mask')
+            self.cb1.setCurrentText('Smart Mask')  # this will call "update_canvas_img()"
             self.msg = 'Smart Mask generated'
-            self.update_canvas_img()
+            #self.update_canvas_img()
 
             n_smart_mask = len(self.smart_mask)
             for i in range(n_smart_mask):
@@ -5928,9 +5927,7 @@ class App(QWidget):
                 k = int(self.tx_edge_order.text())
             else:
                 k = 2
-            k = np.min([k, 3])
 
-            self.tx_edge_order.setText(f'{k}')
             try:
                 x0 = float(self.tx_edge_pos.text())
             except Exception as err:
@@ -5945,9 +5942,15 @@ class App(QWidget):
             wt = np.ones(len(x))
             wt[:x0_id - xs_id] = w
             edge_smooth = float(self.tx_edge_smooth.text())
-            s = UnivariateSpline(x, y, k=k, s=edge_smooth, w=wt)
-            xx = np.linspace(x[0], x[-1], 1001)
-            y_eval = s(xx)
+            xx = np.linspace(x[0], x[-1], 10001)
+            if self.fit_peak_method == 1: # spline
+                k = np.min([k, 5])
+                self.tx_edge_order.setText(f'{k}')
+                s = UnivariateSpline(x, y, k=k, s=edge_smooth, w=wt)
+                y_eval = s(xx)
+            else: # polynormial
+                res = pyxas.fit_peak_curve_poly(x, y, fit_order=k, num=10001)
+                y_eval = res['matrix_Y'].flatten()
             pos = np.argmax(np.abs(np.diff(y_eval)))
             if self.rd_peak_max.isChecked():
                 factor = 1
@@ -6178,7 +6181,7 @@ class App(QWidget):
                     self.cb1.addItem('XANES Peak Fit Height')
                 if self.cb1.findText('XANES Peak Fit error') < 0:
                     self.cb1.addItem('XANES Peak Fit error')
-                self.cb1.setCurrentText('XANES Edge Fit Height')
+                self.cb1.setCurrentText('XANES Peak Fit')
             self.msg = 'Image fitting finished'
         except Exception as err:
             self.msg = f'Fails in fitting image. Error: {str(err)}'
@@ -7439,6 +7442,7 @@ class App(QWidget):
                     self.msg = f'current image saved to: {fn}'
                 plt.figure()
                 plt.imshow(img_stack, clim=[cmin, cmax], cmap=canvas.colormap)
+                plt.colorbar()
                 plt.axis('off')
                 plt.show()
         except Exception as err:
@@ -8229,7 +8233,8 @@ class App(QWidget):
 
 
     def set_contrast_for_canvas_img(self, canvas):
-
+        n = len(canvas.img_stack)
+        canvas.current_img_index = min(n-1, canvas.current_img_index)
         canvas.current_img = canvas.img_stack[canvas.current_img_index]
         cmin, cmax = self.get_contrast()
         canvas.cmin = cmin
@@ -8332,8 +8337,9 @@ class App(QWidget):
                 self.img_colormix_raw = np.array([])
                 canvas.rgb_flag = 0
                 img = self.xanes_2d_fit
+                img[img < 1e-9] = 0
                 img_sum = np.sum(img, axis=0, keepdims=True)
-                img_sum[np.abs(img_sum) < 1e-6] = 1e6
+                #img_sum[np.abs(img_sum) < 1e-6] = 1e6
                 img = img / img_sum
                 img = pyxas.rm_abnormal(img)
                 self.pb_roi_draw.setEnabled(True)
@@ -8801,6 +8807,8 @@ class App(QWidget):
             txt_min = f'{cmin:1.3e}'
         else:
             txt_min = f'{cmin:6.3f}'
+        if cmax == cmin:
+            txt_min = '0'
         if current_canvas == self.canvas1:
             self.tx_cmax.setText(txt_max)
             self.tx_cmin.setText(txt_min)
@@ -13051,7 +13059,7 @@ class App(QWidget):
         self.pb_ml_adj_cmap.setFont(self.font2)
         self.pb_ml_adj_cmap.clicked.connect(lambda:self.auto_contrast(self.canvas_ml))
         self.pb_ml_adj_cmap.setEnabled(True)
-        self.pb_ml_adj_cmap.setFixedWidth(60)
+        self.pb_ml_adj_cmap.setFixedWidth(120)
 
         lb_cmax = QLabel()
         lb_cmax.setFont(self.font2)
@@ -13085,12 +13093,12 @@ class App(QWidget):
         hbox_cmap = QHBoxLayout()
         hbox_cmap.addWidget(lb_cmap)
         hbox_cmap.addWidget(self.cb_ml_cmap)
-        hbox_cmap.addWidget(self.pb_ml_adj_cmap)
         hbox_cmap.addWidget(lb_cmin)
         hbox_cmap.addWidget(self.tx_ml_cmin)
         hbox_cmap.addWidget(lb_cmax)
         hbox_cmap.addWidget(self.tx_ml_cmax)
         hbox_cmap.addWidget(self.pb_ml_set_cmap)
+        hbox_cmap.addWidget(self.pb_ml_adj_cmap)
         hbox_cmap.setAlignment(QtCore.Qt.AlignLeft)
 
         vbox_can_ml = QVBoxLayout()
@@ -14009,9 +14017,11 @@ class MyCanvas(FigureCanvas):
         except:
             print('image and mask has different shape, will not apply mask')
             img = self.current_img.copy()
-        non_zero = img[img>0]
+        non_zero = img[img!=0]
         self.cmax = np.max(non_zero)
         self.cmin = np.min(non_zero)
+        if self.cmax == self.cmin:
+            self.cmin = 0
         self.colorbar_on_flag = True
         try:
             img_disp = img
@@ -14048,6 +14058,4 @@ if __name__ == '__main__':
     app = QApplication(sys.argv)
     xanes = App()
     xanes.show()
-
-
     sys.exit(app.exec_())
