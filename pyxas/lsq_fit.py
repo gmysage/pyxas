@@ -52,6 +52,8 @@ def fit_peak_curve_poly(x, y, fit_order=3, num=1001):
     X = nnp.ones([s1, 1])
     for i in nnp.arange(1, fit_order + 1):
         X = nnp.concatenate([X, x0 ** i], 1)
+    
+    
     A = nnp.linalg.inv(X.T @ X) @ (X.T @ Y)
     xx = nnp.linspace(x0[0], x0[-1], num).reshape([num, 1])
     XX = nnp.ones([num, 1])
@@ -61,6 +63,21 @@ def fit_peak_curve_poly(x, y, fit_order=3, num=1001):
     peak_pos = xx[nnp.argmax(YY, 0)] * (x_max - x_min) + x_min
     y_hat = X @ A
     fit_error = nnp.sum((y_hat - Y)**2, 0)
+    
+    """
+    ## fitting covariance
+    XTX = X.T @ X
+    XTX_inv = np.linalg.inv(XTX)
+    XTX_inv_diag = np.diag(XTX_inv)
+    n_freedim = max(fit_order-2, 1)
+    nX = len(XTX_inv_diag)
+    sigma2 = fit_error / n_freedim
+    var2 = np.ones((nX, len(sigma2)))
+    for i in range(nX):
+        var2[i] = XTX_inv_diag[i] * sigma2
+    var = np.sqrt(var2)
+    """
+    
     res = {}
     if ntype == 'np':
         res['peak_pos'] = peak_pos
@@ -70,6 +87,7 @@ def fit_peak_curve_poly(x, y, fit_order=3, num=1001):
         res['matrix_A'] = A
         res['matrix_Y'] = YY
         res['x_interp'] = xx
+        #res['var'] = var
     else:
         res['peak_pos'] = peak_pos.get()
         res['fit_error'] = fit_error.get()
@@ -77,6 +95,7 @@ def fit_peak_curve_poly(x, y, fit_order=3, num=1001):
         res['matrix_A'] = A.get()
         res['peak_val'] = cp.max(YY, 0).get()
         res['matrix_Y'] = YY.get()
+        #res['var'] = var.get()
     return res
 
 
