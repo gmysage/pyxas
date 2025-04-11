@@ -8122,6 +8122,11 @@ class App(QWidget):
                             method = self.cb_ali.currentText().strip()
                             rsft, csft, sr = pyxas.align_img_stackreg(prj[i - 1], prj[i], align_flag=0, method=method)
                             img_ali[i] = sr.transform(img_ali[i])
+                            """
+                            if method == 'rigid': # do another round of "translation"
+                                rsft, csft, sr = pyxas.align_img_stackreg(prj[i - 1], img_ali[i], align_flag=0,method='translation')
+                                img_ali[i] = sr.transform(img_ali[i])
+                            """
                         elif self.rd_ali2.isChecked():
                             rsft, csft = pyxas.align_img(prj[i - 1], prj[i], align_flag=0)
                             img_ali[i] = shift(img_ali[i], [rsft, csft], mode='constant', cval=0)
@@ -8136,6 +8141,12 @@ class App(QWidget):
                             method = self.cb_ali.currentText().strip()
                             rsft, csft, sr = pyxas.align_img_stackreg(prj[ref_index], prj[i], align_flag=0, method=method)
                             img_ali[i] = sr.transform(img_ali[i])
+                            prj = (img_ali * self.mask1 * self.mask2)[:, y1: y2, x1: x2]
+                            """
+                            if method == 'rigid':
+                                rsft, csft, sr = pyxas.align_img_stackreg(prj[ref_index], prj[i], align_flag=0, method='translation')
+                                img_ali[i] = sr.transform(img_ali[i])
+                            """
                         elif self.rd_ali2.isChecked():
                             rsft, csft = pyxas.align_img(prj[ref_index], prj[i], align_flag=0)
                             img_ali[i] = shift(img_ali[i], [rsft, csft], mode='constant', cval=0)
@@ -9609,8 +9620,8 @@ class App(QWidget):
         self.rd_3D_ali_method_translation.setChecked(True)
         self.rd_3D_ali_method_translation.setFont(self.font2)
 
-        self.rd_3D_ali_method_rigid = QRadioButton('Rigid')
-        self.rd_3D_ali_method_rigid.setFixedWidth(65)
+        self.rd_3D_ali_method_rigid = QRadioButton('Rigid + Trans.')
+        self.rd_3D_ali_method_rigid.setFixedWidth(120)
         self.rd_3D_ali_method_rigid.setFont(self.font2)
 
         self.rd_3D_ali_method_rot = QRadioButton('Scale_rot')
@@ -9621,8 +9632,7 @@ class App(QWidget):
         self.ali_3D_group.setExclusive(True)
         self.ali_3D_group.addButton(self.rd_3D_ali_method_translation)
         self.ali_3D_group.addButton(self.rd_3D_ali_method_rigid)
-        self.ali_3D_group.addButton(self.rd_3D_ali_method_rot)
-        self.ali_3D_group.addButton(self.rd_3D_ali_method_rot)
+        #self.ali_3D_group.addButton(self.rd_3D_ali_method_rot)
 
         lb_ali_roi_rs = QLabel()
         lb_ali_roi_rs.setText('roi_r_start:')
@@ -9717,7 +9727,7 @@ class App(QWidget):
         hbox_2.addWidget(lb_ali_method)
         hbox_2.addWidget(self.rd_3D_ali_method_translation)
         hbox_2.addWidget(self.rd_3D_ali_method_rigid)
-        hbox_2.addWidget(self.rd_3D_ali_method_rot)
+        #hbox_2.addWidget(self.rd_3D_ali_method_rot)
         hbox_2.addStretch()
 
         hbox_3 = QHBoxLayout()
