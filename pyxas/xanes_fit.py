@@ -543,20 +543,33 @@ def assemble_xanes_slice_from_tomo_mpi_sub(sli, file_path, files_recon, attr_img
         if sli >= np.min(ali_sli) and sli <= np.max(ali_sli):
             if align_roi_ratio >= 1:
                 img_mask = img_xanes
+                roi_rs = 0
+                roi_re = s[0]
+                roi_cs = 0
+                roi_ce = s[1]
             else:
                 rs, re = 1-align_roi_ratio, align_roi_ratio
-                img_mask = img_xanes[:, int(s[0]*rs):int(s[0]*re), int(s[1]*rs):int(s[1]*re)]
+                roi_rs = int(s[0]*rs)
+                roi_re = int(s[0]*re)
+                roi_cs = int(s[1]*rs)
+                roi_ce = int(s[1]*re)
+                #img_mask = img_xanes[:, int(s[0]*rs):int(s[0]*re), int(s[1]*rs):int(s[1]*re)]
+
             if len(roi) == 4:
                 roi_rs = max(roi[0], 0)
                 roi_re = min(roi[1], s[0])
                 roi_cs = max(roi[2], 0)
                 roi_ce = min(roi[3], s[1])
-                img_mask = img_mask[:, roi_rs:roi_re, roi_cs:roi_ce]
+            img_mask = img_mask[:, roi_rs:roi_re, roi_cs:roi_ce]
             if align_ref_index == -1:
                 align_ref_index = img_xanes.shape[0] - 1
             if align_algorithm == 'stackreg':
                 img_xanes = pyxas.align_img_stack_stackreg(img_xanes, img_mask, select_image_index=align_ref_index,
                                                            print_flag=0, method=align_method)
+                if align_method == 'rigid': # acturally, it is rigid + translation
+                    img_mask = img_xanes[:, roi_rs:roi_re, roi_cs:roi_ce]
+                    img_xanes = pyxas.align_img_stack_stackreg(img_xanes, img_mask, select_image_index=align_ref_index,
+                                                               print_flag=0, method='translation')
             else:
                 img_xanes = pyxas.align_img_stack(img_xanes, img_mask, select_image_index=align_ref_index, print_flag=0)
             # apply mask        
@@ -619,7 +632,7 @@ def assemble_xanes_slice_from_tomo_mpi(file_path='.', file_prefix='ali_recon', f
         for i in trange(len(sli)):
             res = assemble_xanes_slice_from_tomo_mpi_sub(sli[i], file_path, files_recon, attr_img=attr_img, attr_eng=attr_eng,
                                                    align_flag=align_flag, align_ref_index=align_ref_index, align_roi_ratio=align_roi_ratio,
-                                                   roi=roi, ali_sli=ali_sli, align_algorithm=align_algorithm, align_method='translation',
+                                                   roi=roi, ali_sli=ali_sli, align_algorithm=align_algorithm, align_method=align_method,
                                                    flag_save_2d_xanes=flag_save_2d_xanes, flag_mask=flag_mask)
             mask_3D[i] = res['mask']
     else:
@@ -628,7 +641,7 @@ def assemble_xanes_slice_from_tomo_mpi(file_path='.', file_prefix='ali_recon', f
                                file_path=file_path, files_recon=files_recon,
                                attr_img=attr_img, attr_eng=attr_eng, align_flag=align_flag,
                                align_ref_index=align_ref_index, align_roi_ratio=align_roi_ratio,
-                               roi=roi, ali_sli=ali_sli, align_algorithm=align_algorithm, align_method='translation',
+                               roi=roi, ali_sli=ali_sli, align_algorithm=align_algorithm, align_method=align_method,
                                flag_save_2d_xanes=flag_save_2d_xanes, flag_mask=flag_mask), sli)
         pool.join()
         pool.close()
