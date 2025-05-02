@@ -237,23 +237,6 @@ def apply_shift(img_stack, r_shift, c_shift):
     return img2
 
 
-def circ_mask(img, axis, ratio=1, val=0):
-    im = np.float32(img)
-    s = im.shape
-    if len(s) == 2:
-        m = _get_mask(s[0], s[1], ratio)
-        m_out = (1 - m) * val
-        im_m = np.array(m, dtype=np.int) * im + m_out
-    else:
-        im = im.swapaxes(0, axis)
-        dx, dy, dz = im.shape
-        m = _get_mask(dy, dz, ratio)
-        m_out = (1 - m) * val
-        im_m = np.array(m, dtype=np.int16) * im + m_out
-        im_m = im_m.swapaxes(0, axis)
-    return im_m
-
-
 def tv_loss_norm(c):
     n = torch.numel(c)
     x = c[:,:,1:,:] - c[:,:,:-1,:]
