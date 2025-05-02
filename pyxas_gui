@@ -6350,7 +6350,7 @@ class App(QWidget):
                     fn_img = self.lst_comb_img.item(i).text()
                     fn_eng = self.lst_comb_eng.item(i).text()
                     img_comb[i] = self.get_comb_xanes_data(fn_img, mode='img')
-                    eng_comb[i] = self.get_comb_xanes_data(fn_img, mode='eng')
+                    eng_comb[i] = self.get_comb_xanes_data(fn_eng, mode='eng')
                 img = np.concatenate([img_comb[i] for i in range(n_img)])
                 eng = np.concatenate([eng_comb[i] for i in range(n_img)])
                 eng, img = self.sort_and_remove_redundant(eng, img)
