@@ -7808,7 +7808,10 @@ class App(QWidget):
                     flag_reverse_eng = 0
                     # read energy
                     try:
-                        self.xanes_eng = np.round(np.array(f[dataset_eng]), 8)  # Generally, it is in unit of keV
+                        self.xanes_eng = (np.round(np.array(f[dataset_eng]), 8))  # Generally, it is in unit of keV
+                        if not type(self.xanes_eng) is list:
+                            self.xanes_eng = [self.xanes_eng]
+
                     except Exception as err:
                         self.xanes_eng = np.array([0])
                         self.lb_eng1.setText('No energy data ...')
