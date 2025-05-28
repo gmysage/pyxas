@@ -434,6 +434,8 @@ class App(QWidget):
         lb_empty4.setFixedWidth(40)
         lb_empty5 = QLabel()
         lb_empty5.setFixedWidth(277)
+        lb_empty6 = QLabel()
+        lb_empty6.setFixedWidth(10)
 
         gpbox = QGroupBox('Load image')
         gpbox.setFont(self.font1)
@@ -491,6 +493,17 @@ class App(QWidget):
         self.pb_fiji.clicked.connect(self.open_imagej)
         self.pb_fiji.setFixedWidth(80)
 
+        self.pb_scaleRawImg = QPushButton('Devide Image by')
+        self.pb_scaleRawImg.setFont(self.font2)
+        self.pb_scaleRawImg.clicked.connect(self.scale_raw_image)
+        self.pb_scaleRawImg.setFixedWidth(140)
+
+        self.tx_scaleRawImg = QLineEdit()
+        self.tx_scaleRawImg.setFixedWidth(50)
+        self.tx_scaleRawImg.setValidator(QDoubleValidator())
+        self.tx_scaleRawImg.setText('1')
+        self.tx_scaleRawImg.setFont(self.font2)
+        
         self.pb_closeImg = QPushButton('Close Figure')
         self.pb_closeImg.setFont(self.font2)
         self.pb_closeImg.clicked.connect(self.close_all_figures)
@@ -706,6 +719,9 @@ class App(QWidget):
         hbox_manul_input.addWidget(self.lb_eng2)
         hbox_manul_input.addWidget(self.tx_eng)
         hbox_manul_input.addWidget(self.pb_eng)
+        hbox_manul_input.addWidget(self.pb_scaleRawImg)
+        hbox_manul_input.addWidget(self.tx_scaleRawImg)
+        hbox_manul_input.addWidget(lb_empty6)
         #hbox_manul_input.addWidget(self.pb_fiji)
         hbox_manul_input.addWidget(self.pb_closeImg)
         hbox_manul_input.setAlignment(QtCore.Qt.AlignLeft)
@@ -7733,6 +7749,17 @@ class App(QWidget):
     def close_all_figures(self):
         plt.close('all')
 
+    def scale_raw_image(self):
+        try:
+            f = float(self.tx_scaleRawImg.text())
+        except:
+            f = 1
+            self.tx_scaleRawImg.setText('1')
+        self.img_xanes /= f
+        self.cb1.setCurrentText('Raw image')
+        self.update_canvas_img()  
+        self.msg = f'Devide raw image intensity by factor of {f}'    
+        self.update_msg()
 
     def check_white_field_normed(self):
         if self.chkbox_white_field_corr.isChecked():
