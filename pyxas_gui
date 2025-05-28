@@ -7835,11 +7835,13 @@ class App(QWidget):
                     flag_reverse_eng = 0
                     # read energy
                     try:
-                        self.xanes_eng = (np.round(np.array(f[dataset_eng]), 8))  # Generally, it is in unit of keV
+                        self.xanes_eng = list(np.round(np.array(f[dataset_eng]), 8))  # Generally, it is in unit of keV
+                        self.ttt = self.xanes_eng.copy()
                         if not type(self.xanes_eng) is list:
                             self.xanes_eng = [self.xanes_eng]
 
                     except Exception as err:
+                        print(str(err))
                         self.xanes_eng = np.array([0])
                         self.lb_eng1.setText('No energy data ...')
                         self.lb_eng2.setVisible(True)
@@ -7897,7 +7899,7 @@ class App(QWidget):
 
                     try:
 
-                        self.xanes_eng, self.img_xanes = pyxas.check_eng_image_order(self.xanes_eng, self.img_xanes)
+                        self.xanes_eng, self.img_xanes = pyxas.check_eng_image_order(np.array(self.xanes_eng), self.img_xanes)
 
                         st = '{0:2.4f}, {1:2.4f}, ..., {2:2.4f} keV (totally, {3} energies)'.format(
                             self.xanes_eng[0], self.xanes_eng[1], self.xanes_eng[-1], len(self.xanes_eng))
@@ -7911,6 +7913,7 @@ class App(QWidget):
                         self.tx_multi_elem_s.setText('{:2.4f}'.format(self.xanes_eng[0]))
                         self.tx_multi_elem_e.setText('{:2.4f}'.format(self.xanes_eng[-1]))
                     except Exception as err:
+                        print(str(err))
                         self.xanes_eng = np.array([0])
                         self.lb_eng1.setText('No energy data ...')
                         self.lb_eng2.setVisible(True)
