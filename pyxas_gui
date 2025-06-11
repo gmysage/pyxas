@@ -3165,7 +3165,7 @@ class App(QWidget):
 
         lb_multi_eng = QLabel()
         lb_multi_eng.setFont(self.font1)
-        lb_multi_eng.setText('Fit thickness')
+        lb_multi_eng.setText('Fit composition')
         lb_multi_eng.setFixedWidth(300)
 
         lb_multi_elem = QLabel()
@@ -3195,7 +3195,7 @@ class App(QWidget):
         self.tx_multi_exclude_eng.setFont(self.font2)
         self.tx_multi_exclude_eng.setFixedWidth(340)
 
-        self.pb_multi_elem_fit = QPushButton('Fit thickness')
+        self.pb_multi_elem_fit = QPushButton('Fit composition')
         self.pb_multi_elem_fit.setFont(self.font2)
         self.pb_multi_elem_fit.setFixedWidth(120)
         self.pb_multi_elem_fit.clicked.connect(self.fit_multi_elem_thickness)
@@ -3203,7 +3203,7 @@ class App(QWidget):
         self.pb_multi_elem_save = QPushButton('Save fit results')
         self.pb_multi_elem_save.setFont(self.font2)
         self.pb_multi_elem_save.setFixedWidth(120)
-        self.pb_multi_elem_save.clicked.connect(self.save_multi_elem_thickness)
+        self.pb_multi_elem_save.clicked.connect(self.save_multi_elem_concentration)
 
         # method
         lb_multi_param_fit_method = QLabel()
@@ -3341,6 +3341,7 @@ class App(QWidget):
         hbox_multi_elem_range = self.layout_multi_elem_eng_range()
         layout_multi_elem_bkg = self.layout_multi_elem_bkg()
         layout_multi_elem_roi = self.layout_multi_elem_roi()
+        layout_multi_elem_convert_thick = self.layout_multi_elem_convert_thick()
 
         hbox = QHBoxLayout()
         hbox.addWidget(self.pb_multi_elem_fit)
@@ -3374,6 +3375,7 @@ class App(QWidget):
         vbox_multi_elem.addWidget(lb_empty4)
         vbox_multi_elem.addLayout(vbox)
         vbox_multi_elem.addLayout(layout_multi_elem_roi)
+        vbox_multi_elem.addLayout(layout_multi_elem_convert_thick)
         vbox_multi_elem.setAlignment(QtCore.Qt.AlignTop)
 
         return vbox_multi_elem
@@ -3759,6 +3761,31 @@ class App(QWidget):
         vbox.setAlignment(QtCore.Qt.AlignTop)
 
         return vbox
+
+    def layout_multi_elem_convert_thick(self):
+        self.pb_multi_rho = QPushButton()
+        self.pb_multi_rho.setText('To thickness')
+        self.pb_multi_rho.setFont(self.font2)
+        self.pb_multi_rho.setFixedWidth(120)
+        self.pb_multi_rho.clicked.connect(self.convert_multi_elem_thickness)
+
+        lb_multi_rho = QLabel()
+        lb_multi_rho.setFont(self.font2)
+        lb_multi_rho.setText('Compound density (g/cm3):')
+        lb_multi_rho.setFixedWidth(180)
+
+        self.tx_multi_rho = QLineEdit(self)
+        self.tx_multi_rho.setFont(self.font2)
+        self.tx_multi_rho.setText('1')
+        self.tx_multi_rho.setValidator(QDoubleValidator())
+        self.tx_multi_rho.setFixedWidth(60)
+
+        hbox = QHBoxLayout()
+        hbox.addWidget(self.pb_multi_rho)
+        hbox.addWidget(lb_multi_rho)
+        hbox.addWidget(self.tx_multi_rho)
+        hbox.setAlignment(QtCore.Qt.AlignLeft)
+        return hbox
 
     def layout_xanes_prep(self):
         lb_empty = QLabel()
@@ -4523,7 +4550,7 @@ class App(QWidget):
             res = pyxas.fit_2D_multi_elem_thick(img_stack, x_eng, fit_elem, eng_exclude,
                                                 bkg_polynomial_order, method, admm_iter, admm_rate, admm_sigma)
             self.multi_elem_fit_result = res.copy()
-            self.multi_elem_thickness = res['thickness']
+            self.multi_elem_concentration = res['concentration']
             self.multi_elem_fit_err = res['y_fit_err']
             self.save_multi_elem_to_summary()
             self.postprocess_multi_elem()
@@ -4612,23 +4639,23 @@ class App(QWidget):
         return roi_selected
 
     def save_multi_elem_to_summary(self):
-        img_thick = self.smooth(self.multi_elem_thickness) * self.mask
-        img_thick[img_thick<0] = 0
+        img_concentration = self.smooth(self.multi_elem_concentration) * self.mask
+        img_concentration[img_concentration<0] = 0
         img_err = self.multi_elem_fit_err * self.mask
-        img_sum = np.sum(img_thick, axis=0) * self.mask
-        img_ratio = pyxas.rm_abnormal(img_thick / img_sum) * self.mask
+        img_sum = np.sum(img_concentration, axis=0) * self.mask
+        img_ratio = pyxas.rm_abnormal(img_concentration / img_sum) * self.mask
 
         if self.cb1.findText('Multi-elem fit (ratio)') < 0:
             self.cb1.addItem('Multi-elem fit (ratio)')
-        if self.cb1.findText('Multi-elem fit (concentration)') < 0:
-            self.cb1.addItem('Multi-elem fit (concentration)')
+        if self.cb1.findText('Multi-elem fit (concentration: mol/cm2)') < 0:
+            self.cb1.addItem('Multi-elem fit (concentration: mol/cm2)')
         if self.cb1.findText('Multi-elem fit error') < 0:
             self.cb1.addItem('Multi-elem fit error')
         self.data_summary['Multi-elem fit (ratio)'] = img_ratio
-        self.data_summary['Multi-elem fit (concentration)'] = img_thick
+        self.data_summary['Multi-elem fit (concentration: mol/cm2)'] = img_concentration
         self.data_summary['Multi-elem fit error'] = img_err
 
-    def save_multi_elem_thickness(self):
+    def save_multi_elem_concentration(self):
         if not 'Multi-elem fit (ratio)' in self.data_summary.keys():
             self.msg = 'Fit results not found'
             self.update_msg()
@@ -4786,6 +4813,20 @@ class App(QWidget):
             self.msg = str(err)
         finally:
             self.update_msg()
+
+    def convert_multi_elem_thickness(self):
+        rho_compound = float(self.tx_multi_rho.text())
+        try:
+            img_concentration = self.data_summary['Multi-elem fit (concentration: mol/cm2)']
+            elem, _ = self._get_multi_elem()
+            img_thick_um = pyxas.convert_concentration_to_thickness(elem, img_concentration, rho_compound)
+            self.data_summary['Multi-elem fit (thickness: [um])'] = img_thick_um
+            if self.cb1.findText('Multi-elem fit (thickness: [um])') < 0:
+                self.cb1.addItem('Multi-elem fit (thickness: [um])')
+                self.cb1.setCurrentText('Multi-elem fit (thickness: [um])')
+        except Exception as err:
+            print(err)
+
 
     def open_file_multi_elem_eng(self):
         #xanes_eng, img_xanes = pyxas.check_eng_image_order(xanes_eng, img_xanes)
@@ -7809,7 +7850,7 @@ class App(QWidget):
                     # read energy
                     try:
                         self.xanes_eng = (np.round(np.array(f[dataset_eng]), 8))  # Generally, it is in unit of keV
-                        if not type(self.xanes_eng) is list:
+                        if (not type(self.xanes_eng) is list) and (not type(self.xanes_eng) is np.ndarray):
                             self.xanes_eng = [self.xanes_eng]
 
                     except Exception as err:
@@ -8680,10 +8721,29 @@ class App(QWidget):
                 self.current_image = img[0]
                 self.display_cmin_cmax(0, 1, canvas)
                 #self.data_summary[type_index] = self.canvas1.img_stack * self.mask
-            elif type_index == 'Multi-elem fit (concentration)':
+            elif type_index == 'Multi-elem fit (concentration: mol/cm2)':
                 self.img_colormix_raw = np.array([])
                 canvas.rgb_flag = 0
-                img =  self.data_summary['Multi-elem fit (concentration)']
+                img =  self.data_summary['Multi-elem fit (concentration: mol/cm2)']
+                self.pb_roi_draw.setEnabled(True)
+                canvas.x, canvas.y = [], []
+                canvas.axes.clear()  # this is important, to clear the current image before another imshow()
+                sh = img.shape
+                canvas.img_stack = self.smooth(img)
+                canvas.special_info = None
+                # canvas.current_img_index = 0
+                canvas.current_img_index = self.sl1.value()
+                canvas.title = self.elem_label
+                canvas.cmin = 0
+                canvas.cmax = 1
+                canvas.update_img_stack()
+                slide.setMaximum(max(sh[0] - 1, 0))
+                self.current_image = img[0]
+                #self.auto_contrast(self.canvas1)
+            elif type_index == 'Multi-elem fit (thickness: [um])':
+                self.img_colormix_raw = np.array([])
+                canvas.rgb_flag = 0
+                img =  self.data_summary['Multi-elem fit (thickness: [um])']
                 self.pb_roi_draw.setEnabled(True)
                 canvas.x, canvas.y = [], []
                 canvas.axes.clear()  # this is important, to clear the current image before another imshow()

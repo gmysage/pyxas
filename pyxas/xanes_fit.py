@@ -1,5 +1,7 @@
 from __future__ import (absolute_import, division, print_function, unicode_literals)
 
+import numpy as np
+
 import pyxas
 
 from pyxas.xanes_util import *
@@ -828,7 +830,7 @@ def fit_2D_multi_elem_thick(img_xanes, xanes_eng, elem, eng_exclude,
                                                                                              admm_rate,
                                                                                              admm_sigma)
 
-    thickness = X[:n_elem].reshape((n_elem, s[1], s[2]))
+    concentration = X[:n_elem].reshape((n_elem, s[1], s[2]))
     y_diff = np.sum(Y_diff, axis=0).reshape((s[1], s[2]))
     y_fit_err = np.abs(y_diff)
     res = {}
@@ -843,8 +845,27 @@ def fit_2D_multi_elem_thick(img_xanes, xanes_eng, elem, eng_exclude,
     res['Y_fit_all'] = Y_fit_all
 
     res['y_diff_sum'] = y_diff
-    res['thickness'] = thickness
+    res['concentration'] = concentration
     res['y_fit_err'] = y_fit_err
     return res
     #return thickness, y_fit_err
 
+def convert_concentration_to_thickness(elem, img_concentration, rho_compound):
+    '''
+    img_concentration: [mol/cm2]
+    rho: [g/cm3]
+    M: [g/mol]
+
+    r = rho/M: [mol/cm3]
+    thick = img_concentration / r:  [cm]
+
+    '''
+    n_elem = len(elem)
+    img_thick = np.zeros_like(img_concentration)
+    for i in range(n_elem):
+        atom_id = xraylib.SymbolToAtomicNumber(elem[i])
+        mass = xraylib.AtomicWeight(atom_id)
+        r = rho_compound / mass
+        img_thick[i] = img_concentration / r
+    img_thick = img_thick * 1e4 # convert unit from [cm] to [um]
+    return img_thick
