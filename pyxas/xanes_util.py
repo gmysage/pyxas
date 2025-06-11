@@ -32,7 +32,7 @@ def exclude_eng(img_raw, x_eng_raw, exclude_range=[7.7, 7.8]):
 
 
 def check_eng_image_order(xanes_eng, img_xanes):
-    idx = np.argsort(xanes_eng)
+    idx = np.argsort(np.array(xanes_eng))
     if len(img_xanes) == len(idx):
         img_xanes = img_xanes[idx]
         xanes_eng = xanes_eng[idx]

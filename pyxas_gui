@@ -434,6 +434,8 @@ class App(QWidget):
         lb_empty4.setFixedWidth(40)
         lb_empty5 = QLabel()
         lb_empty5.setFixedWidth(277)
+        lb_empty6 = QLabel()
+        lb_empty6.setFixedWidth(10)
 
         gpbox = QGroupBox('Load image')
         gpbox.setFont(self.font1)
@@ -491,6 +493,17 @@ class App(QWidget):
         self.pb_fiji.clicked.connect(self.open_imagej)
         self.pb_fiji.setFixedWidth(80)
 
+        self.pb_scaleRawImg = QPushButton('Devide Image by')
+        self.pb_scaleRawImg.setFont(self.font2)
+        self.pb_scaleRawImg.clicked.connect(self.scale_raw_image)
+        self.pb_scaleRawImg.setFixedWidth(140)
+
+        self.tx_scaleRawImg = QLineEdit()
+        self.tx_scaleRawImg.setFixedWidth(50)
+        self.tx_scaleRawImg.setValidator(QDoubleValidator())
+        self.tx_scaleRawImg.setText('1')
+        self.tx_scaleRawImg.setFont(self.font2)
+        
         self.pb_closeImg = QPushButton('Close Figure')
         self.pb_closeImg.setFont(self.font2)
         self.pb_closeImg.clicked.connect(self.close_all_figures)
@@ -706,6 +719,9 @@ class App(QWidget):
         hbox_manul_input.addWidget(self.lb_eng2)
         hbox_manul_input.addWidget(self.tx_eng)
         hbox_manul_input.addWidget(self.pb_eng)
+        hbox_manul_input.addWidget(self.pb_scaleRawImg)
+        hbox_manul_input.addWidget(self.tx_scaleRawImg)
+        hbox_manul_input.addWidget(lb_empty6)
         #hbox_manul_input.addWidget(self.pb_fiji)
         hbox_manul_input.addWidget(self.pb_closeImg)
         hbox_manul_input.setAlignment(QtCore.Qt.AlignLeft)
@@ -7774,6 +7790,17 @@ class App(QWidget):
     def close_all_figures(self):
         plt.close('all')
 
+    def scale_raw_image(self):
+        try:
+            f = float(self.tx_scaleRawImg.text())
+        except:
+            f = 1
+            self.tx_scaleRawImg.setText('1')
+        self.img_xanes /= f
+        self.cb1.setCurrentText('Raw image')
+        self.update_canvas_img()  
+        self.msg = f'Devide raw image intensity by factor of {f}'    
+        self.update_msg()
 
     def check_white_field_normed(self):
         if self.chkbox_white_field_corr.isChecked():
@@ -7849,11 +7876,18 @@ class App(QWidget):
                     flag_reverse_eng = 0
                     # read energy
                     try:
+<<<<<<< HEAD
                         self.xanes_eng = (np.round(np.array(f[dataset_eng]), 8))  # Generally, it is in unit of keV
                         if (not type(self.xanes_eng) is list) and (not type(self.xanes_eng) is np.ndarray):
+=======
+                        self.xanes_eng = list(np.round(np.array(f[dataset_eng]), 8))  # Generally, it is in unit of keV
+                        self.ttt = self.xanes_eng.copy()
+                        if not type(self.xanes_eng) is list:
+>>>>>>> 572a087f662de86f89a70f48750e0a6dc0007f55
                             self.xanes_eng = [self.xanes_eng]
 
                     except Exception as err:
+                        print(str(err))
                         self.xanes_eng = np.array([0])
                         self.lb_eng1.setText('No energy data ...')
                         self.lb_eng2.setVisible(True)
@@ -7911,7 +7945,7 @@ class App(QWidget):
 
                     try:
 
-                        self.xanes_eng, self.img_xanes = pyxas.check_eng_image_order(self.xanes_eng, self.img_xanes)
+                        self.xanes_eng, self.img_xanes = pyxas.check_eng_image_order(np.array(self.xanes_eng), self.img_xanes)
 
                         st = '{0:2.4f}, {1:2.4f}, ..., {2:2.4f} keV (totally, {3} energies)'.format(
                             self.xanes_eng[0], self.xanes_eng[1], self.xanes_eng[-1], len(self.xanes_eng))
@@ -7925,6 +7959,7 @@ class App(QWidget):
                         self.tx_multi_elem_s.setText('{:2.4f}'.format(self.xanes_eng[0]))
                         self.tx_multi_elem_e.setText('{:2.4f}'.format(self.xanes_eng[-1]))
                     except Exception as err:
+                        print(str(err))
                         self.xanes_eng = np.array([0])
                         self.lb_eng1.setText('No energy data ...')
                         self.lb_eng2.setVisible(True)
