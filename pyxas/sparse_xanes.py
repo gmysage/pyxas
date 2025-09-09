@@ -163,6 +163,12 @@ def line_interp(x, y, x_interp, k=1):
     f = InterpolatedUnivariateSpline(x, y, k=k)
     return f(x_interp)
 
+
+def line_interp2(x, y, x_interp, k=1, s=0.01):
+    f = UnivariateSpline(x, y, k=k, s=s)
+    return f(x_interp)
+
+
 def interp_ref_spec_general(eng, ref_comb):
     '''
     ref_comb = (ref1, ref2, ...)
@@ -381,19 +387,21 @@ def torch_sino_general(img4d, angle_l,  w=[1], atten2D_at_angle=[1], device='cpu
 
     if cal_pix_atten:
         l_atten = cal_pix_atten['l_atten'] # attenunation length
+        if isinstance(l_atten, (float)):
+            l_atten = np.ones(n_angle) * l_atten
         pix = cal_pix_atten['pix'] # mass density
 
     for i in range(n_angle):    
         t = rot_img_general(img4d, theta_l[i], device) #(4, 1, 256, 256)
         if cal_pix_atten:
             for j in range(n_ref):
-                a[j] = t[j] / l_atten * pix * w[i, j] # (4, 1, 256, 256),
+                a[j] = t[j] / l_atten[i] * pix * w[i, j] # (4, 1, 256, 256),
                 # 0.00127: (cm) gives absorbity = 1 --> attenunation length
                 # 5e-6 (cm): pixel size in this case
             a_sum = torch.sum(a, axis=0, keepdim=True) # (1, 1, 256, 256)
 
             for k in range(nr-2, 0, -1): # sum in row
-                a_sum_accum[:, :, k] = torch.sum(a_sum[:, :, k:nr], axis=-2, keepdim=True)
+                a_sum_accum[:, :, k] = torch.sum(a_sum[:, :, k+1:nr], axis=-2, keepdim=True)
             at = torch.exp(-a_sum_accum)
 
         t = t * atten2D_at_angle[i]

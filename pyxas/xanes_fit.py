@@ -866,6 +866,6 @@ def convert_concentration_to_thickness(elem, img_concentration, rho_compound):
         atom_id = xraylib.SymbolToAtomicNumber(elem[i])
         mass = xraylib.AtomicWeight(atom_id)
         r = rho_compound / mass
-        img_thick[i] = img_concentration / r
+        img_thick[i] = img_concentration[i] / r
     img_thick = img_thick * 1e4 # convert unit from [cm] to [um]
     return img_thick

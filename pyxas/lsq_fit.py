@@ -4,6 +4,13 @@ from copy import deepcopy
 from tqdm import trange
 from scipy.interpolate import UnivariateSpline
 from .image_util import img_denoise_nl, img_denoise_bm3d
+from scipy import stats
+
+def linear_interp(x, y, x_interp):
+    slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
+    y_interp = slope * x_interp + intercept
+    return y_interp
+
 
 def fit_peak_curve_spline(x, y, fit_order=3, smooth=0.002, weight=[1]):
     if not len(weight) == len(x):

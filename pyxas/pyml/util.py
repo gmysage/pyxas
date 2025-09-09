@@ -306,8 +306,8 @@ def load_json(fn_json):
 def plot_loss(h_loss):
     keys = list(h_loss.keys())
     n = len(keys)
-    n_r = int(floor(np.sqrt(n)))
-    n_c = int(ceil(n / n_r))
+    n_r = int(np.floor(np.sqrt(n)))
+    n_c = int(np.ceil(n / n_r))
     fig, axes = plt.subplots(nrows=n_r, ncols=n_c)
     for r in range(n_r):
         for c in range(n_c):
@@ -315,12 +315,15 @@ def plot_loss(h_loss):
             if idx >= n:
                 break
             k = keys[idx]
-            rate = np.array(h_loss[k]['rate'])
-            rate[rate==0] = 1
-            val = np.array(h_loss[k]['value'])
-            val_scale = val / rate
-            axes[r, c].plot(val_scale, '-', label=k)
-            axes[r, c].legend()
+            try:
+                rate = np.array(h_loss[k]['rate'])
+                rate[rate==0] = 1
+                val = np.array(h_loss[k]['value'])
+                val_scale = val / rate
+                axes[r, c].plot(val_scale, '-', label=k)
+                axes[r, c].legend()
+            except:
+                pass
 
 
 
