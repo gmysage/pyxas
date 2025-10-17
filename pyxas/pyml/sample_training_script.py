@@ -380,4 +380,3 @@ def sample_train_pair():
 
             plt.pause(1)
 
-

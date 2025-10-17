@@ -110,6 +110,26 @@ class Dataset_pair(Dataset):
         img_bkg = torch.tensor(img_bkg, dtype=torch.float)
         return img_gt, img_blur, img_bkg
 
+class Dataset_gt_blur(Dataset):
+    def __init__(self, img_gt_dir, blur_dir, length=None):
+        super().__init__()
+        self.fn_img = np.sort(glob.glob(f'{img_gt_dir}/*'))
+        self.fn_blur = np.sort(glob.glob(f'{blur_dir}/*'))
+        if not length is None:
+            self.fn_img = self.fn_img[:length]
+
+    def __len__(self):
+        return len(self.fn_img)
+
+    def __getitem__(self, idx):
+        img_gt = io.imread(self.fn_img[idx])  # (2, 512, 512)
+        img_gt = torch.tensor(img_gt, dtype=torch.float)
+        img_blur = io.imread(self.fn_blur[idx])
+        img_blur = torch.tensor(img_blur, dtype=torch.float)
+        return img_gt, img_blur
+
+
+
 
 def get_train_valid_dataloader(blur_dir, gt_dir, eng_dir, num, transform_gt=None, transform_blur=None, split_ratio=0.8):
     dataset = xanesDataset(blur_dir, gt_dir, eng_dir, num, transform_gt, transform_blur)

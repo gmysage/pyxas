@@ -79,8 +79,6 @@ class RRDBNet(nn.Module):
         #fea = self.lrelu(self.upconv1(F.interpolate(fea, scale_factor=2, mode='nearest')))
         #fea = self.lrelu(self.upconv2(F.interpolate(fea, scale_factor=2, mode='nearest')))
         out = self.conv_last(self.lrelu(self.HRconv(fea))) # the following is added
-
-
         return out
 
 

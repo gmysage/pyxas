@@ -14091,8 +14091,12 @@ class MyCanvas(FigureCanvas):
             print('image and mask has different shape, will not apply mask')
             img = self.current_img.copy()
         non_zero = img[img!=0]
-        self.cmax = np.max(non_zero)
-        self.cmin = np.min(non_zero)
+        if len(non_zero) == 0:
+            self.cmax = 1
+            self.cmin = 0
+        else:
+            self.cmax = np.max(non_zero)
+            self.cmin = np.min(non_zero)
         if self.cmax == self.cmin:
             self.cmin = 0
         self.colorbar_on_flag = True

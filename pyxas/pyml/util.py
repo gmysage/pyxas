@@ -70,14 +70,11 @@ def apply_model_to_stack_with_normalization(img_stack, model, device, n_iter=1, 
 
 
 def check_model_output(model, image, device='cuda'):
-    if len(image.shape) == 2:
-        img = np.expand_dims(image, 0)
-    else:
-        img = image.copy()
-    if len(image.shape) == 3:
-        img = np.expand_dims(image, 1)
-    else:
-        img = image.copy()
+    img = image.copy()
+    if len(img.shape) == 2:
+        img = np.expand_dims(img, 0)
+    if len(img.shape) == 3:
+        img = np.expand_dims(img, 1)
     with torch.no_grad():
         img = torch.tensor(img, dtype=torch.float).to(device)
         img_output = model(img)
@@ -325,6 +322,20 @@ def plot_loss(h_loss):
             except:
                 pass
 
+def get_gt_blur_dataloader(blur_dir, gt_dir, num, batch_size=8, split_ratio=0.8):
+    dataset = Dataset_gt_blur(gt_dir, blur_dir, num)
+    n = len(dataset)
+    #batch_size = 1     # for image_size (8, 512, 512)
+    #split_ratio = 0.8
+    n_train = int(split_ratio * n)
+    n_valid = n - n_train
+
+    train_ds, valid_ds = torch.utils.data.random_split(dataset, (n_train, n_valid))
+    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
+    valid_loader = DataLoader(valid_ds, batch_size=batch_size, shuffle=True)
+    print(f'train dataset = {len(train_loader.dataset)}')
+    print(f'valid dataset = {len(valid_loader.dataset)}')
+    return train_loader, valid_loader
 
 
 def get_train_valid_dataloader(blur_dir, gt_dir, eng_dir, num, transform_gt=None, transform_blur=None, split_ratio=0.8):

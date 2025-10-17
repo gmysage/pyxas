@@ -519,6 +519,55 @@ def train_production_with_fitted_param(dataloader, loss_r, model_prod, lr, spect
     loss_summary['psnr'] = running_psnr / int(len(dataloader.dataset) / batch_size)
     return loss_summary, model_prod
 
+def train_simple_denoise(dataloader, loss_r, model_denoise, lr, device='cuda:1'):
+    mse_criterion = MSELoss()
+    optimizer = optim.Adam(model_denoise.parameters(), lr=lr)
+    model_denoise.train()
+
+    keys = list(loss_r.keys())
+    loss_value = {}
+    running_psnr = 0.0
+    running_loss = {}
+    for k in keys:
+        running_loss[k] = 0.0
+
+    batch_size = dataloader.batch_size # 8
+
+    for bi, data in tqdm(enumerate(dataloader), total=int(len(dataloader.dataset) / batch_size)):
+        image_data = data[0].to(device)  # (1, 48, 256, 256)
+        label = data[1].to(device)
+        output = model_denoise(image_data)
+
+        for k in keys:
+            if 'mse' in k:
+                loss_value['mse_img'] = mse_criterion(output, label)
+            elif 'tv' in k:
+                loss_value['tv_img'] = tv_loss(output)
+            elif 'ssim' in k:
+                loss_value['ssim_img'] = 1 - ssim_loss(output, label)
+
+        total_loss_gen = 0.0
+        for k in keys:
+            total_loss_gen += loss_value[k] * loss_r[k]
+
+        model_denoise.zero_grad()
+        total_loss_gen.backward()
+        optimizer.step()
+
+        for k in keys:
+            if loss_r[k] > 0:
+                running_loss[k] += loss_value[k].item() * loss_r[k]
+            else:
+                running_loss[k] += loss_value[k].item()
+        batch_psnr = psnr(output, label)
+        running_psnr += batch_psnr
+
+    loss_summary = {}
+    for k in running_loss.keys():
+        loss_summary[k] = running_loss[k] / len(dataloader.dataset)
+    loss_summary['psnr'] = running_psnr / int(len(dataloader.dataset) / batch_size)
+    return loss_summary, model_denoise
+
 
 def validate(model, dataloader, loss_r, vgg19, device='cuda:1', take_log=True):
     model.eval()
