@@ -10796,11 +10796,11 @@ class App(QWidget):
         lb_empty4 = QLabel()
         lb_empty4.setFixedWidth(20)
 
-        lb_edge_param = QLabel()
-        lb_edge_param.setText('Fit param:')
-        lb_edge_param.setFont(self.font1)
-        lb_edge_param.setFixedWidth(80)
-
+        lb_3D_edge_param = QLabel()
+        lb_3D_edge_param.setText('Fit param:')
+        lb_3D_edge_param.setFont(self.font1)
+        lb_3D_edge_param.setFixedWidth(80)
+        """
         lb_edge_smooth = QLabel()
         lb_edge_smooth.setText('smooth:')
         lb_edge_smooth.setFixedWidth(60)
@@ -10811,14 +10811,14 @@ class App(QWidget):
         self.tx_3D_edge_smooth.setFont(self.font2)
         self.tx_3D_edge_smooth.setValidator(QDoubleValidator())
         self.tx_3D_edge_smooth.setFixedWidth(60)
-
-        lb_edge_order = QLabel()
-        lb_edge_order.setText('order:')
-        lb_edge_order.setFixedWidth(50)
-        lb_edge_order.setFont(self.font2)
+        """
+        lb_3D_edge_order = QLabel()
+        lb_3D_edge_order.setText('order:')
+        lb_3D_edge_order.setFixedWidth(50)
+        lb_3D_edge_order.setFont(self.font2)
 
         self.tx_3D_edge_order = QLineEdit()
-        self.tx_3D_edge_order.setText('3')
+        self.tx_3D_edge_order.setText('4')
         self.tx_3D_edge_order.setFont(self.font2)
         self.tx_3D_edge_order.setValidator(QIntValidator())
         self.tx_3D_edge_order.setFixedWidth(60)
@@ -10840,6 +10840,17 @@ class App(QWidget):
         self.tx_3D_scale_img.setValidator(QDoubleValidator())
         self.tx_3D_scale_img.setFixedWidth(60)
 
+        lb_3D_filt = QLabel()
+        lb_3D_filt.setFont(self.font2)
+        lb_3D_filt.setText('      Median filter: ')
+        lb_3D_filt.setFixedWidth(110)
+
+        self.tx_3D_filt = QLineEdit(self)
+        self.tx_3D_filt.setFont(self.font2)
+        self.tx_3D_filt.setText('1')
+        self.tx_3D_filt.setValidator(QIntValidator())
+        self.tx_3D_filt.setFixedWidth(70)
+
         hbox_peak_param = QHBoxLayout()
         hbox_peak_param.addWidget(lb_edge_range)
         hbox_peak_param.addWidget(lb_edge_range_s)
@@ -10848,12 +10859,14 @@ class App(QWidget):
         hbox_peak_param.addWidget(lb_edge_range_e)
         hbox_peak_param.addWidget(self.tx_3D_edge_e)
         hbox_peak_param.addWidget(lb_empty2)
-        hbox_peak_param.addWidget(lb_edge_param)
-        hbox_peak_param.addWidget(lb_edge_order)
+        hbox_peak_param.addWidget(lb_3D_edge_param)
+        hbox_peak_param.addWidget(lb_3D_edge_order)
         hbox_peak_param.addWidget(self.tx_3D_edge_order)
         hbox_peak_param.addWidget(lb_empty4)
         hbox_peak_param.addWidget(lb_scale_img)
         hbox_peak_param.addWidget(self.tx_3D_scale_img)
+        hbox_peak_param.addWidget(lb_3D_filt)
+        hbox_peak_param.addWidget(self.tx_3D_filt)
         hbox_peak_param.setAlignment(QtCore.Qt.AlignLeft)
 
         lb_peak_maxmin = QLabel()
@@ -10909,7 +10922,7 @@ class App(QWidget):
         lb_space.setFixedWidth(20)
 
         lb_space2 = QLabel()
-        lb_space2.setFixedWidth(20)
+        lb_space2.setFixedWidth(5)
 
         lb_3D_edge_integ = QLabel()
         lb_3D_edge_integ.setText('Fit edge:')
@@ -10940,6 +10953,7 @@ class App(QWidget):
         self.cb_3D_edge_bin.addItem('4 x 4')
         self.cb_3D_edge_bin.setFixedWidth(70)
 
+        """
         lb_3D_edge_filt = QLabel()
         lb_3D_edge_filt.setFont(self.font2)
         lb_3D_edge_filt.setText('  Median filter: ')
@@ -10950,15 +10964,15 @@ class App(QWidget):
         self.tx_3D_edge_filt.setText('1')
         self.tx_3D_edge_filt.setValidator(QIntValidator())
         self.tx_3D_edge_filt.setFixedWidth(70)
-
+        """
         hbox_edge = QHBoxLayout()
         hbox_edge.addWidget(lb_3D_edge_integ)
         hbox_edge.addWidget(lb_3D_edge_integ_note)
         hbox_edge.addWidget(lb_3D_edge_bin)
         hbox_edge.addWidget(self.cb_3D_edge_bin)
         hbox_edge.addWidget(lb_space)
-        hbox_edge.addWidget(lb_3D_edge_filt)
-        hbox_edge.addWidget(self.tx_3D_edge_filt)
+        #hbox_edge.addWidget(lb_3D_edge_filt)
+        #hbox_edge.addWidget(self.tx_3D_edge_filt)
         hbox_edge.addWidget(lb_space2)
         hbox_edge.addWidget(self.pb_3D_edge_integ)
         hbox_edge.setAlignment(QtCore.Qt.AlignLeft)
@@ -11231,7 +11245,7 @@ class App(QWidget):
             b = self.cb_3D_edge_bin.currentText()
             self.fit_param['binning'] = int(b[0])
 
-            self.fit_param['filter_size'] = int(self.tx_3D_edge_filt.text())
+            self.fit_param['filter_size'] = int(self.tx_3D_filt.text())
 
         except Exception as err:
             raise Exception(err)
@@ -12059,6 +12073,7 @@ class App(QWidget):
             try:
                 self.collect_3D_fit_param()
                 fit_param = self.fit_param
+                filter_size = self.fit_param['filter_size']
                 for i in range(len(fs)):
                     fn = fs[i]
                     fn_save = fn.split('/')[-1].split('.')[0]
@@ -12080,6 +12095,8 @@ class App(QWidget):
                         return 0
                     img_xanes = pyxas.check_if_need_align(img_xanes, fit_param)
                     xanes_eng, img_xanes = pyxas.check_eng_image_order(xanes_eng, img_xanes)
+                    if filter_size > 1:
+                        img_xanes = pyxas.img_smooth(img_xanes, filter_size, axis=0)
                     peak_pos, peak_val, fit_error = pyxas.fit_peak_2D_xanes_poly(img_xanes, xanes_eng,
                                                                  eng_range, fit_order, fit_max)
 
@@ -12142,14 +12159,7 @@ class App(QWidget):
                 fit_max = 1
             if self.rd_3D_peak_min.isChecked():
                 fit_max = -1
-            try:
-                xs = float(self.tx_3D_edge_s.text())
-                xe = float(self.tx_3D_edge_e.text())
-                xs_id = pyxas.find_nearest(xanes_eng, xs)
-                xe_id = pyxas.find_nearest(xanes_eng, xe)
-            except Exception as err:
-                print(err)
-                xs_id, xe_id = 0, -1
+
             files = pyxas.retrieve_file_type(file_path,
                                           file_prefix=file_prefix,
                                           file_type=file_type)
@@ -12161,6 +12171,8 @@ class App(QWidget):
 
             time_s = time.time()
             try:
+                self.collect_3D_fit_param()
+                filter_size = self.fit_param['filter_size']
                 for i in range(len(files)):
                     msg = ''
                     fn = files[i]
@@ -12174,6 +12186,17 @@ class App(QWidget):
                         img_xanes = pyxas.get_img_from_tif_file(fn)
                     else:  # h5 file
                         img_xanes = pyxas.get_img_from_hdf_file(fn, hdf_attr)[hdf_attr]
+                    xanes_eng, img_xanes = pyxas.check_eng_image_order(xanes_eng, img_xanes)
+                    try:
+                        xs = float(self.tx_3D_edge_s.text())
+                        xe = float(self.tx_3D_edge_e.text())
+                        xs_id = pyxas.find_nearest(xanes_eng, xs)
+                        xe_id = pyxas.find_nearest(xanes_eng, xe)
+                    except Exception as err:
+                        print(err)
+                        xs_id, xe_id = 0, -1
+                    if filter_size > 1:
+                        img_xanes = pyxas.img_smooth(img_xanes, filter_size, axis=0)
                     img_xanes *= scale * fit_max
                     img_xanes = img_xanes[xs_id:xe_id]
                     if align_flag:
