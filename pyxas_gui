@@ -2143,7 +2143,7 @@ class App(QWidget):
         hbox_fit_method = QHBoxLayout()
         hbox_fit_method.addWidget(lb_fit_method)
         hbox_fit_method.addWidget(self.rd_fit_method1)
-        #hbox_fit_method.addWidget(self.rd_fit_method2)
+        hbox_fit_method.addWidget(self.rd_fit_method2)
         hbox_fit_method.addWidget(self.rd_fit_method3)
         hbox_fit_method.setAlignment(QtCore.Qt.AlignLeft)
 
@@ -10413,6 +10413,11 @@ class App(QWidget):
         self.rd_param_fit_method1.setChecked(True)
         #self.rd_param_fit_method1.toggled.connect(self.select_2d_fitting_method)
 
+        self.rd_param_fit_method2 = QRadioButton('NNLS (slow)')
+        self.rd_param_fit_method2.setFixedWidth(120)
+        self.rd_param_fit_method2.setFont(self.font2)
+        self.rd_param_fit_method2.setChecked(False)
+
         self.rd_param_fit_method3 = QRadioButton('NN-ADMM')
         self.rd_param_fit_method3.setFixedWidth(120)
         self.rd_param_fit_method3.setFont(self.font2)
@@ -10422,13 +10427,13 @@ class App(QWidget):
         self.fit_param_method_group = QButtonGroup()
         self.fit_param_method_group.setExclusive(True)
         self.fit_param_method_group.addButton(self.rd_fit_method1)
-        #self.fit_param_method_group.addButton(self.rd_fit_method2)
+        self.fit_param_method_group.addButton(self.rd_fit_method2)
         self.fit_param_method_group.addButton(self.rd_fit_method3)
 
         hbox_fit_param_method = QHBoxLayout()
         #hbox_fit_param_method.addWidget(lb_param_fit_method)
         hbox_fit_param_method.addWidget(self.rd_param_fit_method1)
-        #hbox_fit_param_method.addWidget(self.rd_fit_method2)
+        hbox_fit_param_method.addWidget(self.rd_param_fit_method2)
         hbox_fit_param_method.addWidget(self.rd_param_fit_method3)
         hbox_fit_param_method.setAlignment(QtCore.Qt.AlignLeft)
 

@@ -1095,7 +1095,7 @@ def ml_xanes3D(sino_sum, r_shuffle, loss_r, n_epoch, angle_l, lr=0.1):
     return loss_his, guess1, guess2, sino_out
 
 
-def ml_tomo_general(guess, sino_sum_general, loss_r, n_epoch, angle_l, lr=0.1, threshold=0):
+def ml_tomo_general(guess, sino_sum_general, loss_r, n_epoch, angle_l, lr=0.1, threshold=0, device='cuda'):
     '''
     sino_sum.shape = (n_angle, 1, 1, 128)
     '''

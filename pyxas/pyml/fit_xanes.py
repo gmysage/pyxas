@@ -96,8 +96,8 @@ def fit_element_with_reference(x_eng, image_xanes, spectrum_ref, order=[1, 0], t
 
     if take_log:
         y_spec = -torch.log(y_spec)
-    y_spec[torch.isnan(y_spec)] = 0.0
-    y_spec[torch.isinf(y_spec)] = 0.0
+        y_spec[torch.isnan(y_spec)] = 0.0
+        y_spec[torch.isinf(y_spec)] = 0.0
     num = len(x_eng)
 
     if len(y_spec.size()) == 1:
