@@ -263,7 +263,7 @@ def norm_txm(img):
     tmp[tmp<0] = 0
     return tmp
 
-def fit_2D_xanes_basic(img_xanes, eng, spectrum_ref, bkg_polynomial_order):
+def fit_2D_xanes_basic(img_xanes, eng, spectrum_ref, bkg_polynomial_order, eng_interp=None):
     '''
     Solve equation of Ax=b, where:
 
@@ -330,7 +330,8 @@ def fit_2D_xanes_basic(img_xanes, eng, spectrum_ref, bkg_polynomial_order):
             eng_max = spectrum_ref[idx][-1, 0]
     eng_min = max(eng_min, eng[0])
     eng_max = min(eng_max, eng[-1])
-    eng_interp = np.arange(eng_min, eng_max, 0.0005)
+    if eng_interp is None:
+        eng_interp = np.arange(eng_min, eng_max, 0.0005)
     num_eng_interp = len(eng_interp)
     A_interp = np.ones((num_eng_interp, num_ref + num_order))
     A_interp[:, :num_ref] = interp_spec0(spectrum_ref, eng_interp)
