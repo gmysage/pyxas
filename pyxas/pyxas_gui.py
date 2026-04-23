@@ -14156,6 +14156,7 @@ class MyCanvas(FigureCanvas):
             self.draw()
 
 def main():
+    global xanes
     warnings.filterwarnings("ignore")
     app = QApplication(sys.argv)
     xanes = App()
